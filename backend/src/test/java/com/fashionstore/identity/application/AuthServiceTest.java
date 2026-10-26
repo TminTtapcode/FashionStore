@@ -88,7 +88,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void register_duplicateEmail_throwsApiException() {
+    void register_duplicateEmail_throwsDuplicateResourceException() {
         RegisterRequest request = new RegisterRequest("existing@fashionstore.com", "password123", "Nguyen Van A", null);
 
         when(userRepository.existsByEmailIgnoreCase("existing@fashionstore.com")).thenReturn(true);
@@ -96,7 +96,7 @@ class AuthServiceTest {
         ApiException ex = assertThrows(ApiException.class, () -> authService.register(request));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        assertEquals("EMAIL_ALREADY_EXISTS", ex.getCode());
+        assertEquals("DUPLICATE_RESOURCE", ex.getCode());
         verify(userRepository, never()).save(any());
     }
 

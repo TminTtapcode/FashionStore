@@ -1,6 +1,9 @@
 package com.fashionstore.identity.application;
 
-import com.fashionstore.common.exception.ApiException;
+import com.fashionstore.common.exception.AccountLockedException;
+import com.fashionstore.common.exception.DuplicateResourceException;
+import com.fashionstore.common.exception.InvalidCredentialsException;
+import com.fashionstore.common.exception.ResourceNotFoundException;
 import com.fashionstore.common.security.JwtTokenProvider;
 import com.fashionstore.common.security.UserPrincipal;
 import com.fashionstore.identity.api.dto.*;
@@ -11,7 +14,6 @@ import com.fashionstore.identity.infrastructure.RoleRepository;
 import com.fashionstore.identity.infrastructure.UserRepository;
 import com.fashionstore.promotion.domain.Coupon;
 import com.fashionstore.promotion.infrastructure.CouponRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,7 +49,7 @@ public class AuthService {
         String normalizedEmail = request.email().trim().toLowerCase();
 
         if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
-            throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "Email này đã được đăng ký trong hệ thống");
+            throw new DuplicateResourceException("Người dùng", "email", normalizedEmail);
         }
 
         Role customerRole = roleRepository.findByCode("CUSTOMER")
@@ -57,7 +59,7 @@ public class AuthService {
                 normalizedEmail,
                 passwordEncoder.encode(request.password()),
                 request.fullName().trim(),
-                request.phone() != null ? request.phone().trim() : null
+                request.phone() != null && !request.phone().isBlank() ? request.phone().trim() : null
         );
         user.addRole(customerRole);
         User savedUser = userRepository.save(user);
@@ -77,14 +79,14 @@ public class AuthService {
         String normalizedEmail = request.email().trim().toLowerCase();
 
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Email hoặc mật khẩu không chính xác"));
+                .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Email hoặc mật khẩu không chính xác");
+            throw new InvalidCredentialsException();
         }
 
         if (user.getStatus() == UserStatus.LOCKED) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_LOCKED", "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            throw new AccountLockedException();
         }
 
         WelcomeCouponDto welcomeCoupon = findWelcomeCoupon();
@@ -98,7 +100,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public UserDto getCurrentUser(UserPrincipal principal) {
         User user = userRepository.findById(principal.getId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản"));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản người dùng", "id", principal.getId()));
 
         return toUserDto(user, findWelcomeCoupon());
     }
