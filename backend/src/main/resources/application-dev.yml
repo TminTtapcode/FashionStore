@@ -1,0 +1,10 @@
+spring:
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    root: INFO
+    com.fashionstore: DEBUG
+    org.springframework.security: INFO
+    org.flywaydb: INFO
