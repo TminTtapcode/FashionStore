@@ -35,6 +35,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiResponse<Void>> handleApiException(
+            ApiException ex, HttpServletRequest request) {
+        ApiResponse<Void> response = ApiResponse.failure(
+                ex.getCode(),
+                ex.getMessage(),
+                Map.of("path", request.getRequestURI())
+        );
+        return ResponseEntity.status(ex.getStatus()).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneralException(
             Exception ex, HttpServletRequest request) {
