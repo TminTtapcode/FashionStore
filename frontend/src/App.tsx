@@ -1,10 +1,51 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthModal from './components/AuthModal';
+import ProductCard from './components/ProductCard';
+import ProductDetailModal from './components/ProductDetailModal';
+import CategoryFilterBar from './components/CategoryFilterBar';
+import { getCategoriesApi, getProductsApi } from './api/catalogApi';
+import type { Category, PageResponse, ProductFilterParams, ProductSummary } from './types/catalog';
 
 function StorefrontContent() {
-  const { user, isLoading, openAuthModal, logout } = useAuth();
+  const { user, isLoading: isAuthLoading, openAuthModal, logout } = useAuth();
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Catalog State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [productsData, setProductsData] = useState<PageResponse<ProductSummary> | null>(null);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  const [filters, setFilters] = useState<ProductFilterParams>({
+    sort: 'newest',
+    page: 0,
+    limit: 12,
+  });
+
+  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(null);
+
+  // Load Categories on mount
+  useEffect(() => {
+    getCategoriesApi()
+      .then((data) => setCategories(data))
+      .catch((err) => console.error('Lỗi tải danh mục:', err));
+  }, []);
+
+  // Load Products whenever filters change
+  useEffect(() => {
+    setIsCatalogLoading(true);
+    setCatalogError(null);
+
+    getProductsApi(filters)
+      .then((data) => setProductsData(data))
+      .catch((err) => setCatalogError(err.message || 'Lỗi tải danh sách sản phẩm'))
+      .finally(() => setIsCatalogLoading(false));
+  }, [filters]);
+
+  const handleFilterChange = (newFilters: ProductFilterParams) => {
+    setFilters(newFilters);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#121212] selection:bg-[#121212] selection:text-[#FAF9F6]">
@@ -41,10 +82,10 @@ function StorefrontContent() {
       )}
 
       {/* Header */}
-      <header className="border-b border-[#E6E4DF] sticky top-0 bg-[#FAF9F6]/90 backdrop-blur-md z-10">
-        <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-xs tracking-widest text-[#666666] border border-[#E6E4DF] px-2 py-0.5">
+      <header className="border-b border-[#E6E4DF] sticky top-0 bg-[#FAF9F6]/90 backdrop-blur-md z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs tracking-widest text-[#666666] border border-[#E6E4DF] px-2 py-0.5 hidden sm:inline-block">
               EST. 2026
             </span>
             <a href="/" className="font-serif text-2xl tracking-tighter uppercase font-medium hover:opacity-80 transition-opacity">
@@ -52,152 +93,200 @@ function StorefrontContent() {
             </a>
           </div>
 
-          <nav aria-label="Main Navigation" className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide">
-            <a href="#new" className="hover:text-[#666666] transition-colors">NEW ARRIVALS</a>
-            <a href="#collection" className="hover:text-[#666666] transition-colors">COLLECTION</a>
-            <a href="#lookbook" className="hover:text-[#666666] transition-colors">LOOKBOOK</a>
-            <a href="#about" className="hover:text-[#666666] transition-colors">ABOUT</a>
+          <nav aria-label="Main Navigation" className="hidden lg:flex items-center gap-8 text-xs font-mono uppercase tracking-widest text-[#666666]">
+            <a href="#catalog" className="hover:text-[#121212] transition-colors">BỘ SƯU TẬP</a>
+            <a href="#lookbook" className="hover:text-[#121212] transition-colors">EDITORIAL LOOKBOOK</a>
+            <a href="#atelier" className="hover:text-[#121212] transition-colors">CHẤT LIỆU VẢI</a>
           </nav>
 
-          <div className="flex items-center gap-4 font-mono text-xs">
-            {isLoading ? (
-              <span className="text-[#888888] animate-pulse">[CHECKING SESSION...]</span>
+          <div className="flex items-center gap-3 font-mono text-xs">
+            {isAuthLoading ? (
+              <span className="text-[#888888] animate-pulse">[CHECKING...]</span>
             ) : user ? (
-              <div className="flex items-center gap-3">
-                <span className="border border-emerald-600 bg-emerald-50 text-emerald-900 px-2.5 py-1 tracking-wider uppercase font-bold">
+              <div className="flex items-center gap-2">
+                <span className="border border-emerald-600 bg-emerald-50 text-emerald-900 px-2 py-0.5 tracking-wider uppercase font-bold text-[11px]">
                   {user.fullName}
                 </span>
                 <button
                   type="button"
                   onClick={() => logout()}
-                  className="border border-[#121212] px-2.5 py-1 tracking-widest uppercase hover:bg-[#121212] hover:text-[#FAF9F6] transition-colors cursor-pointer"
+                  className="border border-[#121212] px-2.5 py-1 tracking-widest uppercase hover:bg-[#121212] hover:text-[#FAF9F6] transition-colors cursor-pointer text-[11px]"
                 >
                   ĐĂNG XUẤT
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openAuthModal('login')}
-                  className="border border-[#121212] px-3 py-1 tracking-widest uppercase hover:bg-[#121212] hover:text-[#FAF9F6] transition-colors cursor-pointer"
-                >
-                  [ ĐĂNG NHẬP / ĐĂNG KÝ ]
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => openAuthModal('login')}
+                className="border border-[#121212] px-3 py-1 tracking-widest uppercase hover:bg-[#121212] hover:text-[#FAF9F6] transition-colors cursor-pointer text-xs"
+              >
+                [ TÀI KHOẢN ]
+              </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-16 flex flex-col justify-center">
-        <div className="max-w-3xl space-y-6">
-          <div className="inline-flex items-center gap-2 font-mono text-xs text-[#666666]">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-            <span>PHASE 1 FOUNDATION — IDENTITY & HTTPONLY COOKIE AUTH READY</span>
-          </div>
-
-          <h1 className="text-5xl md:text-7xl font-serif tracking-tight leading-[1.08] uppercase">
-            Curated Garments, <br />
-            Architected with Rigor.
-          </h1>
-
-          <p className="text-lg md:text-xl text-[#555555] font-light max-w-2xl leading-relaxed">
-            Hệ thống xác thực chuẩn Stateless qua HttpOnly Cookie đã kích hoạt. Bảo vệ hoàn toàn trước tấn công XSS, tự động tặng mã giảm giá chào mừng cho khách hàng mới.
-          </p>
-
-          {/* Interactive User State Callout */}
-          <div className="border border-[#121212] bg-white p-6 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between border-b border-[#E6E4DF] pb-2">
-              <span className="font-bold tracking-widest text-[#888888] uppercase">[ CURRENT SESSION STATUS ]</span>
-              <span className={`px-2 py-0.5 uppercase font-bold ${user ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                {user ? 'AUTHENTICATED' : 'GUEST'}
-              </span>
+      {/* Hero Editorial Campaign Banner */}
+      <section aria-label="Campaign Hero" className="relative border-b border-[#E6E4DF] bg-[#F4F1EA] py-14 sm:py-20 px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+          <div className="max-w-2xl space-y-4">
+            <div className="inline-flex items-center gap-2 font-mono text-xs text-[#666666]">
+              <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+              <span className="tracking-widest uppercase font-semibold">PHASE 2 — APPAREL CATALOG & REAL-TIME LOOKBOOK</span>
             </div>
 
-            {user ? (
-              <div className="space-y-1 text-[#333333]">
-                <p><strong>EMAIL:</strong> {user.email}</p>
-                <p><strong>HỌ VÀ TÊN:</strong> {user.fullName}</p>
-                <p><strong>VAI TRÒ (ROLES):</strong> {user.roles.join(', ')}</p>
-                {user.welcomeCoupon && (
-                  <div className="mt-3 p-3 bg-[#FAF9F6] border border-[#E6E4DF]">
-                    <span className="font-bold text-emerald-700 uppercase">[VOUCHER CHÀO MỪNG ĐÃ SẴN SÀNG]</span>
-                    <p className="mt-1">Mã: <strong>{user.welcomeCoupon.code}</strong> — Giảm {user.welcomeCoupon.discountValue}% (Áp dụng cho đơn hàng đầu tiên)</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2 text-[#666666]">
-                <p>Bạn đang duyệt website với tư cách <strong>Khách vãng lai (Guest)</strong>.</p>
-                <p>Theo ADR-007, hệ thống yêu cầu đăng nhập trước khi checkout để đảm bảo toàn vẹn đơn hàng và kích hoạt mã giảm giá đầu tiên.</p>
-                <button
-                  type="button"
-                  onClick={() => openAuthModal('register')}
-                  className="mt-2 inline-block bg-[#121212] text-[#FAF9F6] px-4 py-2 uppercase tracking-widest hover:bg-[#2A2A2A] transition-colors cursor-pointer"
-                >
-                  ĐĂNG KÝ NGAY ĐỂ NHẬN VOUCHER WELCOME10
-                </button>
-              </div>
-            )}
+            <h1 className="text-4xl sm:text-6xl font-serif tracking-tight leading-[1.08] uppercase text-[#121212]">
+              The Atelier Drop 2026. <br />
+              <span className="italic font-normal lowercase font-serif text-3xl sm:text-5xl text-[#555555]">
+                tinh tế trong từng thớ vải.
+              </span>
+            </h1>
+
+            <p className="text-sm sm:text-base text-[#555555] font-light max-w-xl leading-relaxed">
+              Bộ sưu tập chuyên biệt cho thời trang may mặc: đầm lụa maxi, áo sơ mi Oxford, áo khoác blazer linen và denim vintage. Quản lý biến thể chuẩn mực theo size và màu sắc swatch trực quan.
+            </p>
+
+            <div className="pt-2 flex flex-wrap gap-2 font-mono text-xs">
+              <span className="border border-[#121212] bg-[#121212] text-[#FAF9F6] px-2.5 py-0.5 tracking-wider uppercase text-[11px]">
+                100% THỜI TRANG MAY MẶC
+              </span>
+              <span className="border border-[#D4D2CD] bg-white text-[#333333] px-2.5 py-0.5 tracking-wider uppercase text-[11px]">
+                SIZE S/M/L & 28-34
+              </span>
+              <span className="border border-[#D4D2CD] bg-white text-[#333333] px-2.5 py-0.5 tracking-wider uppercase text-[11px]">
+                COLOR SWATCHES ĐỒNG BỘ
+              </span>
+              <span className="border border-[#D4D2CD] bg-white text-[#333333] px-2.5 py-0.5 tracking-wider uppercase text-[11px]">
+                SIZE GUIDE THEO CM
+              </span>
+            </div>
           </div>
 
-          {/* Signature Badges / Tags */}
-          <div className="pt-2 flex flex-wrap gap-2 font-mono text-xs">
-            <span className="border border-[#121212] bg-[#121212] text-[#FAF9F6] px-3 py-1 tracking-wider uppercase">
-              MODULAR MONOLITH
+          <div className="border border-[#121212] bg-white p-5 w-full md:w-80 shadow-md font-mono text-xs space-y-2.5">
+            <span className="font-bold tracking-widest text-[#888888] uppercase block border-b border-[#E6E4DF] pb-1">
+              [ SHOP SIGNATURE GUARANTEE ]
             </span>
-            <span className="border border-emerald-600 bg-emerald-50 text-emerald-900 px-3 py-1 tracking-wider uppercase font-bold">
-              &check; HTTPONLY COOKIE AUTH
-            </span>
-            <span className="border border-emerald-600 bg-emerald-50 text-emerald-900 px-3 py-1 tracking-wider uppercase font-bold">
-              &check; WELCOME INCENTIVE
-            </span>
-            <span className="border border-[#D4D2CD] bg-white text-[#333333] px-3 py-1 tracking-wider uppercase">
-              COD PAYMENT FIRST
-            </span>
+            <ul className="text-xs text-[#555555] space-y-1.5 list-disc list-inside">
+              <li>Thanh toán COD khi nhận hàng</li>
+              <li>Kiểm tra hàng trước khi nhận</li>
+              <li>Đổi size miễn phí trong 7 ngày</li>
+              <li>Tồn kho nguyên tử theo từng SKU</li>
+            </ul>
           </div>
         </div>
+      </section>
 
-        {/* Phase Architecture preview */}
-        <section aria-labelledby="foundation-status-title" className="mt-16 pt-12 border-t border-[#E6E4DF] grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="border border-[#E6E4DF] bg-white p-6 space-y-2">
-            <span className="font-mono text-xs text-[#888888]">[AUTH PIPELINE]</span>
-            <h2 id="foundation-status-title" className="font-serif text-lg uppercase font-medium">JWT in HttpOnly Cookie</h2>
-            <p className="text-sm text-[#666666] leading-relaxed">
-              Token được bảo vệ trong cookie <code>fs_session</code> với thuộc tính HttpOnly và SameSite=Lax, chống lại rủi ro XSS.
-            </p>
-          </div>
+      {/* Main Catalog Section */}
+      <main id="catalog" className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-10 w-full space-y-8">
+        {/* Category Navigation & Filter Bar */}
+        <CategoryFilterBar
+          categories={categories}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          totalProducts={productsData?.totalElements || 0}
+        />
 
-          <div className="border border-[#E6E4DF] bg-white p-6 space-y-2">
-            <span className="font-mono text-xs text-[#888888]">[PROMOTION DOMAIN]</span>
-            <h2 className="font-serif text-lg uppercase font-medium">Welcome Voucher</h2>
-            <p className="text-sm text-[#666666] leading-relaxed">
-              Tự động liên kết mã <code>WELCOME10</code> khi đăng ký tài khoản thành công để tăng tỷ lệ chuyển đổi đơn hàng đầu tiên.
-            </p>
+        {/* Product Grid Area */}
+        {isCatalogLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 py-12">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="animate-pulse flex flex-col space-y-3 bg-white border border-[#E6E4DF] p-3">
+                <div className="bg-[#EFECE6] aspect-[3/4] w-full"></div>
+                <div className="h-3 bg-[#EFECE6] w-3/4"></div>
+                <div className="h-3 bg-[#EFECE6] w-1/2"></div>
+              </div>
+            ))}
           </div>
+        ) : catalogError ? (
+          <div className="text-center py-16 border border-red-200 bg-red-50 p-6 space-y-3 font-mono text-xs text-red-700">
+            <p>Không thể kết nối danh mục: {catalogError}</p>
+            <button
+              type="button"
+              onClick={() => handleFilterChange({ ...filters })}
+              className="border border-red-700 px-3 py-1 uppercase hover:bg-red-700 hover:text-white"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : !productsData || productsData.items.length === 0 ? (
+          <div className="text-center py-20 border border-[#E6E4DF] bg-white p-8 space-y-4">
+            <span className="font-serif text-3xl text-[#888888] font-light">Không tìm thấy sản phẩm phù hợp</span>
+            <p className="text-sm font-mono text-[#666666]">
+              Hãy thử bỏ bớt bộ lọc kích cỡ hoặc màu sắc để xem thêm các mẫu trang phục khác.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleFilterChange({ sort: 'newest', page: 0 })}
+              className="border border-[#121212] px-5 py-2 font-mono text-xs uppercase tracking-widest hover:bg-[#121212] hover:text-white transition-colors cursor-pointer"
+            >
+              Xem tất cả sản phẩm
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {productsData.items.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onSelect={(slug) => setSelectedProductSlug(slug)}
+              />
+            ))}
+          </div>
+        )}
 
-          <div className="border border-[#E6E4DF] bg-white p-6 space-y-2">
-            <span className="font-mono text-xs text-[#888888]">[NEXT: PHASE 2]</span>
-            <h2 className="font-serif text-lg uppercase font-medium">Catalog Experience</h2>
-            <p className="text-sm text-[#666666] leading-relaxed">
-              Sản phẩm, biến thể (Size/Màu), thư viện ảnh editorial lookbook và bộ lọc tìm kiếm sản phẩm.
-            </p>
+        {/* Pagination Bar */}
+        {productsData && productsData.totalPages > 1 && (
+          <div className="pt-8 border-t border-[#E6E4DF] flex items-center justify-between font-mono text-xs">
+            <button
+              type="button"
+              disabled={!productsData.hasPrevious}
+              onClick={() => handleFilterChange({ ...filters, page: filters.page! - 1 })}
+              className="px-4 py-2 border border-[#E6E4DF] uppercase tracking-wider hover:border-[#121212] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              &larr; Trang trước
+            </button>
+
+            <span className="text-[#666666]">
+              Trang {productsData.page + 1} / {productsData.totalPages}
+            </span>
+
+            <button
+              type="button"
+              disabled={!productsData.hasNext}
+              onClick={() => handleFilterChange({ ...filters, page: filters.page! + 1 })}
+              className="px-4 py-2 border border-[#E6E4DF] uppercase tracking-wider hover:border-[#121212] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Trang sau &rarr;
+            </button>
           </div>
-        </section>
+        )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#E6E4DF] py-8 text-center text-xs font-mono text-[#888888]">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <span>&copy; 2026 FASHION STORE. ALL RIGHTS RESERVED.</span>
-          <span className="tracking-widest">PHASE 1 FOUNDATION &bull; IDENTITY VERTICAL SLICE</span>
+      <footer className="border-t border-[#E6E4DF] py-10 bg-white text-xs font-mono text-[#888888] mt-16">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex flex-col items-center md:items-start gap-1">
+            <span className="font-serif text-sm tracking-tight text-[#121212] font-medium">FASHION STORE ATELIER</span>
+            <span>&copy; 2026 FASHION STORE. ALL RIGHTS RESERVED.</span>
+          </div>
+          <div className="flex flex-wrap justify-center gap-6 text-[11px] tracking-widest uppercase">
+            <a href="#policy" className="hover:text-[#121212]">Chính sách đổi trả</a>
+            <a href="#size" className="hover:text-[#121212]">Bảng quy đổi Size</a>
+            <a href="#care" className="hover:text-[#121212]">Hướng dẫn giặt ủi</a>
+            <a href="#contact" className="hover:text-[#121212]">Liên hệ cửa hàng</a>
+          </div>
         </div>
       </footer>
 
-      {/* Auth Modal Component */}
+      {/* Interactive Modals */}
       <AuthModal />
+      <ProductDetailModal
+        slug={selectedProductSlug}
+        isOpen={Boolean(selectedProductSlug)}
+        onClose={() => setSelectedProductSlug(null)}
+      />
     </div>
   );
 }

@@ -1,25 +1,28 @@
 # PROJECT_CONTEXT.md
 
 ## 1. Sứ mệnh
-Xây dựng website thương mại điện tử bán quần áo cho một cửa hàng, có thể triển khai dùng thật. Đồng thời đây là dự án học tập: người phát triển cần hiểu yêu cầu, thiết kế dữ liệu, business logic, kiến trúc, bảo mật, kiểm thử và vận hành, không chỉ chấp nhận code do AI sinh ra.
+Xây dựng website thương mại điện tử chuyên bán thời trang may mặc và trang phục (áo thun, áo sơ mi, áo khoác, quần jeans/tây, đầm, váy, jumpsuit và set đồ phối bộ) cho một cửa hàng, có thể triển khai dùng thật. Đồng thời đây là dự án học tập: người phát triển cần hiểu yêu cầu, thiết kế dữ liệu, business logic, kiến trúc, bảo mật, kiểm thử và vận hành, không chỉ chấp nhận code do AI sinh ra.
 
-## 2. Phạm vi phiên bản đầu
-- Một cửa hàng (single-store), nhưng dữ liệu sản phẩm/đơn hàng phải có ranh giới shop rõ ràng để không khóa đường mở rộng.
-- Giao diện storefront responsive cho desktop, tablet và mobile.
-- Guest: duyệt sản phẩm, tìm kiếm, lọc, xem chi tiết.
-- Customer: đăng ký/đăng nhập, hồ sơ, địa chỉ, giỏ hàng, checkout, lịch sử/chi tiết đơn hàng, hủy theo điều kiện, đánh giá sản phẩm đã mua.
-- Shop Owner: dashboard, CRUD sản phẩm và biến thể, quản lý ảnh, tồn kho, đơn hàng, mã giảm giá, báo cáo cơ bản.
-- Admin: quản lý tài khoản/role, khóa/mở khóa tài khoản, xem audit log và cấu hình vận hành cần thiết.
-- Quản lý trạng thái đơn hàng và thanh toán nhất quán.
-- Có migration DB, test tự động, logging, health check, backup/restore và hướng dẫn deploy.
+## 2. Phạm vi phiên bản đầu (Chuyên ngành Thời trang)
+- Một cửa hàng (single-store) chuyên doanh thời trang và trang phục, dữ liệu sản phẩm/đơn hàng có ranh giới shop rõ ràng để không khóa đường mở rộng.
+- Danh mục trang phục đa tầng: Thời trang nam, Thời trang nữ -> Áo, Quần, Đầm váy, Áo khoác, Set đồ.
+- Quản lý biến thể chuẩn thời trang: SKU theo tổ hợp Size (S, M, L, XL, FreeSize, hoặc số 28-34) và Màu sắc (tên màu + mã màu hex), quản lý tồn kho nguyên tử theo từng SKU.
+- Thông số kỹ thuật sản phẩm: chất liệu vải, form dáng, hướng dẫn giặt ủi và bảng thông số/size guide theo nhóm trang phục.
+- Giao diện storefront responsive mang phong cách Minimalist Editorial Lookbook cho desktop, tablet và mobile.
+- Guest: duyệt sản phẩm, tìm kiếm, lọc theo danh mục, size, màu sắc, khoảng giá.
+- Customer: đăng ký/đăng nhập, nhận voucher chào mừng `WELCOME10`, địa chỉ, giỏ hàng, checkout COD, lịch sử/chi tiết đơn hàng.
+- Shop Owner: dashboard, CRUD sản phẩm thời trang và biến thể size/màu, quản lý ảnh, tồn kho, đơn hàng, mã giảm giá, báo cáo cơ bản.
+- Admin: quản lý tài khoản/role, khóa/mở khóa tài khoản, xem audit log.
 
 ## 3. Ngoài phạm vi MVP
+- Các ngành hàng ngoài thời trang may mặc (như đồng hồ, điện tử, phụ kiện kim hoàn phức tạp, thiết bị gia dụng).
+- Bộ máy thuộc tính động tổng quát (Attribute Engine / EAV) chưa cần thiết.
 - Marketplace nhiều người bán hoàn chỉnh.
 - Microservices, Kubernetes, service mesh, event streaming.
 - Recommendation/AI personalization.
 - Loyalty points, affiliate, livestream, warehouse nhiều địa điểm.
 - Redis, message broker, search engine riêng khi chưa chứng minh được nhu cầu.
-- Tích hợp nhiều cổng thanh toán ngay từ đầu.
+- Tích hợp nhiều cổng thanh toán ngay từ đầu (bắt đầu với COD).
 
 ## 4. Stack baseline
 - Java 21 LTS.
@@ -30,7 +33,7 @@ Xây dựng website thương mại điện tử bán quần áo cho một cửa 
 - Flyway cho database migration; không dùng `ddl-auto=update` làm cơ chế migration production.
 - React + TypeScript + Vite.
 - React Router, TanStack Query, React Hook Form + Zod.
-- CSS Modules hoặc Tailwind CSS; chọn một hướng sau khi thử nghiệm ngắn, không trộn nhiều hệ thống styling tùy tiện.
+- Tailwind CSS làm styling framework đồng nhất (theo ADR-008), mang phong cách Minimalist Editorial Fashion, không trộn nhiều hệ thống styling tùy tiện.
 - JUnit 5, Mockito; Testcontainers cho test tích hợp DB khi môi trường hỗ trợ.
 - Docker Compose cho local development.
 - Cloudinary hoặc object storage tương đương cho ảnh.

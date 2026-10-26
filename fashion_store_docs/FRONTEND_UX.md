@@ -4,36 +4,42 @@
 Fashion storefront cần có cảm giác editorial/lookbook, hình ảnh sản phẩm nổi bật, typography rõ và lựa chọn variant dễ hiểu. Tránh làm mọi khu vực đều chuyển động; animation phải hỗ trợ hành vi mua sắm chứ không cản trở.
 
 ## 2. Hướng art direction đề xuất
-- Phong cách: minimalist streetwear / contemporary fashion.
-- Nền trung tính (trắng/ngà/xám rất nhạt), chữ đen, một màu accent được chọn sau khi có logo/brand.
-- Typography: một sans-serif dễ đọc cho UI; có thể dùng serif/italic có kiểm soát cho tiêu đề editorial.
-- Ảnh sản phẩm nhất quán về tỉ lệ, nền, crop và ánh sáng.
-- Product card: ảnh lớn, tên ngắn, giá rõ, badge giảm giá chỉ khi đúng.
-- Không dùng quá nhiều shadow, gradient, glassmorphism hoặc animation cùng lúc.
-- Mobile-first: vùng chạm đủ lớn, sticky CTA chỉ khi không che nội dung, cart/checkout không bị cuộn ngang.
+- Phong cách: Minimalist Editorial Lookbook / Contemporary Fashion.
+- Nền trung tính (trắng tinh khôi, ngà thô mộc, xám đá rất nhạt), chữ đen than (`text-neutral-900`), viền siêu mảnh (`border-neutral-200`).
+- Typography: Sans-serif hiện đại (Inter, Plus Jakarta Sans) cho UI và số liệu; font Serif editorial có kiểm soát cho tiêu đề bộ sưu tập (Lookbook / Seasonal Drop).
+- Tỉ lệ khung ảnh sản phẩm: Tỉ lệ dọc thời trang chuẩn 3:4 hoặc 4:5, nền ảnh đồng nhất, ánh sáng tự nhiên, tôn vinh phom dáng và chất liệu vải.
+- Product card:
+  - Ảnh chính sắc nét; hover đổi sang ảnh mẫu mặc hoặc ảnh cận cảnh chất liệu vải (desktop).
+  - Tên trang phục ngắn gọn, giá hiển thị minh bạch kèm giá niêm yết so sánh gạch ngang (nếu đang giảm giá).
+  - Mini Color Swatch Dots: hàng chấm màu tròn nhỏ dưới card cho khách biết ngay các màu sắc sẵn có (Trắng, Đen, Be, Xanh pastel...).
+  - Badge nhãn dán tối giản mang signature riêng: `NEW DROP`, `BESTSELLER`, `-15% SALE`, tuyệt đối không dùng icon hoạt họa hoặc đồ họa lòe loẹt kiểu AI template.
+- Mobile-first: Vùng chạm tối thiểu 44px, sticky "Thêm vào giỏ hàng" ở bottom bar khi cuộn qua màn hình chọn size.
 
 ## 3. Trang storefront
-1. Home: hero/lookbook, category entry points, sản phẩm mới/bán chạy, campaign có thể cấu hình.
-2. Listing: breadcrumb, category, filter size/color/price/availability, sort, pagination/load-more.
-3. Product detail: gallery, tên/giá, size selector, color swatches, size guide, stock/availability, quantity, add-to-cart, delivery/return info.
-4. Cart: ảnh nhỏ, variant rõ, quantity stepper, remove, subtotal, lưu ý giá/tồn kho có thể thay đổi.
-5. Checkout: địa chỉ, phương thức giao hàng/thanh toán, coupon, breakdown tiền, xác nhận đơn.
-6. Account: profile, addresses, orders, order detail/status history.
-7. Search: autocomplete có thể thêm sau; MVP có search results + empty state tốt.
+1. Home: Hero lookbook banner, category navigation (Thời trang Nữ, Thời trang Nam, Đầm váy, Áo, Quần, Set đồ), bộ sưu tập mới nhất, sản phẩm bán chạy.
+2. Listing / Catalog:
+   - Breadcrumb phân cấp rõ ràng (Trang chủ > Thời trang Nữ > Đầm & Váy).
+   - Thanh lọc (Filter bar/drawer): Lọc theo Size may mặc (S, M, L, XL...), Lọc theo Màu sắc (bảng swatch màu trực quan), Lọc theo khoảng giá, Lọc chỉ hiện sản phẩm còn hàng.
+   - Sắp xếp (Sort dropdown): Mới nhất, Giá tăng dần, Giá giảm dần, Tên A-Z.
+   - Phân trang chuẩn với metadata rõ ràng.
+3. Product Detail (Trang chi tiết trang phục):
+   - Gallery ảnh: Gallery xếp chồng (stacked) trên desktop hoặc swipe slider mượt mà trên mobile; có thể phóng to xem chi tiết thớ vải.
+   - Lựa chọn màu sắc (Color Swatches): Nút tròn hiển thị màu hex thực tế kèm tên màu rõ ràng; click đổi ảnh gallery sang màu tương ứng.
+   - Lựa chọn kích cỡ (Size Selector): Nút chọn size dạng ô chữ nhật tối giản; size hết hàng có đường gạch chéo mờ và vô hiệu hóa.
+   - Bảng tra cứu số đo (Size Guide Drawer): Mở slide-over drawer từ cạnh phải hiển thị bảng số đo (ngực, eo, mông, dài trang phục) theo cm kèm hướng dẫn cách đo vòng đo cơ thể.
+   - Khối thông tin chi tiết: Chất liệu vải (`material`), Form dáng (`fit_style`), Hướng dẫn giặt ủi (`care_instructions`) và thông số chi tiết từ `specifications` JSON.
+   - Chính sách mua sắm: Cam kết hàng chính hãng, cho phép đổi size trong 7 ngày, miễn phí giao hàng đơn từ mức nhất định.
+4. Cart: Xem lại ảnh trang phục, size đã chọn, màu đã chọn, thay đổi số lượng, kiểm tra giá và cảnh báo tồn kho.
+5. Checkout: Nhập địa chỉ, áp dụng mã chào mừng `WELCOME10`, chọn COD, xem breakdown tiền minh bạch và xác nhận đơn.
+6. Account: Hồ sơ cá nhân, sổ địa chỉ, lịch sử đơn hàng với đầy đủ snapshot size/màu của từng trang phục đã mua.
+7. Search: Ô tìm kiếm nhanh theo tên trang phục, chất liệu hoặc danh mục kèm màn hình Empty State tinh tế khi không tìm thấy kết quả.
 
-## 4. Ý tưởng tăng sức hút khi chọn sản phẩm
-- Ảnh thứ hai khi hover trên desktop; trên mobile dùng swipe gallery.
-- Zoom/lightbox cho ảnh chi tiết, không tự động mở.
-- Swatches màu hiển thị ảnh/variant tương ứng nếu có dữ liệu.
-- Chọn size dạng button; disabled nếu variant không tồn tại/hết hàng; hiển thị rõ trạng thái.
-- Size guide dạng modal/drawer, có hướng dẫn đo.
-- Hiển thị model height/size chỉ khi thông tin được cung cấp thật.
-- Thumbnail gallery và ảnh responsive; dùng lazy loading cho ảnh ngoài màn hình.
-- Skeleton loading và empty state thay vì spinner toàn trang kéo dài.
-- Add-to-cart confirmation dạng drawer/toast; không bắt khách chuyển trang bất ngờ.
-- Giữ lựa chọn size/color khi quay lại trang sản phẩm.
-- Motion nhỏ 150–250ms, hỗ trợ `prefers-reduced-motion`; không dùng hiệu ứng làm layout nhảy.
-- Tối ưu Core Web Vitals; ảnh đẹp nhưng không để file quá lớn làm chậm trang.
+## 4. Trải nghiệm tương tác thời trang cao cấp
+- Đồng bộ Màu sắc - Gallery: Chọn màu nào thì gallery ưu tiên hiển thị ảnh góc chụp của màu đó.
+- Cảnh báo tồn kho tinh tế: Nếu số lượng còn ít (ví dụ `<= 3`), hiển thị nhãn nhẹ nhàng `Chỉ còn 3 sản phẩm` để kích thích quyết định mua.
+- Drawer Size Guide thông minh: Cung cấp bảng số đo tùy biến theo từng loại trang phục (Bảng số đo Đầm váy khác Bảng số đo Quần jeans và Áo sơ mi).
+- Add-to-cart Feedback: Khi bấm thêm vào giỏ, mở mini-cart drawer trượt từ cạnh phải hoặc toast thông báo kèm nút "Đi đến thanh toán", không điều hướng trang đột ngột.
+- Micro-interactions: Hiệu ứng chuyển động mượt mà 150–200ms cho việc chọn swatch, size button và toggle drawer, tuân thủ `prefers-reduced-motion`.
 
 ## 5. Responsive
 - Mobile: header gọn, search/cart dễ chạm, product grid 2 cột nếu ảnh còn đủ rõ, filter bằng bottom sheet/drawer, CTA dễ thao tác bằng một tay.
