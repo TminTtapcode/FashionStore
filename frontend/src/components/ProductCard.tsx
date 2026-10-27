@@ -35,7 +35,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
         setIsHovered(false);
         setActiveColorHex(null);
       }}
-      className="group cursor-pointer flex flex-col bg-[#111216] border border-white/10 hover:border-[#C7AD83]/70 transition-all duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.65)] hover:-translate-y-1 rounded-xs overflow-hidden"
+      className="group cursor-pointer flex flex-col bg-[#111216]/85 backdrop-blur-md border border-white/10 hover:border-[#C7AD83]/70 transition-all duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.65)] hover:-translate-y-1 rounded-xs overflow-hidden"
     >
       {/* 3:4 Aspect Ratio Image Container */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#18191E]">

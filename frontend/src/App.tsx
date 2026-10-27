@@ -301,8 +301,8 @@ function StorefrontContent() {
         </div>
       </section>
 
-      {/* Main Catalog Section: Grounded Luxury Dark Atmosphere for Focus */}
-      <section id="catalog-section" className="relative z-10 bg-[#0A0B0E]/95 backdrop-blur-2xl border-t border-white/10 shadow-[0_-24px_60px_rgba(0,0,0,0.9)]">
+      {/* Main Catalog Section: Floating Over The Living Shader Runway */}
+      <section id="catalog-section" className="relative z-10 bg-transparent border-t border-white/10">
         <main id="catalog" className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 py-14 w-full space-y-10">
           {/* Category Navigation & Filter Bar */}
           <CategoryFilterBar
