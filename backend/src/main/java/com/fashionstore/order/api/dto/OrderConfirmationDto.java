@@ -19,6 +19,7 @@ public class OrderConfirmationDto {
     private List<OrderItemDto> items;
     private Instant createdAt;
     private boolean idempotentReplay;
+    private List<OrderStatusHistoryDto> statusHistory;
 
     public OrderConfirmationDto() {}
 
@@ -83,6 +84,14 @@ public class OrderConfirmationDto {
 
     public boolean isIdempotentReplay() {
         return idempotentReplay;
+    }
+
+    public List<OrderStatusHistoryDto> getStatusHistory() {
+        return statusHistory;
+    }
+
+    public void setStatusHistory(List<OrderStatusHistoryDto> statusHistory) {
+        this.statusHistory = statusHistory;
     }
 }
 

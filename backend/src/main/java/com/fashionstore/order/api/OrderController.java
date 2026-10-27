@@ -3,12 +3,12 @@ package com.fashionstore.order.api;
 import com.fashionstore.common.api.ApiResponse;
 import com.fashionstore.common.exception.ResourceNotFoundException;
 import com.fashionstore.common.security.UserPrincipal;
-import com.fashionstore.order.api.dto.FinancialsDto;
+import com.fashionstore.order.api.dto.CancelOrderRequest;
 import com.fashionstore.order.api.dto.OrderConfirmationDto;
-import com.fashionstore.order.api.dto.OrderItemDto;
-import com.fashionstore.order.api.dto.RecipientDto;
+import com.fashionstore.order.application.OrderLifecycleService;
 import com.fashionstore.order.domain.Order;
 import com.fashionstore.order.domain.OrderRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,16 +20,18 @@ import java.util.List;
 public class OrderController {
 
     private final OrderRepository orderRepository;
+    private final OrderLifecycleService orderLifecycleService;
 
-    public OrderController(OrderRepository orderRepository) {
+    public OrderController(OrderRepository orderRepository, OrderLifecycleService orderLifecycleService) {
         this.orderRepository = orderRepository;
+        this.orderLifecycleService = orderLifecycleService;
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<OrderConfirmationDto>>> getMyOrders(
             @AuthenticationPrincipal UserPrincipal principal) {
         List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(principal.getId());
-        List<OrderConfirmationDto> dtos = orders.stream().map(this::toDto).toList();
+        List<OrderConfirmationDto> dtos = orders.stream().map(orderLifecycleService::mapToDto).toList();
         return ResponseEntity.ok(ApiResponse.success(dtos));
     }
 
@@ -41,55 +43,18 @@ public class OrderController {
                 .filter(o -> o.getUser().getId().equals(principal.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng hoặc bạn không có quyền xem đơn hàng này"));
 
-        return ResponseEntity.ok(ApiResponse.success(toDto(order)));
+        return ResponseEntity.ok(ApiResponse.success(orderLifecycleService.mapToDto(order)));
     }
 
-    private OrderConfirmationDto toDto(Order order) {
-        RecipientDto recipient = new RecipientDto(
-                order.getShippingName(),
-                order.getShippingPhone(),
-                order.getShippingAddress(),
-                order.getShippingCity(),
-                order.getShippingDistrict(),
-                order.getShippingWard(),
-                order.getShippingNote()
-        );
+    @PostMapping("/{orderNumber}/cancel")
+    public ResponseEntity<ApiResponse<OrderConfirmationDto>> cancelMyOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String orderNumber,
+            @Valid @RequestBody(required = false) CancelOrderRequest request) {
 
-        FinancialsDto financials = new FinancialsDto(
-                order.getSubtotalAmount(),
-                order.getDiscountAmount(),
-                order.getShippingFee(),
-                order.getFinalAmount(),
-                order.getCouponCode()
-        );
-
-        List<OrderItemDto> itemDtos = order.getItems().stream().map(item -> new OrderItemDto(
-                item.getId(),
-                item.getProductId(),
-                item.getVariantId(),
-                item.getProductName(),
-                item.getBrand(),
-                item.getSku(),
-                item.getSize(),
-                item.getColorName(),
-                item.getThumbnailUrl(),
-                item.getUnitPrice(),
-                item.getQuantity(),
-                item.getTotalPrice()
-        )).toList();
-
-        return new OrderConfirmationDto(
-                order.getId(),
-                order.getOrderNumber(),
-                order.getStatus(),
-                order.getPaymentMethod(),
-                order.getPaymentStatus(),
-                recipient,
-                financials,
-                itemDtos,
-                order.getCreatedAt(),
-                false
-        );
+        String reason = request != null ? request.getReason() : null;
+        OrderConfirmationDto result = orderLifecycleService.cancelOrderByCustomer(orderNumber, principal.getId(), reason);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
 

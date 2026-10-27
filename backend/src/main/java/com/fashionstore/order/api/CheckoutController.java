@@ -4,7 +4,7 @@ import com.fashionstore.common.api.ApiResponse;
 import com.fashionstore.common.security.UserPrincipal;
 import com.fashionstore.order.api.dto.CheckoutRequest;
 import com.fashionstore.order.api.dto.OrderConfirmationDto;
-import com.fashionstore.order.application.CheckoutService;
+import com.fashionstore.order.application.CheckoutFacade;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/checkout")
 public class CheckoutController {
 
-    private final CheckoutService checkoutService;
+    private final CheckoutFacade checkoutFacade;
 
-    public CheckoutController(CheckoutService checkoutService) {
-        this.checkoutService = checkoutService;
+    public CheckoutController(CheckoutFacade checkoutFacade) {
+        this.checkoutFacade = checkoutFacade;
     }
 
     @PostMapping
@@ -27,7 +27,7 @@ public class CheckoutController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CheckoutRequest request) {
 
-        OrderConfirmationDto result = checkoutService.checkoutCod(principal.getId(), idempotencyKey, request);
+        OrderConfirmationDto result = checkoutFacade.checkoutCod(principal.getId(), idempotencyKey, request);
         HttpStatus status = result.isIdempotentReplay() ? HttpStatus.OK : HttpStatus.CREATED;
         return ResponseEntity.status(status).body(ApiResponse.success(result));
     }

@@ -41,3 +41,35 @@ export async function getMyOrdersApi(): Promise<OrderConfirmation[]> {
   return body.data;
 }
 
+export async function getOrderDetailApi(orderNumber: string): Promise<OrderConfirmation> {
+  const response = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  const body: ApiResponse<OrderConfirmation> = await response.json();
+  if (!response.ok || body.error) {
+    throw new Error(body.error?.message || 'Không thể tải chi tiết đơn hàng');
+  }
+
+  return body.data;
+}
+
+export async function cancelOrderApi(orderNumber: string, reason?: string): Promise<OrderConfirmation> {
+  const response = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ reason: reason || 'Khách hàng yêu cầu hủy đơn' }),
+  });
+
+  const body: ApiResponse<OrderConfirmation> = await response.json();
+  if (!response.ok || body.error) {
+    throw new Error(body.error?.message || 'Không thể hủy đơn hàng');
+  }
+
+  return body.data;
+}
+

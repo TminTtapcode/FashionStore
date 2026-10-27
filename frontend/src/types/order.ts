@@ -1,6 +1,23 @@
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED';
+export type OrderStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'PROCESSING'
+  | 'SHIPPING'
+  | 'COMPLETED'
+  | 'DELIVERY_FAILED'
+  | 'RETURNED'
+  | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'REFUNDED';
 export type PaymentMethod = 'COD' | 'VNPAY' | 'MOMO';
+
+export interface OrderStatusHistoryItem {
+  id: number;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  note: string | null;
+  changedBy: string;
+  createdAt: string;
+}
 
 export interface CheckoutRequest {
   shippingName: string;
@@ -57,5 +74,6 @@ export interface OrderConfirmation {
   items: OrderItemSnapshot[];
   createdAt: string;
   idempotentReplay: boolean;
+  statusHistory?: OrderStatusHistoryItem[];
 }
 

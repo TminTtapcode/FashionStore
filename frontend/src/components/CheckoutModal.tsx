@@ -8,6 +8,7 @@ interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOrderSuccess?: (order: OrderConfirmation) => void;
+  onOpenOrderHistory?: () => void;
 }
 
 const FREESHIP_THRESHOLD = 1000000;
@@ -17,6 +18,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
   onClose,
   onOrderSuccess,
+  onOpenOrderHistory,
 }) => {
   const { user } = useAuth();
   const { cart, refreshCart } = useCart();
@@ -220,9 +222,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
+              {onOpenOrderHistory && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleModalClose();
+                    onOpenOrderHistory();
+                  }}
+                  className="px-6 py-3.5 border border-[#E2C99B] text-[#E2C99B] hover:bg-[#E2C99B]/10 font-medium text-xs uppercase tracking-[0.15em] transition-colors rounded-sm text-center cursor-pointer"
+                >
+                  XEM TIẾN TRÌNH ĐƠN HÀNG
+                </button>
+              )}
               <button
+                type="button"
                 onClick={handleModalClose}
-                className="px-8 py-3.5 bg-[#E2C99B] hover:bg-[#ebd8b3] text-[#0A0B0E] font-medium text-xs uppercase tracking-[0.2em] transition-colors rounded-sm shadow-lg text-center"
+                className="px-8 py-3.5 bg-[#E2C99B] hover:bg-[#ebd8b3] text-[#0A0B0E] font-medium text-xs uppercase tracking-[0.2em] transition-colors rounded-sm shadow-lg text-center cursor-pointer"
               >
                 TIẾP TỤC MUA SẮM
               </button>

@@ -9,6 +9,7 @@ import CategoryFilterBar from './components/CategoryFilterBar';
 import VirtualStylingStudio from './components/VirtualStylingStudio';
 import AtcShader from './components/ui/atc-shader';
 import { CheckoutModal } from './components/CheckoutModal';
+import { OrderHistoryDrawer } from './components/OrderHistoryDrawer';
 import { getCategoriesApi, getProductsApi } from './api/catalogApi';
 import type { Category, PageResponse, ProductFilterParams, ProductSummary } from './types/catalog';
 
@@ -17,6 +18,7 @@ function StorefrontContent() {
   const { totalCount, openCart, closeCart } = useCart();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
 
   // Catalog State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -166,9 +168,22 @@ function StorefrontContent() {
               <span className="text-gray-400 animate-pulse text-[11px]">Đang kiểm tra...</span>
             ) : user ? (
               <div className="flex items-center gap-2 text-[11px]">
-                <span className="text-[#C7AD83] tracking-wider uppercase font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setIsOrderHistoryOpen(true)}
+                  className="text-[#C7AD83] hover:underline tracking-wider uppercase font-semibold cursor-pointer"
+                  title="Xem lịch sử đơn hàng"
+                >
                   {user.fullName}
-                </span>
+                </button>
+                <span className="text-white/20">|</span>
+                <button
+                  type="button"
+                  onClick={() => setIsOrderHistoryOpen(true)}
+                  className="text-gray-300 hover:text-white transition-colors cursor-pointer uppercase tracking-wider text-[11px]"
+                >
+                  ĐƠN HÀNG
+                </button>
                 <span className="text-white/20">|</span>
                 <button
                   type="button"
@@ -425,6 +440,11 @@ function StorefrontContent() {
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
+        onOpenOrderHistory={() => setIsOrderHistoryOpen(true)}
+      />
+      <OrderHistoryDrawer
+        isOpen={isOrderHistoryOpen}
+        onClose={() => setIsOrderHistoryOpen(false)}
       />
       <VirtualStylingStudio
         isOpen={isStylingStudioOpen}

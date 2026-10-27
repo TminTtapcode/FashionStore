@@ -78,19 +78,16 @@ public class CheckoutService {
      * Process COD Checkout atomically with Idempotency, Deadlock prevention,
      * conditional inventory deduction, voucher quota control, and cart invalidation.
      */
-    @Transactional(isolation = Isolation.READ_COMMITTED, rollbackFor = Exception.class)
     public OrderConfirmationDto checkoutCod(Long userId, String idempotencyKey, CheckoutRequest request) {
-        // 1. Idempotency Key Validation
         if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_IDEMPOTENCY_KEY", "Yêu cầu đặt hàng phải có Idempotency-Key");
         }
         String cleanIdempotencyKey = idempotencyKey.trim();
 
-        // Check if an order already exists for this (userId, idempotencyKey)
+        // Fast check before write transaction
         Optional<Order> existingOrderOpt = orderRepository.findByUserIdAndIdempotencyKey(userId, cleanIdempotencyKey);
         if (existingOrderOpt.isPresent()) {
             Order existingOrder = existingOrderOpt.get();
-            // Verify payload consistency (prevent key reuse with conflicting payload)
             if (!existingOrder.getShippingPhone().equals(request.getShippingPhone().trim()) ||
                 !existingOrder.getShippingAddress().equals(request.getShippingAddress().trim())) {
                 throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "Khóa request đã được sử dụng cho một yêu cầu khác");
@@ -98,6 +95,11 @@ public class CheckoutService {
             return mapToOrderConfirmationDto(existingOrder, true);
         }
 
+        return executeCheckoutOrder(userId, cleanIdempotencyKey, request);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED, rollbackFor = Exception.class)
+    public OrderConfirmationDto executeCheckoutOrder(Long userId, String cleanIdempotencyKey, CheckoutRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin tài khoản người dùng"));
 
@@ -190,21 +192,21 @@ public class CheckoutService {
             }
 
             if (appliedCoupon.getUsageLimit() != null) {
-                long totalUsed = couponUsageRepository.countByCouponId(appliedCoupon.getId());
+                long totalUsed = couponUsageRepository.countByCouponIdAndStatus(appliedCoupon.getId(), CouponUsage.STATUS_APPLIED);
                 if (totalUsed >= appliedCoupon.getUsageLimit()) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_USAGE_EXCEEDED", "Mã giảm giá đã hết lượt sử dụng trên hệ thống");
                 }
             }
 
             if (appliedCoupon.getPerUserLimit() != null && appliedCoupon.getPerUserLimit() > 0) {
-                long userUsed = couponUsageRepository.countByCouponIdAndUserId(appliedCoupon.getId(), userId);
+                long userUsed = couponUsageRepository.countByCouponIdAndUserIdAndStatus(appliedCoupon.getId(), userId, CouponUsage.STATUS_APPLIED);
                 if (userUsed >= appliedCoupon.getPerUserLimit()) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_USAGE_EXCEEDED", "Bạn đã sử dụng hết lượt cho mã giảm giá này");
                 }
             }
 
             if (appliedCoupon.isFirstOrderOnly()) {
-                long nonCancelledOrders = orderRepository.countByUserIdAndStatusNot(userId, OrderStatus.CANCELLED);
+                long nonCancelledOrders = orderRepository.countByUserIdAndStatusNotIn(userId, List.of(OrderStatus.CANCELLED, OrderStatus.RETURNED));
                 if (nonCancelledOrders > 0) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_FIRST_ORDER_ONLY", "Mã giảm giá chỉ áp dụng cho đơn hàng đầu tiên của bạn");
                 }
@@ -336,7 +338,7 @@ public class CheckoutService {
         return p.getImages().get(0).getImageUrl();
     }
 
-    private OrderConfirmationDto mapToOrderConfirmationDto(Order order, boolean isReplay) {
+    public OrderConfirmationDto mapToOrderConfirmationDto(Order order, boolean isReplay) {
         RecipientDto recipient = new RecipientDto(
                 order.getShippingName(),
                 order.getShippingPhone(),

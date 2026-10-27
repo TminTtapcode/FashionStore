@@ -257,9 +257,9 @@ class CheckoutServiceTest {
 
         // Voucher checks
         when(couponRepository.findByCodeWithLock("WELCOME10")).thenReturn(Optional.of(welcomeCoupon));
-        when(couponUsageRepository.countByCouponId(7L)).thenReturn(0L);
-        when(couponUsageRepository.countByCouponIdAndUserId(7L, 1L)).thenReturn(0L);
-        when(orderRepository.countByUserIdAndStatusNot(1L, OrderStatus.CANCELLED)).thenReturn(0L);
+        when(couponUsageRepository.countByCouponIdAndStatus(7L, CouponUsage.STATUS_APPLIED)).thenReturn(0L);
+        when(couponUsageRepository.countByCouponIdAndUserIdAndStatus(7L, 1L, CouponUsage.STATUS_APPLIED)).thenReturn(0L);
+        when(orderRepository.countByUserIdAndStatusNotIn(eq(1L), any())).thenReturn(0L);
 
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
             Order o = inv.getArgument(0);
