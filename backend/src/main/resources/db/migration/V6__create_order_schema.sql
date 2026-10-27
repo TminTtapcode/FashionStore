@@ -96,3 +96,4 @@ CREATE TABLE IF NOT EXISTS coupon_usages (
     INDEX idx_coupon_usages_coupon_user (coupon_id, user_id),
     INDEX idx_coupon_usages_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

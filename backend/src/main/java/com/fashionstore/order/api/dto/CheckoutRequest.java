@@ -118,3 +118,4 @@ public class CheckoutRequest {
         this.couponCode = couponCode;
     }
 }
+

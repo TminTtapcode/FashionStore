@@ -40,3 +40,4 @@ public class FinancialsDto {
         return couponCode;
     }
 }
+

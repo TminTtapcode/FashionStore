@@ -66,3 +66,4 @@ public class CouponUsage {
         return usedAt;
     }
 }
+
