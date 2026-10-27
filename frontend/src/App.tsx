@@ -8,13 +8,15 @@ import ProductDetailModal from './components/ProductDetailModal';
 import CategoryFilterBar from './components/CategoryFilterBar';
 import VirtualStylingStudio from './components/VirtualStylingStudio';
 import AtcShader from './components/ui/atc-shader';
+import { CheckoutModal } from './components/CheckoutModal';
 import { getCategoriesApi, getProductsApi } from './api/catalogApi';
 import type { Category, PageResponse, ProductFilterParams, ProductSummary } from './types/catalog';
 
 function StorefrontContent() {
   const { user, isLoading: isAuthLoading, openAuthModal, logout } = useAuth();
-  const { totalCount, openCart } = useCart();
+  const { totalCount, openCart, closeCart } = useCart();
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // Catalog State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -410,7 +412,20 @@ function StorefrontContent() {
         isOpen={Boolean(selectedProductSlug)}
         onClose={() => setSelectedProductSlug(null)}
       />
-      <MiniCartDrawer />
+      <MiniCartDrawer
+        onProceedToCheckout={() => {
+          closeCart();
+          if (!user) {
+            openAuthModal('login');
+          } else {
+            setIsCheckoutOpen(true);
+          }
+        }}
+      />
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+      />
       <VirtualStylingStudio
         isOpen={isStylingStudioOpen}
         onClose={() => setIsStylingStudioOpen(false)}

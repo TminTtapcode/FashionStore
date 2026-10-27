@@ -22,11 +22,11 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     /**
      * Conditional atomic stock deduction:
-     * Only updates if remaining stock >= requested quantity.
-     * Returns 1 if deduction succeeded, 0 if out of stock.
+     * Only updates if variant is ACTIVE and remaining stock >= requested quantity.
+     * Returns 1 if deduction succeeded, 0 if out of stock or inactive.
      */
     @Modifying
-    @Query("UPDATE ProductVariant v SET v.stockQuantity = v.stockQuantity - :quantity WHERE v.id = :id AND v.stockQuantity >= :quantity")
+    @Query("UPDATE ProductVariant v SET v.stockQuantity = v.stockQuantity - :quantity WHERE v.id = :id AND v.status = com.fashionstore.catalog.domain.ProductVariantStatus.ACTIVE AND v.stockQuantity >= :quantity")
     int deductStock(@Param("id") Long id, @Param("quantity") int quantity);
 
     /**
