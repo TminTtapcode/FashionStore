@@ -1,19 +1,121 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
 @layer base {
   :root {
-    --bg-page: #faf9f6;
-    --text-primary: #121212;
-    --text-muted: #666666;
-    --border-subtle: #e6e4df;
-    --accent-black: #000000;
+    /* Shadcn UI token mapping */
+    --background: #F7F7F4;
+    --foreground: #151518;
+    --color-foreground: #151518;
+    --muted: #EBEBE8;
+    --muted-foreground: #6C6C72;
+    --color-muted-foreground: #6C6C72;
+    --card: #FFFFFF;
+    --card-foreground: #151518;
+    --popover: #FFFFFF;
+    --popover-foreground: #151518;
+    --border: #E8E8E3;
+    --input: #E8E8E3;
+    --ring: #151518;
+
+    /* Hybrid Luxury & Contemporary Streetwear Palette */
+    --color-pearl: #F7F7F4;
+    --color-pure-white: #FFFFFF;
+    --color-ink: #151518;
+    --color-champagne: #C7AD83;
+    --color-sage: #B9C8BA;
+    --color-ice-blue: #C8DEFF;
+    --color-camel: #BA9F84;
+    --color-cherry: #C9184A;
+    --color-border-subtle: #E8E8E3;
+
+    /* Legacy mapping for smooth compatibility */
+    --bg-page: var(--color-pearl);
+    --text-primary: var(--color-ink);
+    --text-muted: #6C6C72;
+    --border-subtle: var(--color-border-subtle);
+    --accent-black: var(--color-ink);
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
-    background-color: var(--bg-page);
-    color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #060709;
+    color: #F7F7F4;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    selection-background-color: #C7AD83;
+    selection-color: #151518;
+  }
+
+  /* Editorial typography styles */
+  .font-editorial {
+    font-family: "Playfair Display", Didot, "Bodoni MT", Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Localized Studio Camera Flash Animation (<120ms) */
+@keyframes localizedFlash {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-studio-flash {
+  animation: localizedFlash 110ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+/* Studio Polaroid Fly Effect (<180ms) */
+@keyframes polaroidFly {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.3) translate(120px, -240px);
+    opacity: 0;
+  }
+}
+
+.animate-polaroid-fly {
+  animation: polaroidFly 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Disable flash & heavy transitions if user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-studio-flash {
+    display: none !important;
   }
 }

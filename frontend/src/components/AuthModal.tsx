@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthModal() {
@@ -16,6 +16,16 @@ export default function AuthModal() {
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Trap keyboard Escape to close
+  useEffect(() => {
+    if (!isAuthModalOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeAuthModal();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isAuthModalOpen, closeAuthModal]);
 
   if (!isAuthModalOpen) return null;
 
@@ -51,198 +61,262 @@ export default function AuthModal() {
   };
 
   return (
-    <div 
+    <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) closeAuthModal();
       }}
     >
-      <div className="bg-[#FAF9F6] border border-[#121212] w-full max-w-md p-8 relative shadow-2xl space-y-6">
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={closeAuthModal}
-          aria-label="Đóng cửa sổ xác thực"
-          className="absolute top-6 right-6 font-mono text-sm tracking-widest text-[#666666] hover:text-[#121212] cursor-pointer"
-        >
-          [ESC / X]
-        </button>
+      {/* Panel */}
+      <div className="relative w-full max-w-md bg-[#0D0E11] border border-white/12 shadow-[0_32px_80px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-4 duration-300">
 
-        {/* Modal Header & Tabs */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 font-mono text-xs text-[#888888] tracking-widest uppercase">
-            <span>IDENTITY AUTHENTICATION</span>
-            <span>&bull;</span>
-            <span>HTTPONLY COOKIE</span>
-          </div>
+        {/* Thin gold accent line at top */}
+        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#C7AD83] to-transparent" />
 
-          <div className="flex border-b border-[#E6E4DF] text-xs font-mono">
+        {/* Header bar */}
+        <div className="px-7 pt-6 pb-5 border-b border-white/8">
+          {/* Brand mark */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="font-editorial text-lg tracking-tight text-white font-medium">
+                Ivre<span className="text-[#C7AD83]">.</span>
+              </span>
+              <span className="font-mono text-[10px] tracking-widest text-white/30 uppercase border-l border-white/15 pl-2">
+                IDENTITY
+              </span>
+            </div>
+
+            {/* Close */}
             <button
               type="button"
-              onClick={() => {
-                setAuthModalTab('login');
-                setErrorMessage(null);
-              }}
-              className={`pb-3 pr-6 tracking-widest uppercase transition-colors cursor-pointer ${
+              onClick={closeAuthModal}
+              aria-label="Đóng cửa sổ xác thực"
+              className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-all cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M1 1L13 13M1 13L13 1" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Tab switcher - Clean & Elegant without numbering */}
+          <div className="flex gap-8 border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => { setAuthModalTab('login'); setErrorMessage(null); }}
+              className={`pb-3 font-mono text-xs tracking-[0.2em] uppercase transition-all cursor-pointer ${
                 authModalTab === 'login'
-                  ? 'border-b-2 border-[#121212] text-[#121212] font-bold'
-                  : 'text-[#888888] hover:text-[#121212]'
+                  ? 'border-b-2 border-[#C7AD83] text-[#C7AD83] font-bold -mb-px'
+                  : 'text-white/40 hover:text-white/70'
               }`}
             >
-              [01 / ĐĂNG NHẬP]
+              ĐĂNG NHẬP
             </button>
             <button
               type="button"
-              onClick={() => {
-                setAuthModalTab('register');
-                setErrorMessage(null);
-              }}
-              className={`pb-3 px-6 tracking-widest uppercase transition-colors cursor-pointer ${
+              onClick={() => { setAuthModalTab('register'); setErrorMessage(null); }}
+              className={`pb-3 font-mono text-xs tracking-[0.2em] uppercase transition-all cursor-pointer ${
                 authModalTab === 'register'
-                  ? 'border-b-2 border-[#121212] text-[#121212] font-bold'
-                  : 'text-[#888888] hover:text-[#121212]'
+                  ? 'border-b-2 border-[#C7AD83] text-[#C7AD83] font-bold -mb-px'
+                  : 'text-white/40 hover:text-white/70'
               }`}
             >
-              [02 / ĐĂNG KÝ MỚI]
+              ĐĂNG KÝ
             </button>
           </div>
         </div>
 
-        {/* Error notification */}
-        {errorMessage && (
-          <div className="border border-red-500 bg-red-50 text-red-900 p-3 text-xs font-mono leading-relaxed">
-            [LỖI]: {errorMessage}
-          </div>
-        )}
+        {/* Body */}
+        <div className="px-7 py-6 space-y-5">
 
-        {/* Welcome Incentive Callout (Shown especially on Register) */}
-        {authModalTab === 'register' && (
-          <div className="border border-[#121212] bg-[#121212] text-[#FAF9F6] p-4 text-xs space-y-1">
-            <div className="font-mono tracking-widest uppercase flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>WELCOME INCENTIVE</span>
+          {/* Error */}
+          {errorMessage && (
+            <div className="border border-red-500/40 bg-red-950/30 text-red-300 px-4 py-2.5 text-xs font-mono leading-relaxed rounded-xs flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+              <span>{errorMessage}</span>
             </div>
-            <p className="text-[#CCCCCC] leading-relaxed">
-              Tạo tài khoản hôm nay để nhận ngay mã <span className="text-white font-bold underline">WELCOME10</span> (giảm 10% trong đơn hàng đầu tiên).
-            </p>
-          </div>
-        )}
+          )}
 
-        {/* Login Form */}
-        {authModalTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-mono tracking-wider text-[#444444] uppercase">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="customer@domain.com"
-                className="w-full bg-white border border-[#D4D2CD] focus:border-[#121212] p-3 text-sm outline-none transition-colors"
-              />
+          {/* Register: Welcome incentive callout */}
+          {authModalTab === 'register' && (
+            <div className="border border-[#C7AD83]/30 bg-[#C7AD83]/6 px-4 py-3 space-y-1">
+              <div className="font-mono text-[11px] tracking-widest uppercase text-[#C7AD83] flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                WELCOME INCENTIVE
+              </div>
+              <p className="text-xs text-white/60 leading-relaxed font-sans">
+                Tạo tài khoản hôm nay và nhận ngay mã{' '}
+                <span className="text-[#C7AD83] font-bold tracking-wider">WELCOME10</span>
+                {' '}—{' '}giảm 10% cho đơn hàng đầu tiên.
+              </p>
             </div>
+          )}
 
-            <div className="space-y-1">
-              <label className="block text-xs font-mono tracking-wider text-[#444444] uppercase">
-                Mật khẩu
-              </label>
-              <input
-                type="password"
-                required
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-white border border-[#D4D2CD] focus:border-[#121212] p-3 text-sm outline-none transition-colors"
-              />
-            </div>
+          {/* ─── LOGIN FORM ─── */}
+          {authModalTab === 'login' ? (
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <Field label="Email" htmlFor="login-email">
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="customer@domain.com"
+                  className={inputCls}
+                />
+              </Field>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-[#121212] text-[#FAF9F6] hover:bg-[#2A2A2A] transition-colors py-3.5 text-xs font-mono tracking-widest uppercase cursor-pointer disabled:opacity-50 mt-2"
-            >
-              {submitting ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN ĐĂNG NHẬP'}
-            </button>
-          </form>
-        ) : (
-          /* Register Form */
-          <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-mono tracking-wider text-[#444444] uppercase">
-                Họ và tên
-              </label>
-              <input
-                type="text"
-                required
-                value={regFullName}
-                onChange={(e) => setRegFullName(e.target.value)}
-                placeholder="Nguyễn Văn A"
-                className="w-full bg-white border border-[#D4D2CD] focus:border-[#121212] p-3 text-sm outline-none transition-colors"
-              />
-            </div>
+              <Field label="Mật khẩu" htmlFor="login-pw">
+                <input
+                  id="login-pw"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className={inputCls}
+                />
+              </Field>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-mono tracking-wider text-[#444444] uppercase">
-                Email đăng ký
-              </label>
-              <input
-                type="email"
-                required
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-                placeholder="name@domain.com"
-                className="w-full bg-white border border-[#D4D2CD] focus:border-[#121212] p-3 text-sm outline-none transition-colors"
-              />
-            </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className={ctaCls}
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ĐANG XỬ LÝ...
+                  </span>
+                ) : (
+                  'XÁC NHẬN ĐĂNG NHẬP'
+                )}
+              </button>
+            </form>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-mono tracking-wider text-[#444444] uppercase">
-                Số điện thoại (tùy chọn)
-              </label>
-              <input
-                type="tel"
-                value={regPhone}
-                onChange={(e) => setRegPhone(e.target.value)}
-                placeholder="0901234567"
-                className="w-full bg-white border border-[#D4D2CD] focus:border-[#121212] p-3 text-sm outline-none transition-colors"
-              />
-            </div>
+          ) : (
+            /* ─── REGISTER FORM ─── */
+            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+              <Field label="Họ và tên" htmlFor="reg-name">
+                <input
+                  id="reg-name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={regFullName}
+                  onChange={(e) => setRegFullName(e.target.value)}
+                  placeholder="Nguyễn Văn A"
+                  className={inputCls}
+                />
+              </Field>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-mono tracking-wider text-[#444444] uppercase">
-                Mật khẩu (tối thiểu 6 ký tự)
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-white border border-[#D4D2CD] focus:border-[#121212] p-3 text-sm outline-none transition-colors"
-              />
-            </div>
+              <Field label="Email đăng ký" htmlFor="reg-email">
+                <input
+                  id="reg-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="name@domain.com"
+                  className={inputCls}
+                />
+              </Field>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-[#121212] text-[#FAF9F6] hover:bg-[#2A2A2A] transition-colors py-3.5 text-xs font-mono tracking-widest uppercase cursor-pointer disabled:opacity-50 mt-2"
-            >
-              {submitting ? 'ĐANG TẠO TÀI KHOẢN...' : 'HOÀN TẤT ĐĂNG KÝ & NHẬN MÃ'}
-            </button>
-          </form>
-        )}
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Số điện thoại" htmlFor="reg-phone" optional>
+                  <input
+                    id="reg-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    value={regPhone}
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    placeholder="0901 234 567"
+                    className={inputCls}
+                  />
+                </Field>
 
-        <div className="pt-2 text-center text-xs font-mono text-[#888888]">
-          SECURED BY SPRING SECURITY &bull; STRICT HTTPONLY
+                <Field label="Mật khẩu" htmlFor="reg-pw">
+                  <input
+                    id="reg-pw"
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="≥ 6 ký tự"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className={ctaCls}
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ĐANG TẠO TÀI KHOẢN...
+                  </span>
+                ) : (
+                  <>
+                    HOÀN TẤT ĐĂNG KÝ
+                    <span className="text-[#C7AD83] ml-1">✦</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Footer trust line */}
+          <p className="text-center text-[10px] font-mono text-white/20 tracking-widest uppercase pt-1">
+            Secured by Spring Security · HTTPOnly Cookie
+          </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────── helpers ─────────────────────── */
+const inputCls =
+  'w-full bg-white/5 border border-white/12 focus:border-[#C7AD83]/60 focus:bg-[#C7AD83]/4 text-white placeholder:text-white/25 text-sm font-sans px-3.5 py-2.5 outline-none transition-all duration-200 rounded-xs';
+
+const ctaCls =
+  'w-full bg-[#C7AD83] hover:bg-[#D9C09A] active:bg-[#B89A6E] text-[#0A0B0E] font-mono text-xs uppercase tracking-[0.2em] font-bold py-3.5 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded-xs shadow-[0_4px_20px_rgba(199,173,131,0.25)] hover:shadow-[0_6px_28px_rgba(199,173,131,0.4)] mt-1';
+
+function Field({
+  label,
+  htmlFor,
+  optional = false,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={htmlFor}
+        className="flex items-center gap-2 text-[11px] font-mono tracking-widest text-white/45 uppercase"
+      >
+        {label}
+        {optional && (
+          <span className="text-white/20 font-sans normal-case tracking-normal">(tùy chọn)</span>
+        )}
+      </label>
+      {children}
     </div>
   );
 }

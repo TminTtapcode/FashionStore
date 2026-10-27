@@ -83,16 +83,16 @@ export default function CategoryFilterBar({
 
   return (
     <div className="space-y-4">
-      {/* 1. Category Tabs Navigation */}
-      <div className="border-b border-[#E6E4DF] overflow-x-auto scrollbar-none flex items-center justify-between gap-4">
+      {/* 1. Category Tabs Navigation — Modern Sleek Underline & Pills */}
+      <div className="border-b border-white/10 overflow-x-auto scrollbar-none flex items-center justify-between gap-4">
         <nav aria-label="Danh mục trang phục" className="flex items-center gap-1 sm:gap-2">
           <button
             type="button"
             onClick={() => handleCategorySelect('')}
-            className={`py-3 px-3.5 text-xs font-mono uppercase tracking-widest whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+            className={`py-3 px-3.5 text-xs font-mono uppercase tracking-[0.2em] whitespace-nowrap border-b-2 transition-all cursor-pointer ${
               activeCategorySlug === ''
-                ? 'border-[#121212] font-bold text-[#121212]'
-                : 'border-transparent text-[#666666] hover:text-[#121212]'
+                ? 'border-[#C7AD83] font-bold text-[#C7AD83]'
+                : 'border-transparent text-white/60 hover:text-white'
             }`}
           >
             TẤT CẢ SẢN PHẨM
@@ -103,10 +103,10 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={() => handleCategorySelect(cat.slug)}
-                className={`py-3 px-3.5 text-xs font-mono uppercase tracking-widest whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+                className={`py-3 px-3.5 text-xs font-mono uppercase tracking-[0.2em] whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                   activeCategorySlug === cat.slug
-                    ? 'border-[#121212] font-bold text-[#121212]'
-                    : 'border-transparent text-[#666666] hover:text-[#121212]'
+                    ? 'border-[#C7AD83] font-bold text-[#C7AD83]'
+                    : 'border-transparent text-white/60 hover:text-white'
                 }`}
               >
                 {cat.name}
@@ -117,22 +117,23 @@ export default function CategoryFilterBar({
 
         {/* Product Count & Filter Drawer Toggle */}
         <div className="flex items-center gap-3 shrink-0 py-2">
-          <span className="text-[11px] font-mono text-[#888888] hidden sm:inline">
+          <span className="text-[11px] font-mono text-gray-400 hidden sm:inline tracking-wider">
             {totalProducts} SẢN PHẨM
           </span>
 
           <button
             type="button"
             onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
-            className={`px-3 py-1.5 border text-xs font-mono uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 border text-xs font-mono uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer rounded-xs ${
               isFilterDrawerOpen || activeFiltersCount > 0
-                ? 'border-[#121212] bg-[#121212] text-white'
-                : 'border-[#E6E4DF] bg-white text-[#121212] hover:border-[#121212]'
+                ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold shadow-xs'
+                : 'border-white/20 bg-white/5 text-white hover:border-white/50'
             }`}
           >
+            <span className="text-[10px]">⚙</span>
             <span>BỘ LỌC</span>
             {activeFiltersCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-emerald-500 text-white text-[10px] flex items-center justify-center font-bold">
+              <span className="w-4 h-4 rounded-full bg-[#151518] text-[#C7AD83] text-[10px] flex items-center justify-center font-bold">
                 {activeFiltersCount}
               </span>
             )}
@@ -145,13 +146,13 @@ export default function CategoryFilterBar({
         if (cat.slug === activeCategorySlug && cat.children && cat.children.length > 0) {
           return (
             <div key={cat.id} className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
-              <span className="text-[#888888] uppercase tracking-wider text-[11px]">DÒNG HÀNG:</span>
+              <span className="text-[#C7AD83] uppercase tracking-wider text-[11px]">DÒNG HÀNG:</span>
               {cat.children.map((sub) => (
                 <button
                   key={sub.id}
                   type="button"
                   onClick={() => handleCategorySelect(sub.slug)}
-                  className="px-2.5 py-1 bg-[#F0EEE9] hover:bg-[#121212] hover:text-white transition-colors cursor-pointer text-[11px] uppercase tracking-wider"
+                  className="px-3 py-1 bg-white/10 hover:bg-[#C7AD83] hover:text-[#151518] text-white transition-colors cursor-pointer text-[11px] uppercase tracking-wider rounded-xs border border-white/10"
                 >
                   {sub.name}
                 </button>
@@ -164,11 +165,11 @@ export default function CategoryFilterBar({
 
       {/* 3. Expandable Filter & Sort Drawer */}
       {isFilterDrawerOpen && (
-        <div className="bg-white border border-[#E6E4DF] p-5 shadow-xs animate-in fade-in-50 duration-200 space-y-5">
+        <div className="bg-[#121316]/90 backdrop-blur-md border border-white/10 p-5 shadow-2xl animate-in fade-in-50 duration-200 space-y-5 rounded-xs text-white">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Filter by Size */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#121212]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
                 KÍCH CỠ (SIZE)
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -179,10 +180,10 @@ export default function CategoryFilterBar({
                       key={size}
                       type="button"
                       onClick={() => handleSizeSelect(size)}
-                      className={`h-8 px-2.5 border text-xs font-mono transition-all cursor-pointer ${
+                      className={`h-8 px-2.5 border text-xs font-mono transition-all cursor-pointer rounded-xs ${
                         isSelected
-                          ? 'border-[#121212] bg-[#121212] text-white font-bold'
-                          : 'border-[#E6E4DF] bg-[#FAF9F6] text-[#333333] hover:border-[#121212]'
+                          ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold'
+                          : 'border-white/15 bg-white/5 text-gray-300 hover:border-white/40'
                       }`}
                     >
                       {size}
@@ -194,7 +195,7 @@ export default function CategoryFilterBar({
 
             {/* Filter by Color */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#121212]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
                 MÀU SẮC (SWATCH)
               </span>
               <div className="flex flex-wrap gap-2">
@@ -206,10 +207,10 @@ export default function CategoryFilterBar({
                       type="button"
                       onClick={() => handleColorSelect(col.name)}
                       title={col.name}
-                      className={`flex items-center gap-1.5 px-2 py-1 border text-xs font-mono cursor-pointer transition-all ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 border text-xs font-mono cursor-pointer transition-all rounded-xs ${
                         isSelected
-                          ? 'border-[#121212] bg-[#121212] text-white'
-                          : 'border-[#E6E4DF] bg-[#FAF9F6] text-[#444444] hover:border-[#121212]'
+                          ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold'
+                          : 'border-white/15 bg-white/5 text-gray-300 hover:border-white/40'
                       }`}
                     >
                       <span
@@ -225,27 +226,27 @@ export default function CategoryFilterBar({
 
             {/* Sort Options */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#121212]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
                 SẮP XẾP THEO
               </span>
               <select
                 value={filters.sort || 'newest'}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="w-full h-9 border border-[#E6E4DF] bg-[#FAF9F6] px-3 font-mono text-xs uppercase tracking-wider cursor-pointer focus:border-[#121212] focus:outline-none"
+                className="w-full h-9 border border-white/15 bg-[#18191D] text-white px-3 font-mono text-xs uppercase tracking-wider cursor-pointer focus:border-[#C7AD83] focus:outline-none rounded-xs"
               >
-                <option value="newest">MỚI NHẤT (NEW ARRIVALS)</option>
-                <option value="price_asc">GIÁ: TĂNG DẦN</option>
-                <option value="price_desc">GIÁ: GIẢM DẦN</option>
-                <option value="name_asc">TÊN: A — Z</option>
+                <option value="newest" className="bg-[#18191D] text-white">MỚI NHẤT (NEW ARRIVALS)</option>
+                <option value="price_asc" className="bg-[#18191D] text-white">GIÁ: TĂNG DẦN</option>
+                <option value="price_desc" className="bg-[#18191D] text-white">GIÁ: GIẢM DẦN</option>
+                <option value="name_asc" className="bg-[#18191D] text-white">TÊN: A — Z</option>
               </select>
 
               {/* In-stock toggle */}
-              <label className="flex items-center gap-2 pt-2 cursor-pointer font-mono text-xs text-[#444444]">
+              <label className="flex items-center gap-2 pt-2 cursor-pointer font-mono text-xs text-gray-300">
                 <input
                   type="checkbox"
                   checked={filters.inStockOnly || false}
                   onChange={handleInStockToggle}
-                  className="rounded border-[#CCCCCC] text-[#121212] focus:ring-0 cursor-pointer"
+                  className="rounded border-white/20 bg-white/10 text-[#C7AD83] focus:ring-0 cursor-pointer"
                 />
                 <span>Chỉ hiển thị sản phẩm còn hàng</span>
               </label>
@@ -257,7 +258,7 @@ export default function CategoryFilterBar({
                 <button
                   type="button"
                   onClick={handleClearFilters}
-                  className="w-full h-9 border border-[#121212] text-xs font-mono uppercase tracking-wider hover:bg-[#121212] hover:text-white transition-colors cursor-pointer"
+                  className="w-full h-9 border border-white/20 text-xs font-mono uppercase tracking-wider hover:bg-white/10 text-white transition-colors cursor-pointer rounded-xs"
                 >
                   XÓA BỘ LỌC ({activeFiltersCount})
                 </button>
@@ -265,7 +266,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={() => setIsFilterDrawerOpen(false)}
-                className="w-full h-9 bg-[#121212] text-white text-xs font-mono uppercase tracking-wider hover:bg-[#2A2A2A] transition-colors cursor-pointer"
+                className="w-full h-9 bg-[#C7AD83] text-[#151518] text-xs font-mono uppercase tracking-wider hover:bg-white transition-colors cursor-pointer rounded-xs font-bold"
               >
                 ÁP DỤNG & ĐÓNG
               </button>
