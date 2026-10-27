@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { getProductDetailApi } from '../api/catalogApi';
 import type { ProductDetail, ProductVariant } from '../types/catalog';
 import SizeGuideDrawer from './SizeGuideDrawer';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 
 interface ProductDetailModalProps {
   slug: string | null;
@@ -16,6 +18,10 @@ export default function ProductDetailModal({
   onClose,
   onAddToCart,
 }: ProductDetailModalProps) {
+  const { user, openAuthModal } = useAuth();
+  const { addToCart } = useCart();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,13 +92,28 @@ export default function ProductDetailModal({
     }
   };
 
-  const handleAddToCart = () => {
-    if (!currentVariant || !currentVariant.inStock) return;
-    if (onAddToCart) {
-      onAddToCart(currentVariant, quantity);
+  const handleAddToCart = async () => {
+    if (!currentVariant || !currentVariant.inStock || isSubmitting) return;
+
+    if (!user) {
+      openAuthModal('login');
+      return;
     }
-    // temporary alert or notification
-    alert(`Đã thêm ${quantity} x [${product?.name} - ${currentVariant.colorName} / Size ${currentVariant.size}] vào giỏ hàng!`);
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+      await addToCart(currentVariant.id, quantity);
+      if (onAddToCart) {
+        onAddToCart(currentVariant, quantity);
+      }
+      onClose();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Không thể thêm vào giỏ hàng';
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -384,16 +405,27 @@ export default function ProductDetailModal({
                   {/* Add to Cart CTA */}
                   <button
                     type="button"
-                    disabled={!currentVariant || !currentVariant.inStock}
+                    disabled={!currentVariant || !currentVariant.inStock || isSubmitting}
                     onClick={handleAddToCart}
                     className="flex-1 h-11 bg-[#121212] text-[#FAF9F6] font-mono text-xs uppercase tracking-widest font-bold hover:bg-[#2A2A2A] transition-colors disabled:bg-[#CCCCCC] disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                   >
-                    <span>{currentVariant?.inStock ? 'THÊM VÀO GIỎ HÀNG' : 'HẾT HÀNG'}</span>
-                    {currentVariant?.inStock && (
-                      <span className="text-[#999999]">({formatVND(currentVariant.price * quantity)})</span>
+                    {isSubmitting ? (
+                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    ) : (
+                      <>
+                        <span>{currentVariant?.inStock ? 'THÊM VÀO GIỎ HÀNG' : 'HẾT HÀNG'}</span>
+                        {currentVariant?.inStock && (
+                          <span className="text-[#999999]">({formatVND(currentVariant.price * quantity)})</span>
+                        )}
+                      </>
                     )}
                   </button>
                 </div>
+                {submitError && (
+                  <p className="mt-2 text-xs font-mono text-red-600 bg-red-50 p-2 border border-red-200">
+                    {submitError}
+                  </p>
+                )}
               </div>
             </>
           )}

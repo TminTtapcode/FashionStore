@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider, useCart } from './context/CartContext';
 import AuthModal from './components/AuthModal';
+import MiniCartDrawer from './components/MiniCartDrawer';
 import ProductCard from './components/ProductCard';
 import ProductDetailModal from './components/ProductDetailModal';
 import CategoryFilterBar from './components/CategoryFilterBar';
@@ -9,6 +11,7 @@ import type { Category, PageResponse, ProductFilterParams, ProductSummary } from
 
 function StorefrontContent() {
   const { user, isLoading: isAuthLoading, openAuthModal, logout } = useAuth();
+  const { totalCount, openCart } = useCart();
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Catalog State
@@ -100,6 +103,21 @@ function StorefrontContent() {
           </nav>
 
           <div className="flex items-center gap-3 font-mono text-xs">
+            {/* Cart Button with Count Badge */}
+            <button
+              type="button"
+              onClick={openCart}
+              aria-label={`Giỏ hàng ${totalCount} sản phẩm`}
+              className="border border-[#121212] px-3 py-1 tracking-widest uppercase hover:bg-[#121212] hover:text-[#FAF9F6] transition-colors cursor-pointer text-xs flex items-center gap-2 group"
+            >
+              <span>GIỎ HÀNG</span>
+              <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-xs transition-colors ${
+                totalCount > 0 ? 'bg-[#121212] text-white group-hover:bg-white group-hover:text-[#121212]' : 'bg-[#E6E4DF] text-[#666666]'
+              }`}>
+                {totalCount}
+              </span>
+            </button>
+
             {isAuthLoading ? (
               <span className="text-[#888888] animate-pulse">[CHECKING...]</span>
             ) : user ? (
@@ -280,13 +298,14 @@ function StorefrontContent() {
         </div>
       </footer>
 
-      {/* Interactive Modals */}
+      {/* Interactive Modals & Drawers */}
       <AuthModal />
       <ProductDetailModal
         slug={selectedProductSlug}
         isOpen={Boolean(selectedProductSlug)}
         onClose={() => setSelectedProductSlug(null)}
       />
+      <MiniCartDrawer />
     </div>
   );
 }
@@ -294,7 +313,9 @@ function StorefrontContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <StorefrontContent />
+      <CartProvider>
+        <StorefrontContent />
+      </CartProvider>
     </AuthProvider>
   );
 }

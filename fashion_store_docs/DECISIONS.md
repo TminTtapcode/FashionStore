@@ -59,7 +59,20 @@ Ban đầu, hệ thống cân nhắc hỗ trợ catalog tổng quát cho nhiều
    - Trường `specifications` dạng JSON trong bảng `products` chỉ dùng để lưu các thông số kỹ thuật mở rộng tùy biến theo nhóm trang phục (ví dụ: độ co giãn, độ dày vải, chiều dài váy/quần, bảng kích thước mẫu ngực/eo/mông của size guide).
    - Bảng `product_images` được ràng buộc chặt chẽ với `product_id` và `variant_id` thông qua composite foreign key, đảm bảo không thể gán ảnh chéo giữa các sản phẩm.
 
+## ADR-011 — Shopping Cart Architecture (Purchase Intent Only & Authoritative Pricing)
+**Status:** Accepted  
+**Date:** 2026-10-27  
+**Context:**  
+Khi thiết kế giỏ hàng (Cart), cần chốt nguyên tắc: liệu có trừ hoặc giữ chỗ tồn kho khi khách hàng thêm sản phẩm vào giỏ không? Và giá hiển thị trong giỏ hàng được tính toán và lưu trữ như thế nào?
+
+**Decision:**  
+1. **Purchase Intent Only**: Giỏ hàng chỉ lưu ý định mua sắm của khách hàng. Thêm, sửa số lượng hoặc xóa mục trong giỏ **tuyệt đối không trừ kho, giữ chỗ (reserve), hay khóa (lock) số lượng tồn kho** trong database.
+2. **Authoritative Pricing**: Bảng `cart_items` không lưu cột `unit_price`. Giá bán và tổng tiền luôn được backend tính toán động dựa trên `product_variants.price` hiện hành tại thời điểm đọc giỏ hàng (`GET /api/v1/cart`). Frontend không có thẩm quyền gửi giá tiền lên server.
+3. **Merge & Max Quantity Policy**: Thêm lại biến thể đã có trong giỏ sẽ tự động cộng dồn số lượng. Giới hạn tối đa 10 sản phẩm/dòng hàng (`CHECK (quantity > 0 AND quantity <= 10)`).
+4. **Race Condition Protection**: Ràng buộc duy nhất `UNIQUE KEY uk_cart_variant (cart_id, variant_id)` kết hợp với cơ chế bắt lỗi `DataIntegrityViolationException` để thực hiện retry merge an toàn, triệt tiêu nguy cơ sinh trùng dòng hàng khi click nhanh hoặc concurrent requests.
+5. **Strict Ownership Isolation**: Mọi thao tác đọc, cập nhật hoặc xóa dòng hàng đều xác thực quyền sở hữu thông qua `principal.getId()` và query kiểm tra `cart.user.id = :userId`.
+
 **Consequences:**  
-- *Tích cực*: Schema cực kỳ rõ ràng, dễ hiểu, trực quan; tốc độ truy vấn lọc theo size/màu cực nhanh với B-Tree index; kiểm tra tồn kho nguyên tử chính xác; UI chọn size và màu swatch được thiết kế mượt mà chuẩn lookbook thời trang.
-- *Hạn chế*: Nếu sau này shop muốn mở rộng sang các ngành hàng hoàn toàn khác ngoài may mặc (như đồng hồ, thiết bị số), sẽ cần thiết kế thêm bảng hoặc migration mới thay vì cấu hình động ngay lập tức. Tuy nhiên, đây là sự đánh đổi hoàn toàn hợp lý và có chủ đích để hệ thống nhanh chóng hoàn thiện đưa vào kinh doanh thật.
+- *Tích cực*: Ngăn chặn triệt để tình trạng đầu cơ găm hàng ảo (inventory hoarding); giá giỏ hàng luôn cập nhật chính xác theo catalog; dữ liệu an toàn trước race condition.
+- *Lưu ý*: Khách hàng cần được cảnh báo tồn kho có thể thay đổi và hết hàng trước khi checkout. Việc trừ kho nguyên tử được dồn toàn bộ vào transaction của Phase 4 (Checkout).
 
