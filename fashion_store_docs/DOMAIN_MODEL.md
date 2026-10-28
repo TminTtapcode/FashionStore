@@ -76,6 +76,86 @@
   - MVP chỉ tập trung 100% vào thời trang may mặc và trang phục (quần, áo, đầm, váy, áo khoác, jumpsuit, set đồ).
   - Loại bỏ hoàn toàn các thực thể, thuộc tính hoặc seed data liên quan đến đồng hồ, đồ điện tử, trang sức kim hoàn hay đồ gia dụng.
 
+### 1.1. Chi tiết Quan hệ Cốt lõi: Product → ProductVariant → ProductImage (Phase 5B)
+
+```mermaid
+erDiagram
+    PRODUCT ||--o{ PRODUCT_VARIANT : "1 to N (variants)"
+    PRODUCT ||--o{ PRODUCT_IMAGE : "1 to N (images)"
+    PRODUCT_VARIANT ||--o{ PRODUCT_IMAGE : "0 to N (tagged images)"
+    PRODUCT_VARIANT ||--o{ CART_ITEM : "1 to N (cart items)"
+    CATEGORY ||--o{ PRODUCT : "classifies"
+
+    PRODUCT {
+        bigint id PK
+        bigint shop_id FK
+        bigint category_id FK
+        varchar name
+        varchar slug UK
+        text description
+        varchar brand
+        varchar material
+        varchar fit_style
+        text care_instructions
+        json specifications "Extensible (size guide, measurements)"
+        varchar status "ACTIVE, DRAFT, HIDDEN, ARCHIVED"
+    }
+
+    PRODUCT_VARIANT {
+        bigint id PK
+        bigint product_id FK
+        varchar sku UK "DAM-MAXI-TRANG-S"
+        varchar size "S, M, L, 28, 29, 30"
+        varchar color_name "Trắng Ngọc, Xanh Rêu"
+        varchar color_hex "#FDFBF7"
+        decimal price "650000.00"
+        decimal compare_at_price "750000.00"
+        int stock_quantity "Tồn kho nguyên tử"
+        varchar status "ACTIVE, INACTIVE"
+    }
+
+    PRODUCT_IMAGE {
+        bigint id PK
+        bigint product_id FK
+        bigint variant_id FK "nullable (null = ảnh chung)"
+        varchar image_url
+        varchar alt_text
+        int sort_order
+        boolean is_primary
+    }
+```
+
+#### Nguyên lý Thiết kế & Trả lời các câu hỏi nghiệp vụ:
+1. **Một Product có bao nhiêu Variant?**
+   - Một Product có thể có nhiều Variant (quan hệ `@OneToMany`, 1-N). Mỗi variant đại diện cho một SKU cụ thể (tổ hợp của Size và Màu sắc). Ví dụ: Đầm Lụa Maxi có 5 variants (Trắng Ngọc: S/M/L; Xanh Rêu Nhạt: S/M).
+2. **Size và Color ảnh hưởng thế nào tới SKU?**
+   - SKU (Stock Keeping Unit) là mã định danh duy nhất cho từng đơn vị lưu kho cụ thể ở cấp độ `(product_id, size, color_name)`. Trong database, tính toàn vẹn được bảo vệ bởi hai ràng buộc:
+     - `UNIQUE KEY uk_variants_sku (sku)`
+     - `UNIQUE KEY uk_product_size_color (product_id, size, color_name)` (chặn tuyệt đối việc tạo 2 dòng variant trùng size và màu trong cùng một sản phẩm).
+3. **Ảnh sản phẩm liên kết với Product hay từng Variant?**
+   - Bảng `product_images` chứa `product_id NOT NULL` và `variant_id NULLABLE`.
+   - Ràng buộc khóa ngoại phức hợp `CONSTRAINT fk_images_product_variant FOREIGN KEY (product_id, variant_id) REFERENCES product_variants (product_id, id) ON DELETE CASCADE` đảm bảo ảnh nếu được gán `variant_id` thì variant đó bắt buộc phải thuộc cùng sản phẩm đó, không thể trỏ chéo sang sản phẩm khác.
+   - **Ảnh chung (`variant_id IS NULL`)**: Là ảnh chụp lookbook toàn cảnh, phối đồ phong cách hoặc ảnh người mẫu mặc chung cho mọi màu sắc.
+   - **Ảnh theo biến thể (`variant_id IS NOT NULL`)**: Là ảnh chụp góc cạnh, mặt trước, mặt sau hoặc thớ vải cận cảnh riêng cho màu sắc/biến thể đó.
+4. **Một màu có nhiều ảnh nhưng nhiều size dùng chung ảnh thì dữ liệu được lưu thế nào?**
+   - Trong dữ liệu thời trang, ảnh thường thay đổi theo **Màu sắc**, không thay đổi theo kích cỡ (Size S hay Size L đều mặc cùng một màu vải).
+   - Trong schema, `variant_id` trong `product_images` trỏ tới một variant đại diện cho màu đó (thường là variant đầu tiên của màu, ví dụ size S).
+   - Khi frontend hiển thị gallery cho màu sắc đang chọn:
+     - Hệ thống gom toàn bộ `variant_id` của các biến thể có cùng `color_name` thành một tập hợp `variantIdsOfColor`.
+     - Lọc các ảnh trong `product.images` có `img.variantId` nằm trong tập hợp này, kết hợp cùng các ảnh chung (`!img.variantId`).
+     - Nếu một màu chưa có ảnh riêng, gallery tự động fallback hiển thị toàn bộ ảnh của sản phẩm.
+5. **Tồn kho được quản lý ở cấp Product hay ProductVariant?**
+   - Tồn kho (`stock_quantity`) được quản lý nghiêm ngặt và nguyên tử ở cấp `ProductVariant`.
+   - Cấp `Product` không lưu số tồn kho tổng cứng để tránh bẫy bất đồng bộ (denormalization desync). Thuộc tính `isOutOfStock()` của Product là một hàm phái sinh: trả về `true` khi và chỉ khi toàn bộ các variant active của sản phẩm đều có `stock_quantity <= 0`.
+6. **Khi người dùng chuyển màu, những size nào còn hợp lệ?**
+   - Mỗi màu có thể có danh sách size khác nhau (Asymmetric sizes). Ví dụ: Áo thun màu Trắng có S, M, L; nhưng màu Đen Than chỉ có M, L; màu Xanh Rêu chỉ có L.
+   - Khi người dùng đổi màu (ví dụ từ Trắng sang Đen Than khi đang chọn size S), nếu hệ thống giữ nguyên size S thì tổ hợp `(Đen Than, S)` không tồn tại trong DB, dẫn đến lỗi "Ghost Variant" (biến thể ma).
+   - Giải pháp: Khi đổi màu, hệ thống tự động kiểm tra xem size hiện tại có tồn tại trong màu mới không. Nếu không, lập tức tự động chuyển sang size hợp lệ đầu tiên của màu mới (ưu tiên size còn hàng).
+7. **Khi variant hết hàng, hành động Add to Cart phải xử lý ra sao?**
+   - Nút CTA chuyển sang trạng thái disabled hiển thị nhãn "HẾT HÀNG".
+   - Nút tăng số lượng stepper bị vô hiệu hóa.
+   - Cấp backend `CartService.validateSellable()` kiểm tra tồn kho và trạng thái active của variant trước khi cho phép lưu vào giỏ hàng.
+
 ### Cart & promotion
 - `carts`: id, user_id nullable (nếu hỗ trợ guest cart persistence), status, created_at, updated_at.
 - `cart_items`: id, cart_id, variant_id, quantity; unique(cart_id, variant_id).

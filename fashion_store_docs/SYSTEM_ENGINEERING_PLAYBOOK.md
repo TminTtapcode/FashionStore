@@ -16,6 +16,19 @@
    - 4.2. Race Condition khi hai luồng cùng Hủy đơn hoặc cùng Xác nhận hàng hoàn
    - 4.3. Bẫy Hibernate: `LazyInitializationException` & `MultipleBagFetchException`
 5. [TƯ DUY THIẾT KẾ LUỒNG NGHIỆP VỤ BỀN VỮNG (DEFENSE-IN-DEPTH)](#5-tư-duy-thiết-kế-luồng-nghiệp-vụ-bền-vững-defense-in-depth)
+6. [KIẾN TRÚC CATALOG THỜI TRANG & ĐIỀU PHỐI URL (PHASE 5A)](#6-kiến-trúc-catalog-thời-trang--điều-phối-url-phase-5a)
+   - 6.1. Đồng bộ 2 chiều URL & Web History API
+   - 6.2. Phân tích Nguyên nhân Gốc rễ 3 Lỗi Điều phối (P1 & P2 Post-Mortem)
+   - 6.3. Giải pháp Kiến trúc Điều phối Tập trung
+   - 6.4. Active Filter Chips, Price Presets & Search Version Guard
+7. [TRẢI NGHIỆM CHI TIẾT SẢN PHẨM LOOKBOOK & PHÂN TÍCH KỸ THUẬT PHÒNG THỦ (PHASE 5B)](#7-trải-nghiệm-chi-tiết-sản-phẩm-lookbook--phân-tích-kỹ-thuật-phòng-thủ-phase-5b)
+   - 7.1. Sơ đồ Thực thể Biến thể Thời trang & Sequence Diagram
+   - 7.2. Phòng chống Biến thể Ma (Ghost Variant Prevention Pattern)
+   - 7.3. Thiết kế Bộ chọn Kích cỡ 4 Trạng thái (4-State Size Selector Matrix)
+   - 7.4. Post-Mortem 1: Giá trị Biên của Khoảng giá (Inclusive Predicates)
+   - 7.5. Post-Mortem 2: Bản chất Kỹ thuật của Search Version Guard
+   - 7.6. Post-Mortem 3: Phòng chống Cuộc đua Microtask Mạng (`controller.signal.aborted`)
+   - 7.7. Post-Mortem 4: Bản chất Remount Canvas WebGL (Cây Component vs Routing)
 
 ---
 
@@ -449,6 +462,258 @@ sequenceDiagram
 #### D. Bằng chứng Kiểm thử & Nghiệm thu:
 - **Kiểm thử tự động**: 23/23 tests tự động PASS (11 tests cho `catalogUrl.test.ts` và 12 tests cho `filterDebounceCoordination.test.ts`), bao phủ toàn diện 12 kịch bản điều phối component, debounce, preset toggle-off, sort chip và version guard.
 - **Kiểm thử Live Browser (Chrome DevTools MCP)**: Xác minh trực tiếp trên Chrome thật tại `http://localhost:5173`: thao tác bấm "XÓA TẤT CẢ", chọn preset `500k - 1 triệu`, toggle-off preset, chọn Sort "GIÁ: TĂNG DẦN" và click nút `✕` trên thẻ sort chip để khôi phục `newest`. Toàn bộ hành vi URL và UI hoàn toàn chính xác.
+
+---
+
+## 7. TRẢI NGHIỆM CHI TIẾT SẢN PHẨM LOOKBOOK & PHÂN TÍCH KỸ THUẬT PHÒNG THỦ (PHASE 5B)
+
+### 7.1. Sơ đồ Thực thể Biến thể Thời trang & Sequence Diagram
+
+#### A. Sơ đồ Quan hệ Biến thể & Hình ảnh (Fashion Variant Domain Model):
+```mermaid
+classDiagram
+    class Product {
+        +Long id
+        +String name
+        +String slug
+        +String description
+        +String material
+        +String fitStyle
+        +String careInstructions
+        +String specifications
+        +ProductStatus status
+    }
+
+    class ProductVariant {
+        +Long id
+        +Long productId
+        +String sku
+        +String size
+        +String colorName
+        +String colorHex
+        +BigDecimal price
+        +BigDecimal compareAtPrice
+        +Integer stockQuantity
+        +VariantStatus status
+    }
+
+    class ProductImage {
+        +Long id
+        +Long productId
+        +Long variantId
+        +String imageUrl
+        +String altText
+        +Integer sortOrder
+        +Boolean isPrimary
+    }
+
+    Product "1" *-- "many" ProductVariant : has
+    Product "1" *-- "many" ProductImage : displays
+    ProductVariant "0..1" <-- "many" ProductImage : optionally_binds
+```
+
+#### B. Sơ đồ Điều phối Chi tiết Sản phẩm & Dynamic Gallery (Lookbook Sequence Diagram):
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Khách hàng (User)
+    participant Grid as ProductCard (Catalog)
+    participant App as App.tsx (URL & Modal Coordinator)
+    participant Modal as ProductDetailModal.tsx
+    participant Drawer as SizeGuideDrawer.tsx
+    participant Cart as CartContext & MiniCart
+    participant Backend as Spring Boot API
+
+    User->>Grid: Click vào thẻ sản phẩm (slug: "dam-lua-maxi")
+    Grid->>App: onSelect(product)
+    App->>App: pushState("?product=dam-lua-maxi")
+    App->>Modal: Hiển thị Modal & khóa cuộn (overflow: hidden)
+    Modal->>Backend: GET /api/v1/products/dam-lua-maxi
+    Backend-->>Modal: Trả về Full Detail (Variants, Images, Specs)
+
+    Note over Modal: 1. Khởi tạo & Dynamic Gallery
+    Modal->>Modal: Chọn Color Swatch đầu tiên (Trắng) & Size khả dụng đầu tiên (S)
+    Modal->>Modal: Lọc ảnh: [variantId == whiteVariant.id] + [!variantId]
+
+    Note over User,Modal: 2. Đổi Màu & Ghost Variant Prevention
+    User->>Modal: Click Swatch màu "Xanh Rêu" (Chỉ có Size M, L; không có S)
+    Modal->>Modal: Phát hiện Size S không tồn tại ở Xanh Rêu
+    Modal->>Modal: Auto-resolve: Tự động chuyển selectedSize sang "M"
+    Modal->>Modal: Cập nhật Gallery sang ảnh Xanh Rêu & cập nhật giá biến thể
+
+    Note over User,Drawer: 3. Tra cứu Bảng số đo (Size Guide)
+    User->>Modal: Click "Bảng quy đổi size ↗"
+    Modal->>Drawer: Mở SizeGuideDrawer (truyền specs JSON + category fallback)
+    User->>Drawer: Nhấn phím Escape
+    Drawer->>Drawer: stopPropagation & đóng drawer (Modal vẫn mở nguyên vẹn)
+
+    Note over User,Cart: 4. Thêm vào giỏ hàng
+    User->>Modal: Click "THÊM VÀO GIỎ HÀNG"
+    alt Khách vãng lai (Chưa đăng nhập)
+        Modal->>App: openAuthModal('login')
+    else Khách đã đăng nhập
+        Modal->>Backend: POST /api/v1/cart/items (variantId, qty: 1)
+        Backend-->>Modal: 200 OK (Thành công)
+        Modal->>App: onClose() (popState URL về catalog)
+        Modal->>Cart: openCart() (Trượt mở Mini-Cart Drawer)
+    end
+```
+
+---
+
+### 7.2. Phòng chống Biến thể Ma (Ghost Variant Prevention Pattern)
+
+#### A. Vấn đề thực tế (Problem Statement):
+Trong ngành thời trang, số lượng size giữa các màu sắc hiếm khi đồng đều 100%. Ví dụ một mẫu áo sơ mi:
+- Màu **Trắng**: Đầy đủ size `S`, `M`, `L`.
+- Màu **Xanh Rêu**: Chỉ sản xuất size `M`, `L` (hoàn toàn không có size `S`).
+- Màu **Đen**: Đã bán hết size `S` và `M`, chỉ còn duy nhất size `L`.
+
+Nếu component React chỉ lưu trữ 2 state độc lập:
+```typescript
+const [selectedColor, setSelectedColor] = useState('Trắng');
+const [selectedSize, setSelectedSize] = useState('S');
+```
+Khi người dùng đang chọn `(Trắng, S)` rồi nhấp vào swatch `Xanh Rêu`, nếu không có logic can thiệp, state sẽ trở thành `(Xanh Rêu, S)`.
+Hệ quả:
+1. `variants.find(v => v.colorName === 'Xanh Rêu' && v.size === 'S')` sẽ trả về `undefined`.
+2. Giao diện bị crash hoặc hiển thị giá tiền rỗng, trạng thái tồn kho rỗng.
+3. Khi người dùng nhấn nút "THÊM VÀO GIỎ HÀNG", frontend gửi `variantId = undefined` hoặc giá trị rác, khiến backend trả về lỗi HTTP 400 Bad Request. Đây chính là lỗi **Biến thể Ma (Ghost Variant)**.
+
+#### B. Giải pháp Tự động Giải quyết Biến thể (Auto-Resolution Algorithm):
+Khi người dùng nhấp chọn màu mới `newColor`, hệ thống kích hoạt thuật toán tự động giải quyết size:
+```typescript
+const handleColorChange = (newColor: string) => {
+  setSelectedColor(newColor);
+
+  // 1. Trích xuất tất cả biến thể thuộc màu mới
+  const variantsOfColor = variants.filter(v => v.colorName === newColor);
+  
+  // 2. Kiểm tra xem size hiện tại có tồn tại ở màu mới hay không
+  const currentSizeStillExists = variantsOfColor.some(v => v.size === selectedSize);
+
+  if (!currentSizeStillExists) {
+    // 3. Auto-resolve: Tìm size đầu tiên còn hàng
+    const firstInStock = variantsOfColor.find(v => v.stockQuantity > 0);
+    if (firstInStock) {
+      setSelectedSize(firstInStock.size);
+    } else if (variantsOfColor.length > 0) {
+      // 4. Fallback: Nếu tất cả size màu mới đều hết hàng, chọn size đầu tiên được sản xuất
+      setSelectedSize(variantsOfColor[0].size);
+    }
+  }
+};
+```
+Nhờ thuật toán này, cặp `(selectedColor, selectedSize)` luôn luôn chỉ đến một bản ghi `ProductVariant` có thật trong database.
+
+---
+
+### 7.3. Thiết kế Bộ chọn Kích cỡ 4 Trạng thái (4-State Size Selector Matrix)
+
+Để mang lại trải nghiệm thời trang cao cấp, nút bấm chọn Size không thể chỉ có 2 trạng thái bật/tắt đơn giản. Hệ thống phân định ma trận 4 trạng thái như sau:
+
+| Trạng thái | Điều kiện Logic | Giao diện Trực quan | Tương tác Click |
+| :--- | :--- | :--- | :--- |
+| **1. Active / Selected** | `size === selectedSize` | Nền đen `#000000`, viền vàng champagne `#C7AD83`, chữ trắng đậm, shadow nhẹ | Đang chọn |
+| **2. In-Stock** | `variant.stockQuantity > 0` | Nền trong suốt, viền `#262626`, chữ xám `#D4D4D4`, hover viền `#C7AD83` | Kích hoạt `setSelectedSize(size)` |
+| **3. Out-of-Stock** | Có variant nhưng `stockQuantity === 0` | Nền `#0D0D0D`, viền `#1F1F1F`, chữ gạch ngang mờ `#525252`, icon/tooltip "Hết hàng" | `disabled` (Không cho click) |
+| **4. Not Offered** | Hoàn toàn không có variant cho màu này | Độ mờ sâu `opacity-25`, viền mờ `#171717`, chữ `#404040` | `disabled` (Không cho click) |
+
+---
+
+### 7.4. Post-Mortem 1: Giá trị Biên của Khoảng giá (Price Boundary Post-Mortem)
+
+#### A. Hiện tượng:
+Hai bộ lọc preset giá định sẵn:
+- Preset 1: `≤ 500k` (`maxPrice = 500.000₫`)
+- Preset 2: `500k – 1 triệu` (`minPrice = 500.000₫, maxPrice = 1.000.000₫`)
+
+Một sản phẩm có giá chính xác `500.000₫` (ví dụ: Áo sơ mi Oxford hoặc Áo thun Polo) sẽ xuất hiện trong kết quả của bộ lọc nào?
+
+#### B. Phân tích Predicates Backend:
+Trong file `ProductSpecification.java`:
+```java
+if (filter.getMinPrice() != null) {
+    predicates.add(cb.greaterThanOrEqualTo(root.get("minPrice"), filter.getMinPrice()));
+}
+if (filter.getMaxPrice() != null) {
+    predicates.add(cb.lessThanOrEqualTo(root.get("maxPrice"), filter.getMaxPrice()));
+}
+```
+Cả hai toán tử trong JPA Criteria API đều là toán tử **bao hàm (inclusive)**:
+- Với Preset 1 (`maxPrice: 500000`): SQL sinh ra là `WHERE price <= 500000`. Giá 500.000₫ thỏa mãn điều kiện `<=`.
+- Với Preset 2 (`minPrice: 500000, maxPrice: 1000000`): SQL sinh ra là `WHERE price >= 500000 AND price <= 1000000`. Giá 500.000₫ thỏa mãn điều kiện `>=`.
+
+#### C. Kết luận & Quyết định Nghiệp vụ:
+- **Hành vi thực tế**: Sản phẩm có giá đúng 500.000₫ xuất hiện ở **cả hai bộ lọc**.
+- **Ý nghĩa người dùng (E-commerce UX Convention)**: Khách hàng tìm sản phẩm "Dưới hoặc bằng 500k" kỳ vọng thấy sản phẩm 500k; đồng thời khách tìm "Từ 500k đến 1 triệu" cũng kỳ vọng thấy sản phẩm 500k bắt đầu từ ngưỡng này. Do đó, việc dùng nhãn trực quan `≤ 500k` và `500k – 1 triệu` với toán tử bao hàm hai đầu là hoàn toàn chuẩn xác về mặt UX và toán học.
+- Bộ test suite [`frontend/src/utils/productDetailCoordination.test.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/productDetailCoordination.test.ts) đã kiểm chứng tường minh trường hợp biên này (Scenario 9).
+
+---
+
+### 7.5. Post-Mortem 2: Bản chất Kỹ thuật của Search Version Guard
+
+#### A. Đính chính Khái niệm Kỹ thuật:
+- Trong một số tài liệu sơ bộ, cơ chế bảo vệ thế hệ `searchVersionRef` đôi khi được gọi theo thuật ngữ hình tượng là *"Atomic Abort"*.
+- **Làm rõ bản chất**: JavaScript trên trình duyệt là môi trường đơn luồng dựa trên Event Loop. `searchVersionRef` **không phải là cơ chế hủy luồng hệ điều hành (OS thread abort/kill)** và không can thiệp vào bộ lập lịch cấp thấp của trình duyệt.
+- **Bản chất thực sự**: Đây là một **Logical Generation Counter (Bộ đếm thế hệ logic)**.
+  - Khi một timer debounce được khởi tạo, nó "chụp lại" số hiệu thế hệ tại thời điểm lên lịch (`currentVersion = searchVersionRef.current`).
+  - Khi người dùng thực hiện bất kỳ hành vi thay đổi bộ lọc nào khác (click danh mục, xóa chip, đổi sort, xóa tất cả), ta chủ động tăng `searchVersionRef.current += 1`.
+  - Khi timer đánh thức callback sau 350ms, bước đầu tiên callback thực hiện là so sánh:
+    `if (searchVersionRef.current !== currentVersion) return;`
+  - Nếu số hiệu thế hệ đã thay đổi, callback tự giác rút lui trong im lặng mà không phát sinh bất kỳ side-effect nào lên state hoặc URL.
+- Đây là mô hình phòng thủ logic hoàn toàn độc lập với việc `useEffect` dọn dẹp chạy trước hay sau `setTimeout` callback.
+
+---
+
+### 7.6. Post-Mortem 3: Phòng chống Cuộc đua Microtask Mạng (`controller.signal.aborted`)
+
+#### A. Cuộc đua Vi tác vụ (Microtask Race Condition):
+Khi component thực hiện hủy request mạng:
+```typescript
+const controller = new AbortController();
+// ...
+controller.abort();
+```
+Trong trình duyệt, khi `fetch()` hoàn tất tải dữ liệu ngay tại thời điểm `abort()` được gọi (hoặc nằm trong microtask queue chuẩn bị giải quyết Promise), một race condition có thể xảy ra:
+1. `fetch()` giải quyết thành công và đưa callback `.then(response => response.json())` vào microtask queue.
+2. Ngay trước khi microtask được thực thi, người dùng bấm nút Back hoặc đổi danh mục, kích hoạt `controller.abort()`.
+3. Microtask callback `.then()` chạy và tiến hành `setProducts(data)` với dữ liệu cũ!
+
+#### B. Giải pháp Phòng thủ Đa tầng (Defense-in-Depth):
+Trong file [`frontend/src/App.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/App.tsx), ta bổ sung chốt kiểm tra tín hiệu hủy ngay bên trong nhánh resolve của Promise:
+```typescript
+getProductsApi(currentFilters, controller.signal)
+  .then((data) => {
+    // Chặn microtask race condition: Nếu request đã bị abort, hủy ngay lập tức
+    if (controller.signal.aborted) {
+      return;
+    }
+    setProducts(data.items);
+    setTotalPages(data.totalPages);
+    setTotalElements(data.totalElements);
+    setIsLoading(false);
+  })
+  .catch((err) => {
+    if (err.name === 'AbortError') return;
+    // ...
+  });
+```
+Điều này đảm bảo dù Promise có kịp resolve trước khi error handler kích hoạt, dữ liệu cũ cũng không thể ghi đè lên UI.
+
+---
+
+### 7.7. Post-Mortem 4: Bản chất Remount Canvas WebGL (Cây Component vs Routing)
+
+#### A. Phân tích Kỹ thuật:
+- Câu hỏi đặt ra: *Có phải bản thân các thư viện router (như React Router) là nguyên nhân gây unmount Canvas WebGL?*
+- **Câu trả lời**: Không. Về mặt kiến trúc React, việc một component có bị unmount hay không hoàn toàn phụ thuộc vào **vị trí của nó trong cây component (Component Tree Hierarchy)** và việc `key` của nó có bị thay đổi giữa các lần render hay không.
+- Nếu một ứng dụng dùng React Router đặt `<LivingRunwayCanvas />` ở root layout component nằm phía trên `<Outlet />`, thì khi chuyển từ `/` sang `/products/:slug`, canvas sẽ **không bị remount**.
+- **Tuy nhiên, lý do giữ nguyên Modal Lookbook qua URL Param (`?product=<slug>`)**:
+  1. *Độ phức tạp kiến trúc*: Việc đưa React Router vào đòi hỏi tái cấu trúc toàn bộ cây layout, đóng gói lại routing context và thêm dependency ngoài (~40KB).
+  2. *Trải nghiệm Lookbook*: Trong thời trang cao cấp, khi khách bấm xem chi tiết váy/áo, họ muốn xem tức thì dưới dạng overlay lookbook, giữ nguyên 100% vị trí cuộn trang của danh mục phía sau.
+  3. *Hiệu năng*: Việc kết hợp Modal với URL parameter vừa đạt được deep-linking hoàn hảo, vừa giữ WebGL Canvas thở liên tục trong suốt phiên mua sắm mà không tốn một dòng cấu hình route phức tạp.
+
 
 
 

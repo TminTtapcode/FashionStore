@@ -27,13 +27,34 @@ Fashion storefront cần có cảm giác editorial/lookbook, hình ảnh sản p
    - Nút "XÓA TẤT CẢ": Reset toàn bộ bộ lọc catalog về mặc định, xóa draft ô tìm kiếm, hủy timer debounce đang chờ, bảo tồn query param ngoại lai (`utm_source`...).
    - Cơ chế bảo vệ Search Debounce (Version Guard): Sử dụng `searchVersionRef` thế hệ tăng dần để triệt tiêu race condition giữa `setTimeout` và render cycle, đảm bảo callback cũ bị hủy hoàn toàn khi bộ lọc thay đổi.
    - Phân trang chuẩn với metadata rõ ràng.
-3. Product Detail (Trang chi tiết trang phục):
-   - Gallery ảnh: Gallery xếp chồng (stacked) trên desktop hoặc swipe slider mượt mà trên mobile; có thể phóng to xem chi tiết thớ vải.
-   - Lựa chọn màu sắc (Color Swatches): Nút tròn hiển thị màu hex thực tế kèm tên màu rõ ràng; click đổi ảnh gallery sang màu tương ứng.
-   - Lựa chọn kích cỡ (Size Selector): Nút chọn size dạng ô chữ nhật tối giản; size hết hàng có đường gạch chéo mờ và vô hiệu hóa.
-   - Bảng tra cứu số đo (Size Guide Drawer): Mở slide-over drawer từ cạnh phải hiển thị bảng số đo (ngực, eo, mông, dài trang phục) theo cm kèm hướng dẫn cách đo vòng đo cơ thể.
-   - Khối thông tin chi tiết: Chất liệu vải (`material`), Form dáng (`fit_style`), Hướng dẫn giặt ủi (`care_instructions`) và thông số chi tiết từ `specifications` JSON.
-   - Chính sách mua sắm: Cam kết hàng chính hãng, cho phép đổi size trong 7 ngày, miễn phí giao hàng đơn từ mức nhất định.
+3. Product Detail Lookbook Experience (Chi tiết trang phục & Điều phối biến thể - Phase 5B):
+   - **Mô hình Modal Lookbook vs Standalone Page**:
+     - *Quyết định thiết kế*: Sử dụng Modal Overlay cao cấp kết hợp URL Search Param `?product=<slug>` thay vì chuyển trang sang route riêng biệt.
+     - *Lý do kỹ thuật & thẩm mỹ*:
+       1. Tránh unmount component tree chứa WebGL Canvas Living Shader, bảo toàn 100% tài nguyên GPU context, ngăn chặn hiện tượng chớp màn hình (flicker) và gián đoạn nhịp thở animation loop.
+       2. Giữ nguyên vị trí cuộn trang (scroll position), dữ liệu catalog đã tải và toàn bộ trạng thái bộ lọc của danh mục. Khi đóng modal, người dùng quay lại đúng sản phẩm vừa duyệt mà không phải tải lại API.
+       3. Hỗ trợ đầy đủ Web History API: URL tự đổi thành `/?product=<slug>`, có thể copy link chia sẻ (deep-linking), hỗ trợ nút Back/Forward của trình duyệt và phím `Escape` đóng nhanh.
+   - **Dynamic Gallery đồng bộ theo Màu (Color Swatches)**:
+     - Gallery ảnh tỉ lệ chuẩn thời trang dọc (3:4), hỗ trợ ảnh chính kích thước lớn và dải ảnh thu nhỏ (thumbnails) bên dưới.
+     - Khi chọn Color Swatch, gallery tự động lọc hiển thị ảnh gán riêng cho biến thể màu đó (`img.variantId === variant.id`) kết hợp cùng các ảnh chụp chung (`!img.variantId`).
+     - Tự động fallback về toàn bộ gallery nếu biến thể chưa có ảnh chuyên biệt.
+   - **Bộ chọn Kích cỡ 4 Trạng thái (4-State Size Selector)**:
+     - Phân định rõ 4 trạng thái trực quan:
+       1. `Active / Selected`: Khung viền vàng champagne `#C7AD83`, nền đen sang trọng, text trắng đậm.
+       2. `In-Stock`: Viền mảnh `#262626`, hover chuyển viền `#C7AD83`, text `#D4D4D4`, sẵn sàng chọn.
+       3. `Out-of-Stock`: Viền mờ `#1F1F1F`, text gạch ngang mờ `#525252`, vô hiệu hóa click kèm tooltip "Tạm hết hàng".
+       4. `Not Offered`: Làm mờ sâu (`opacity-25`), viền đứt đoạn hoặc mờ, không thể click.
+   - **Cơ chế Phòng chống Biến thể Ma (Ghost Variant Prevention)**:
+     - Khi chuyển màu sắc mà kích cỡ hiện tại không tồn tại ở màu mới (do đặc thù may mặc không sản xuất đủ size ở mọi màu), UI tự động chuyển sang size đầu tiên còn hàng của màu mới.
+     - Triệt tiêu hoàn toàn trường hợp người dùng chọn phải biến thể không có thật hoặc biến thể không hợp lệ.
+   - **Bảng tra cứu số đo (Size Guide Drawer)**:
+     - Mở slide-over drawer từ cạnh phải hiển thị bảng số đo (ngực, eo, mông, dài trang phục) theo cm kèm hướng dẫn cách đo vòng đo cơ thể.
+     - Ưu tiên đọc thông số từ `product.specifications` JSON; tự động fallback theo loại danh mục (Đầm/Váy, Áo sơ mi/Áo thun, Quần/Chân váy).
+     - Phím `Escape` đóng drawer trước mà không làm tắt modal chi tiết bên dưới.
+   - **Khối thông tin chi tiết**: Chất liệu vải (`material`), Form dáng (`fit_style`), Hướng dẫn giặt ủi (`care_instructions`) và thông số chi tiết từ `specifications` JSON.
+   - **Phản hồi Thêm vào giỏ hàng (Add to Cart Feedback)**:
+     - Khách vãng lai: Kích hoạt modal Đăng nhập/Đăng ký tinh tế kèm thông báo giải thích.
+     - Khách đã đăng nhập: Gọi API thêm vào giỏ, đóng modal sản phẩm và tự động trượt mở Mini-Cart Drawer (`openCart()`) từ cạnh phải với thanh tiến độ Freeship trực quan.
 4. Cart: Xem lại ảnh trang phục, size đã chọn, màu đã chọn, thay đổi số lượng, kiểm tra giá và cảnh báo tồn kho.
 5. Checkout: Nhập địa chỉ, áp dụng mã chào mừng `WELCOME10`, chọn COD, xem breakdown tiền minh bạch và xác nhận đơn.
 6. Account: Hồ sơ cá nhân, sổ địa chỉ, lịch sử đơn hàng với đầy đủ snapshot size/màu của từng trang phục đã mua.

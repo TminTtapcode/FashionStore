@@ -80,17 +80,38 @@ Khi thiết kế giỏ hàng (Cart), cần chốt nguyên tắc: liệu có tr�
 **Status:** Accepted  
 **Date:** 2026-10-28  
 **Context:**  
-Ban đầu, `PROJECT_CONTEXT.md` dự kiến sử dụng React Router, TanStack Query, React Hook Form và Zod. Tuy nhiên, giao diện storefront mang phong cách Minimalist Editorial Lookbook có tích hợp Living Runway Shader (WebGL Canvas 3D). Việc cài đặt router và thư viện quản lý query bên thứ ba mang lại các rủi ro:
-1. Gia tăng kích thước bundle từ 15KB - 40KB gzipped (hiện tại bundle production chỉ ~99KB gzipped).
-2. `<RouterProvider>` remount lại DOM tree khi chuyển route, dễ gây gián đoạn WebGL animation loop, chớp nháy màn hình (flicker) và rò rỉ bộ nhớ GPU context.
-3. Độ phức tạp phụ thuộc vào chu kỳ phát hành của thư viện bên thứ ba với React 19 stable.
+Ban đầu, `PROJECT_CONTEXT.md` dự kiến sử dụng React Router, TanStack Query, React Hook Form và Zod. Tuy nhiên, giao diện storefront mang phong cách Minimalist Editorial Lookbook có tích hợp Living Runway Shader (WebGL Canvas 3D). Việc cài đặt router và thư viện quản lý query bên thứ ba mang lại các rủi ro và đánh đổi:
+1. Gia tăng kích thước bundle từ 15KB - 40KB gzipped (hiện tại bundle production chỉ ~100KB gzipped).
+2. Hiện tượng unmount/remount của WebGL Canvas: Về bản chất kỹ thuật, việc `<canvas>` bị remount hay không phụ thuộc vào vị trí của nó trong cây component (component tree hierarchy), chứ không phải do bản thân thư viện routing. Tuy nhiên, trong các thiết kế route phân tách thông thường (ví dụ: chuyển từ `/` sang `/products/:slug`), nếu canvas không được neo vào một persistent layout cấp cao nhất mà gắn liền với trang, WebGL context sẽ bị hủy và phải biên dịch lại shaders, textures, gây gián đoạn animation loop và sụt giảm khung hình.
+3. Việc kết hợp Modal Lookbook với URL Search Parameter (`?product=<slug>`) cho phép giữ nguyên 100% component tree, bảo toàn WebGL Canvas sống liên tục, giữ nguyên vị trí cuộn trang danh mục, đồng thời vẫn đáp ứng trọn vẹn yêu cầu deep-linking và Web History API (Back/Forward `popstate`).
+4. Giảm thiểu rủi ro xung đột tương thích phụ thuộc giữa các thư viện bên thứ ba với React 19 stable.
 
 **Decision:**  
 1. **Lightweight SPA Baseline:** Giữ nguyên kiến trúc SPA nhẹ dựa trên React 19 native hooks (`useState`, `useRef`, `useContext`), API client tách biệt (`fetch` chuẩn với credentials `include`), và React Context (`AuthContext`, `CartContext`).
-2. **Bi-directional URL Sync via Web APIs:** Sử dụng `URLSearchParams` kết hợp `window.history.pushState` (cho các thay đổi bộ lọc, phân trang, chip) và `window.history.replaceState` (cho debounce search và chuẩn hóa URL).
-3. **Defense-in-Depth Coordination & Version Guard:** Kiểm soát hủy debounce timer, phòng chống stale closure qua `filtersRef`, và ngăn chặn timer rò rỉ bằng bộ đếm thế hệ `searchVersionRef`.
+2. **Bi-directional URL Sync via Web APIs:** Sử dụng `URLSearchParams` kết hợp `window.history.pushState` (cho các thay đổi bộ lọc, phân trang, chip, mở modal `?product=<slug>`) và `window.history.replaceState` (cho debounce search và chuẩn hóa URL).
+3. **Defense-in-Depth Coordination & Version Guard:** Kiểm soát hủy debounce timer, phòng chống stale closure qua `filtersRef`, và ngăn chặn timer rò rỉ bằng bộ đếm thế hệ `searchVersionRef` (kiểm tra thế hệ logic trước khi commit state).
+4. **Network Microtask Abort Guard:** Trong các Promise chain gọi API (`getProductsApi`), luôn kiểm tra điều kiện `if (controller.signal.aborted) return;` bên trong callback `.then()` để loại bỏ hoàn toàn các cuộc đua vi tác vụ (microtask race) khi phản hồi mạng đến đúng lúc request bị hủy.
 
 **Consequences:**  
-- *Tích cực:* Giữ nguyên 100% hiệu năng mượt mà của WebGL Living Shader; bundle production cực kỳ gọn nhẹ (<100 kB gzip); kiểm soát chi tiết từng lời gọi history.
-- *Lưu ý:* Phải tự quản lý sự kiện `popstate` và dọn dẹp timer debounce khi điều hướng Back/Forward (đã được bao phủ và chứng minh qua bộ 23 tests tự động và Chrome DevTools MCP).
+- *Tích cực:* Giữ nguyên 100% hiệu năng mượt mà của WebGL Living Shader; bundle production cực kỳ gọn nhẹ (<101 kB gzip); kiểm soát chi tiết từng lời gọi history mà không phụ thuộc package ngoài.
+- *Lưu ý:* Phải tự quản lý sự kiện `popstate` và dọn dẹp timer debounce khi điều hướng Back/Forward (đã được bao phủ và chứng minh qua bộ 32 tests tự động và Chrome DevTools MCP).
+
+## ADR-013 — Lookbook Detail Experience & Ghost Variant Prevention
+**Status:** Accepted  
+**Date:** 2026-10-28  
+**Context:**  
+Trong ngành thời trang may mặc, sản phẩm có nhiều biến thể theo 2 chiều (Màu sắc và Kích cỡ). Một vấn đề thực tế rất phổ biến là tính bất đối xứng giữa các màu: một mẫu đầm màu Trắng có đủ size S, M, L; nhưng màu Xanh Rêu chỉ sản xuất size M, L; hoặc màu Đen chỉ còn size L. Nếu UI cho phép người dùng giữ nguyên size S khi chuyển từ màu Trắng sang màu Xanh Rêu, hệ thống sẽ rơi vào trạng thái "Biến thể ma" (Ghost Variant) — một tổ hợp (Xanh Rêu, S) không tồn tại trong database, dẫn đến hiển thị sai giá, sai tồn kho, hoặc lỗi 400 Bad Request khi bấm thêm vào giỏ.
+
+**Decision:**  
+1. **Lookbook Modal Presentation:** Chi tiết sản phẩm được hiển thị dưới dạng Lookbook Modal lớp phủ cao cấp kết hợp URL search param `?product=<slug>`, đồng bộ 2 chiều với history và hỗ trợ phím `Escape`.
+2. **Dynamic Gallery Synchronization:** Gallery ảnh tự động ưu tiên các ảnh gắn với biến thể màu đang chọn (`img.variantId === variant.id`), kết hợp ảnh chung của sản phẩm (`!img.variantId`), và fallback về toàn bộ gallery nếu chưa có ảnh riêng.
+3. **Ghost Variant Prevention (Auto-resolution):** Khi người dùng đổi Color Swatch:
+   - Nếu size hiện tại cũng tồn tại ở màu mới: Giữ nguyên size.
+   - Nếu size hiện tại KHÔNG tồn tại ở màu mới: UI tự động chuyển sang size đầu tiên còn hàng (`stock_quantity > 0`) của màu mới. Nếu tất cả size của màu mới đều hết hàng, chuyển sang size đầu tiên được sản xuất.
+4. **4-State Size Selector:** Nút chọn kích cỡ phản ánh chính xác 4 trạng thái: Active/Selected, In-Stock, Out-of-Stock (gạch ngang mờ + disable), Not-Offered (làm mờ sâu + disable).
+5. **Dynamic Size Guide Specs:** Bảng số đo ưu tiên đọc cấu hình đo 3 vòng tùy biến từ `product.specifications` JSON; tự động fallback về bảng đo chuẩn theo nhóm danh mục thời trang (Đầm, Áo, Quần) nếu sản phẩm không có cấu hình riêng.
+
+**Consequences:**  
+- *Tích cực:* Loại bỏ hoàn toàn lỗi chọn biến thể không tồn tại; người dùng luôn nhìn thấy đúng giá, đúng ảnh, đúng tồn kho tương ứng với màu/size đang xem; trải nghiệm mua sắm mượt mà chuẩn lookbook cao cấp.
+- *Lưu ý:* Cần kiểm thử toàn diện cả các trường hợp sản phẩm chỉ có 1 màu, sản phẩm hết hàng toàn bộ, và sản phẩm có giá khác nhau giữa các biến thể.
 

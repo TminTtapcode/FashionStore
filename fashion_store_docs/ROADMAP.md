@@ -82,9 +82,30 @@ Acceptance: 66 backend tests passed; frontend build thành công (429ms); bảo 
   - Bộ 23 tests tích hợp tự động PASS (100%), build pass sạch sẽ, 0 lỗi lint mới.
   - Đã kiểm chứng thực tế toàn diện trên trình duyệt thông qua Chrome DevTools MCP.
 
-## Phase 5B — Product Detail Lookbook Experience
-- Trang/Modal chi tiết trang phục chuyên sâu, gallery ảnh đổi theo Color Swatch.
-- Bảng Size Guide drawer tra cứu số đo 3 vòng theo nhóm sản phẩm (Đầm/Quần/Áo).
+## Phase 5B — Product Detail Lookbook Experience [Hoàn tất]
+Deliverables:
+- **Lookbook Presentation & Deep-Linking (`/?product=<slug>`)**:
+  - Modal chi tiết trang phục kết hợp URL search param `?product=<slug>`, đồng bộ 2 chiều với Web History API (`pushState` / `popstate`), hỗ trợ phím `Escape` và khóa cuộn nền (`document.body.style.overflow = 'hidden'`).
+  - Bảo tồn 100% component tree và WebGL Living Runway Shader, tránh sụt giảm FPS và rò rỉ GPU context.
+- **Dynamic Gallery đồng bộ Color Swatch**:
+  - Tự động lọc ảnh theo biến thể màu đang chọn (`variant.id`), kết hợp ảnh chung của sản phẩm (`!img.variantId`), và fallback thông minh về toàn bộ ảnh.
+- **Cơ chế Phòng chống Biến thể Ma (Ghost Variant Prevention)**:
+  - Tự động giải quyết (auto-resolve) sang size khả dụng đầu tiên còn hàng khi chuyển màu có kích cỡ bất đối xứng, loại bỏ hoàn toàn lỗi chọn cặp (màu, size) không tồn tại.
+- **Bộ chọn Size 4 Trạng thái (4-State Size Selector)**:
+  - Phân định rõ ràng: Active / Selected, In-Stock, Out-of-Stock (gạch ngang mờ + disable), Not-Offered (làm mờ sâu + disable).
+- **Authoritative Pricing & Stock**:
+  - Hiển thị giá biến thể chính xác, giá niêm yết so sánh (`compare_at_price`), phần trăm giảm giá (`-X%`) và cảnh báo tồn kho thời gian thực.
+- **Dynamic Size Guide Drawer**:
+  - Slide-over drawer tra cứu bảng số đo 3 vòng (ngực, eo, mông, dài áo/váy) ưu tiên trích xuất từ `product.specifications` JSON; tự động fallback theo danh mục chuẩn (Đầm/Váy, Áo sơ mi/Áo thun, Quần/Chân váy); hỗ trợ phím `Escape` độc lập.
+- **Tích hợp Add to Cart**:
+  - Nhắc nhở đăng nhập cho khách vãng lai (`openAuthModal('login')`), gọi API thêm vào giỏ hàng (`POST /api/v1/cart/items`), đóng modal và tự động trượt mở Mini-Cart Drawer (`openCart()`).
+- **Phòng thủ Cuộc đua Microtask Mạng**:
+  - Bổ sung `if (controller.signal.aborted) return;` bên trong `.then()` của `getProductsApi` để chống microtask race condition.
+- **Bằng chứng Nghiệm thu**:
+  - Test Suite: **32/32 tests tự động PASS (100%)** (11 URL tests + 12 filter debounce tests + 9 product detail lookbook tests).
+  - Backend Suite: **107/107 tests PASS (100%)**.
+  - Code Quality: `tsc -b && vite build` hoàn tất sạch sẽ trong 762ms (~100.34 kB gzip); 0 lỗi lint.
+  - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (deep-linking, color switch, dynamic gallery, ghost variant prevention, size guide drawer, escape key).
 
 ## Phase 5C — Shop owner operations (Layout Quản Trị Riêng)
 - Cổng quản trị riêng biệt cho Shop Owner/Admin (`/owner` hoặc portal tách khỏi storefront).

@@ -10,13 +10,32 @@
     - Lọc theo Khoảng giá (`minPrice`, `maxPrice`).
     - Lọc theo Tình trạng tồn kho (`inStockOnly=true`).
   - Sắp xếp (Sorting) server-side với whitelist chặt chẽ: `newest` (mới nhất), `price_asc` (giá tăng dần), `price_desc` (giá giảm dần), `name_asc` (tên sản phẩm A-Z). Không chấp nhận param sort tùy tiện.
-- **Trải nghiệm chọn biến thể thời trang (Product Detail Flow)**:
-  - Khách hàng chọn **Màu sắc** (qua Color Swatches) -> Gallery ảnh tự động đồng bộ sang góc chụp của màu đó (nếu variant có ảnh riêng) hoặc giữ ảnh chung; đồng thời cập nhật trạng thái khả dụng của các nút Size.
-  - Khách hàng chọn **Size** -> Hệ thống kiểm tra tổ hợp (Màu, Size) tương ứng:
-    - Nếu còn hàng: hiển thị giá bán, giá niêm yết so sánh (`compare_at_price`), số lượng tồn kho và kích hoạt nút "Thêm vào giỏ hàng".
-    - Nếu hết hàng (`stock_quantity = 0`): hiển thị badge "Tạm hết hàng", vô hiệu hóa nút thêm vào giỏ.
-  - **Tra cứu Bảng số đo (Size Guide)**: Cho phép mở Drawer/Modal tra cứu thông số chuẩn (dài áo/váy, vòng ngực, vòng eo, vòng mông) theo chiều cao & cân nặng cho từng nhóm trang phục cụ thể.
-  - **Thông tin chất liệu & bảo quản**: Hiển thị rõ chất liệu vải (`material`), form dáng (`fit_style`), hướng dẫn giặt ủi (`care_instructions`) và các thông số chuyên biệt từ `specifications` JSON.
+- **Trải nghiệm chọn biến thể thời trang (Product Detail Flow - Phase 5B)**:
+  - **Mở Lookbook Detail & Deep-linking URL**:
+    - Khi click vào bất kỳ Product Card trên storefront, hệ thống cập nhật query parameter `?product=<slug>` qua `window.history.pushState` mà không reload trang.
+    - Deep-linking hỗ trợ mở trực tiếp modal từ URL (khi gửi link hoặc refresh trang), hỗ trợ nút Back/Forward (`popstate`) và phím `Escape` để đóng modal mà vẫn bảo tồn 100% các bộ lọc catalog hiện hành (`category`, `size`, `color`, `price`, `sort`, `search`).
+  - **Dynamic Gallery đồng bộ theo Màu (Color Swatch)**:
+    - Khi khách hàng chọn một **Màu sắc** (qua Color Swatches), hệ thống lọc danh sách ảnh: ưu tiên hiển thị ảnh gán riêng cho biến thể màu đó (`variant.id`), kết hợp với các ảnh chụp chung của sản phẩm (`!img.variantId`), sắp xếp theo `sortOrder`.
+    - Nếu màu đó chưa có ảnh biến thể riêng, hệ thống tự động fallback hiển thị toàn bộ gallery ảnh sản phẩm.
+  - **Cơ chế Phòng chống Biến thể Ma (Ghost Variant Prevention)**:
+    - Trong ngành thời trang, số lượng size của các màu thường không đối xứng (ví dụ: Màu Trắng có S, M, L; Màu Xanh chỉ có M, L; Màu Đen chỉ sản xuất L).
+    - Khi người dùng đang chọn Size S của Màu Trắng và chuyển sang click Màu Xanh (vốn không có Size S), hệ thống tự động giải quyết (auto-resolve) sang size khả dụng đầu tiên còn hàng của Màu Xanh (ví dụ Size M).
+    - Ngăn chặn hoàn toàn việc tồn tại tổ hợp (Màu, Size) không có thật trong database gây lỗi khi thêm giỏ hàng.
+  - **Bộ chọn Size 4 Trạng thái (4-State Size Selector)**:
+    - `Active / Selected`: Size đang được chọn (viền vàng gold `#C7AD83`, nền đen, text trắng).
+    - `In-Stock`: Size có tồn kho (`stock_quantity > 0`), có thể click chọn.
+    - `Out-of-Stock`: Size có sản xuất cho màu này nhưng tạm hết hàng (`stock_quantity = 0`), hiển thị đường gạch ngang mờ và tooltip/badge cảnh báo hết hàng, vô hiệu hóa click.
+    - `Not Offered`: Size hoàn toàn không được sản xuất cho màu này, nút bị làm mờ sâu và vô hiệu hóa click.
+  - **Độ chính xác Biến thể & Thẩm quyền Giá (Authoritative Variant Resolution)**:
+    - Hệ thống giải quyết chính xác biến thể theo cặp `(selectedColor, selectedSize)`.
+    - Hiển thị giá bán riêng của biến thể, giá niêm yết so sánh (`compare_at_price`), phần trăm giảm giá (`-X%`) và số lượng tồn kho thực tế (`stock_quantity`).
+  - **Tra cứu Bảng số đo (Size Guide Drawer)**:
+    - Cho phép mở slide-over drawer tra cứu bảng thông số chuẩn (dài áo/váy, vòng ngực, vòng eo, vòng mông) theo chiều cao & cân nặng.
+    - Ưu tiên hiển thị bảng đo tùy biến trích xuất từ `product.specifications` JSON; nếu sản phẩm không có cấu hình riêng, tự động fallback về bảng kích thước chuẩn theo danh mục (Đầm/Váy, Áo sơ mi/Áo thun, Quần/Chân váy).
+    - Drawer hỗ trợ phím `Escape` độc lập và chặn nổi bọt sự kiện để không vô tình đóng modal sản phẩm bên dưới.
+  - **Luồng Thêm vào giỏ hàng (Add to Cart Workflow)**:
+    - Khách hàng chưa đăng nhập (Guest): Bấm "THÊM VÀO GIỎ HÀNG" sẽ kích hoạt popup đăng nhập (`openAuthModal('login')`) kèm thông báo hướng dẫn.
+    - Khách hàng đã đăng nhập: Gửi request `POST /api/v1/cart/items` với `variantId` đã giải quyết và `quantity: 1`. Khi thành công, đóng modal sản phẩm và tự động mở mini-cart drawer (`openCart()`) để khách xem lại giỏ hàng và thanh toán mà không làm mất luồng trải nghiệm.
 - **Quản lý ảnh sản phẩm**:
   - Ảnh tải lên có thứ tự `sort_order` và duy nhất 1 ảnh `is_primary = true`.
   - Validate định dạng ảnh (JPG, PNG, WebP), dung lượng tối đa và kích thước tối thiểu để đảm bảo tính thẩm mỹ chuẩn lookbook.
