@@ -69,6 +69,9 @@ class CheckoutServiceTest {
     @Mock
     private CouponUsageRepository couponUsageRepository;
 
+    @Mock
+    private com.fashionstore.inventory.application.InventoryService inventoryService;
+
     @InjectMocks
     private CheckoutService checkoutService;
 
@@ -178,12 +181,13 @@ class CheckoutServiceTest {
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(testCart));
         when(cartItemRepository.findByCartIdWithDetails(10L)).thenReturn(new ArrayList<>(List.of(item1)));
 
-        // variantRepository.deductStock returns 0 (out of stock)
-        when(variantRepository.deductStock(eq(201L), eq(2))).thenReturn(0);
+        // inventoryService throws INSUFFICIENT_STOCK
+        doThrow(new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK", "không đủ tồn kho"))
+                .when(inventoryService).deductStockForOrder(any(), any(), eq(201L), eq(2), eq(1L));
 
         assertThatThrownBy(() -> checkoutService.checkoutCod(1L, testIdempotencyKey, validRequest))
                 .isInstanceOf(ApiException.class)
-                .hasMessageContaining("không đủ tồn kho hoặc đã hết hàng");
+                .hasMessageContaining("không đủ tồn kho");
 
         verify(orderRepository, never()).save(any());
         verify(cartItemRepository, never()).deleteAllByCartId(any());
@@ -199,7 +203,6 @@ class CheckoutServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(testCart));
         when(cartItemRepository.findByCartIdWithDetails(10L)).thenReturn(new ArrayList<>(List.of(item1)));
-        when(variantRepository.deductStock(201L, 1)).thenReturn(1);
         when(orderRepository.existsByOrderNumber(any())).thenReturn(false);
 
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
@@ -251,8 +254,6 @@ class CheckoutServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(testCart));
         when(cartItemRepository.findByCartIdWithDetails(10L)).thenReturn(new ArrayList<>(List.of(item1, item2)));
-        when(variantRepository.deductStock(201L, 2)).thenReturn(1);
-        when(variantRepository.deductStock(202L, 1)).thenReturn(1);
         when(orderRepository.existsByOrderNumber(any())).thenReturn(false);
 
         // Voucher checks

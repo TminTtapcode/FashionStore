@@ -42,6 +42,9 @@ class OrderLifecycleServiceTest {
     @Mock
     private CouponUsageRepository couponUsageRepository;
 
+    @Mock
+    private com.fashionstore.inventory.application.InventoryService inventoryService;
+
     @InjectMocks
     private OrderLifecycleService orderLifecycleService;
 
@@ -132,9 +135,9 @@ class OrderLifecycleServiceTest {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(testOrder.getStatus()).isEqualTo(OrderStatus.CANCELLED);
 
-        // Verify stock is restored immediately
-        verify(variantRepository, times(1)).restoreStock(201L, 2);
-        verify(variantRepository, times(1)).restoreStock(202L, 1);
+        // Verify stock is restored immediately via InventoryService
+        verify(inventoryService, times(1)).restoreStockForCancellation(any(), eq("ORD-20261028-0001"), eq(201L), eq(2), eq(1L), any());
+        verify(inventoryService, times(1)).restoreStockForCancellation(any(), eq("ORD-20261028-0001"), eq(202L), eq(1), eq(1L), any());
 
         // Verify voucher is released, NOT deleted
         assertThat(usage.getStatus()).isEqualTo(CouponUsage.STATUS_RELEASED);
@@ -201,8 +204,8 @@ class OrderLifecycleServiceTest {
         );
 
         assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-        verify(variantRepository, times(1)).restoreStock(201L, 2);
-        verify(variantRepository, times(1)).restoreStock(202L, 1);
+        verify(inventoryService, times(1)).restoreStockForCancellation(any(), eq("ORD-20261028-0001"), eq(201L), eq(2), isNull(), any());
+        verify(inventoryService, times(1)).restoreStockForCancellation(any(), eq("ORD-20261028-0001"), eq(202L), eq(1), isNull(), any());
     }
 
     @Test
@@ -273,8 +276,8 @@ class OrderLifecycleServiceTest {
         assertThat(result.getStatus()).isEqualTo(OrderStatus.RETURNED);
 
         // Restores stock safely now that package is in warehouse
-        verify(variantRepository, times(1)).restoreStock(201L, 2);
-        verify(variantRepository, times(1)).restoreStock(202L, 1);
+        verify(inventoryService, times(1)).restoreStockForReturn(any(), eq("ORD-20261028-0001"), eq(201L), eq(2), isNull(), any());
+        verify(inventoryService, times(1)).restoreStockForReturn(any(), eq("ORD-20261028-0001"), eq(202L), eq(1), isNull(), any());
 
         // Voucher released
         assertThat(usage.getStatus()).isEqualTo(CouponUsage.STATUS_RELEASED);

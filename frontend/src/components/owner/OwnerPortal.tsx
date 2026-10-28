@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import OwnerOrdersView from './OwnerOrdersView';
 import OwnerProductsView from './OwnerProductsView';
+import { OwnerInventoryView } from './OwnerInventoryView';
 
 interface OwnerPortalProps {
   onNavigateStorefront: () => void;
@@ -202,15 +203,18 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
 
               <button
                 type="button"
-                disabled
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xs text-white/30 cursor-not-allowed"
-                title="Sẽ triển khai trong Phase 5C.3"
+                onClick={() => setActiveNav('inventory')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xs transition-all cursor-pointer ${
+                  activeNav === 'inventory'
+                    ? 'bg-[#C7AD83]/15 text-[#C7AD83] font-bold border border-[#C7AD83]/40 shadow-xs'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span>🏷️</span>
                   <span>Tồn kho & Audit Trail</span>
                 </div>
-                <span className="text-[9px] px-1 py-0.2 bg-white/5 rounded-2xs text-white/20">5C.3</span>
+                <span className="text-[10px] px-1.5 py-0.2 bg-[#C7AD83]/20 rounded-full font-bold">5C.3</span>
               </button>
 
               <button
@@ -253,21 +257,32 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
             {/* View Header */}
             <div>
               <span className="text-[10px] font-mono tracking-widest text-[#C7AD83] uppercase font-bold">
-                {activeNav === 'orders' ? 'OPERATIONS DASHBOARD' : 'CATALOG & INVENTORY ATELIER'}
+                {activeNav === 'orders'
+                  ? 'OPERATIONS DASHBOARD'
+                  : activeNav === 'products'
+                  ? 'CATALOG & MATRIX MANAGEMENT'
+                  : 'INVENTORY & AUDIT LEDGER'}
               </span>
               <h1 className="font-editorial text-2xl sm:text-3xl font-medium mt-1 text-white">
-                {activeNav === 'orders' ? 'Quản lý Vòng đời Đơn hàng' : 'Quản lý Sản phẩm & Biến thể'}
+                {activeNav === 'orders'
+                  ? 'Quản lý Vòng đời Đơn hàng'
+                  : activeNav === 'products'
+                  ? 'Quản lý Sản phẩm & Biến thể'
+                  : 'Quản lý Tồn kho & Sổ cái Kiểm toán'}
               </h1>
               <p className="text-xs text-white/50 mt-1 font-sans">
                 {activeNav === 'orders'
                   ? 'Theo dõi, xác nhận đóng gói, bàn giao vận chuyển và xử lý hàng hoàn về kho theo state machine nghiêm ngặt.'
-                  : 'Khởi tạo sản phẩm, sinh ma trận biến thể theo size/màu, quản lý SKU chuẩn hóa và điều phối vòng đời DRAFT → ACTIVE → HIDDEN → ARCHIVED.'}
+                  : activeNav === 'products'
+                  ? 'Khởi tạo sản phẩm, sinh ma trận biến thể theo size/màu, quản lý SKU chuẩn hóa và điều phối vòng đời DRAFT → ACTIVE → HIDDEN → ARCHIVED.'
+                  : 'Theo dõi tồn kho khả dụng (ATS), nhập kho bổ sung, điều chỉnh kiểm kê và kiểm tra đối soát số dư toán học bất biến.'}
               </p>
             </div>
 
             {/* Active View */}
             {activeNav === 'orders' && <OwnerOrdersView />}
             {activeNav === 'products' && <OwnerProductsView />}
+            {activeNav === 'inventory' && <OwnerInventoryView />}
           </div>
         </main>
       </div>

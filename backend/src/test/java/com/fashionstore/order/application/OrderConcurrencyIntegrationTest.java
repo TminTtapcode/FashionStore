@@ -94,6 +94,9 @@ class OrderConcurrencyIntegrationTest {
     private CouponUsageRepository couponUsageRepository;
 
     @Autowired
+    private com.fashionstore.inventory.domain.InventoryMovementRepository movementRepository;
+
+    @Autowired
     private JwtTokenProvider tokenProvider;
 
     private User testCustomer;
@@ -147,6 +150,9 @@ class OrderConcurrencyIntegrationTest {
         orderItemRepository.deleteAll();
         couponUsageRepository.deleteAll();
         orderRepository.deleteAll();
+        if (movementRepository != null) {
+            movementRepository.deleteAll();
+        }
         cartItemRepository.deleteAll();
         cartRepository.deleteAll();
 

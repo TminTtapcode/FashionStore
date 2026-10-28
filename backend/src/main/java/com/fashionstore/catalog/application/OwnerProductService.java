@@ -7,6 +7,7 @@ import com.fashionstore.common.api.PageResponse;
 import com.fashionstore.common.exception.ApiException;
 import com.fashionstore.common.exception.DuplicateResourceException;
 import com.fashionstore.common.exception.ResourceNotFoundException;
+import com.fashionstore.inventory.application.InventoryService;
 import com.fashionstore.order.domain.OrderItemRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
@@ -31,18 +32,21 @@ public class OwnerProductService {
     private final CategoryRepository categoryRepository;
     private final OrderItemRepository orderItemRepository;
     private final SkuGeneratorService skuGeneratorService;
+    private final InventoryService inventoryService;
 
     public OwnerProductService(
             ProductRepository productRepository,
             ProductVariantRepository variantRepository,
             CategoryRepository categoryRepository,
             OrderItemRepository orderItemRepository,
-            SkuGeneratorService skuGeneratorService) {
+            SkuGeneratorService skuGeneratorService,
+            InventoryService inventoryService) {
         this.productRepository = productRepository;
         this.variantRepository = variantRepository;
         this.categoryRepository = categoryRepository;
         this.orderItemRepository = orderItemRepository;
         this.skuGeneratorService = skuGeneratorService;
+        this.inventoryService = inventoryService;
     }
 
     /**
@@ -202,6 +206,13 @@ public class OwnerProductService {
         }
 
         Product saved = productRepository.save(product);
+        if (saved.getVariants() != null) {
+            for (ProductVariant v : saved.getVariants()) {
+                if (v.getStockQuantity() > 0) {
+                    inventoryService.recordInitialStock(v.getId(), v.getStockQuantity(), null, "Khởi tạo tồn kho ban đầu khi tạo sản phẩm");
+                }
+            }
+        }
         return toDetailDto(saved, false);
     }
 
@@ -330,6 +341,9 @@ public class OwnerProductService {
 
         product.addVariant(variant);
         ProductVariant saved = variantRepository.save(variant);
+        if (saved.getStockQuantity() > 0) {
+            inventoryService.recordInitialStock(saved.getId(), saved.getStockQuantity(), null, "Khởi tạo tồn kho ban đầu khi tạo biến thể");
+        }
 
         return toVariantDto(saved, false);
     }

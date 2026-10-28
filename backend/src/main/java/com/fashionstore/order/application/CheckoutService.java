@@ -21,6 +21,7 @@ import com.fashionstore.promotion.domain.CouponUsage;
 import com.fashionstore.promotion.domain.DiscountType;
 import com.fashionstore.promotion.infrastructure.CouponRepository;
 import com.fashionstore.promotion.infrastructure.CouponUsageRepository;
+import com.fashionstore.inventory.application.InventoryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -52,6 +53,7 @@ public class CheckoutService {
     private final UserRepository userRepository;
     private final CouponRepository couponRepository;
     private final CouponUsageRepository couponUsageRepository;
+    private final InventoryService inventoryService;
 
     public CheckoutService(
             OrderRepository orderRepository,
@@ -62,7 +64,8 @@ public class CheckoutService {
             ProductVariantRepository variantRepository,
             UserRepository userRepository,
             CouponRepository couponRepository,
-            CouponUsageRepository couponUsageRepository) {
+            CouponUsageRepository couponUsageRepository,
+            InventoryService inventoryService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -72,6 +75,7 @@ public class CheckoutService {
         this.userRepository = userRepository;
         this.couponRepository = couponRepository;
         this.couponUsageRepository = couponUsageRepository;
+        this.inventoryService = inventoryService;
     }
 
     /**
@@ -135,20 +139,16 @@ public class CheckoutService {
         // 4. Deadlock Prevention: Sort items by Variant ID in ascending order
         cartItems.sort(Comparator.comparing(item -> item.getVariant().getId()));
 
-        // 5. Conditional Inventory Deduction
+        // 5. Generate Unique Order Number
+        String orderNumber = generateUniqueOrderNumber();
+
+        // 6. Conditional Inventory Deduction & Immutable Ledger Recording
         for (CartItem item : cartItems) {
             ProductVariant v = item.getVariant();
-            int affected = variantRepository.deductStock(v.getId(), item.getQuantity());
-            if (affected == 0) {
-                throw new ApiException(
-                        HttpStatus.BAD_REQUEST,
-                        "INSUFFICIENT_STOCK",
-                        "Sản phẩm '" + v.getProduct().getName() + " (" + v.getSize() + " - " + v.getColorName() + ")' không đủ tồn kho hoặc đã hết hàng"
-                );
-            }
+            inventoryService.deductStockForOrder(null, orderNumber, v.getId(), item.getQuantity(), userId);
         }
 
-        // 6. Subtotal Calculation
+        // 7. Subtotal Calculation
         BigDecimal subtotalAmount = BigDecimal.ZERO;
         for (CartItem item : cartItems) {
             BigDecimal itemTotal = item.getVariant().getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -226,9 +226,6 @@ public class CheckoutService {
         }
 
         BigDecimal finalAmount = subtotalAmount.subtract(discountAmount).add(shippingFee);
-
-        // 9. Generate Unique Order Number
-        String orderNumber = generateUniqueOrderNumber();
 
         // 10. Persist Order
         Order order = new Order(

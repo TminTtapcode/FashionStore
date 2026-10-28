@@ -3,6 +3,7 @@ package com.fashionstore.order.application;
 import com.fashionstore.catalog.domain.ProductVariantRepository;
 import com.fashionstore.common.exception.ApiException;
 import com.fashionstore.common.exception.ResourceNotFoundException;
+import com.fashionstore.inventory.application.InventoryService;
 import com.fashionstore.order.api.dto.*;
 import com.fashionstore.order.domain.*;
 import com.fashionstore.promotion.domain.CouponUsage;
@@ -22,14 +23,17 @@ public class OrderLifecycleService {
     private final OrderRepository orderRepository;
     private final ProductVariantRepository variantRepository;
     private final CouponUsageRepository couponUsageRepository;
+    private final InventoryService inventoryService;
 
     public OrderLifecycleService(
             OrderRepository orderRepository,
             ProductVariantRepository variantRepository,
-            CouponUsageRepository couponUsageRepository) {
+            CouponUsageRepository couponUsageRepository,
+            InventoryService inventoryService) {
         this.orderRepository = orderRepository;
         this.variantRepository = variantRepository;
         this.couponUsageRepository = couponUsageRepository;
+        this.inventoryService = inventoryService;
     }
 
     /**
@@ -57,7 +61,7 @@ public class OrderLifecycleService {
         order.setStatus(OrderStatus.CANCELLED);
 
         // Immediate stock restoration for pre-carrier cancellation
-        restoreOrderStock(order);
+        restoreOrderStockForCancel(order, userId, reason);
 
         // Voucher release audit: marks status as RELEASED, preserves audit trail
         releaseOrderCoupon(order);
@@ -116,7 +120,7 @@ public class OrderLifecycleService {
         // 1. Cancellation by Owner before carrier handover
         if (toStatus == OrderStatus.CANCELLED) {
             if (previousStatus.allowsImmediateStockRestorationOnCancel()) {
-                restoreOrderStock(order);
+                restoreOrderStockForCancel(order, null, note);
                 releaseOrderCoupon(order);
             }
         }
@@ -166,7 +170,7 @@ public class OrderLifecycleService {
         order.setStatus(OrderStatus.RETURNED);
 
         // Now package is physically received and inspected at warehouse: restore inventory
-        restoreOrderStock(order);
+        restoreOrderStockForReturn(order, null, note);
 
         // Release voucher quota
         releaseOrderCoupon(order);
@@ -184,10 +188,32 @@ public class OrderLifecycleService {
         return mapToDto(saved);
     }
 
-    private void restoreOrderStock(Order order) {
+    private void restoreOrderStockForCancel(Order order, Long actorUserId, String reason) {
         for (OrderItem item : order.getItems()) {
             if (item.getVariantId() != null && item.getQuantity() > 0) {
-                variantRepository.restoreStock(item.getVariantId(), item.getQuantity());
+                inventoryService.restoreStockForCancellation(
+                        order.getId(),
+                        order.getOrderNumber(),
+                        item.getVariantId(),
+                        item.getQuantity(),
+                        actorUserId,
+                        reason
+                );
+            }
+        }
+    }
+
+    private void restoreOrderStockForReturn(Order order, Long actorUserId, String reason) {
+        for (OrderItem item : order.getItems()) {
+            if (item.getVariantId() != null && item.getQuantity() > 0) {
+                inventoryService.restoreStockForReturn(
+                        order.getId(),
+                        order.getOrderNumber(),
+                        item.getVariantId(),
+                        item.getQuantity(),
+                        actorUserId,
+                        reason
+                );
             }
         }
     }
