@@ -17,7 +17,7 @@ export default function ProductDetailModal({
   onClose,
 }: ProductDetailModalProps) {
   const { user, openAuthModal } = useAuth();
-  const { addToCart } = useCart();
+  const { addToCart, openCart } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductDetail | null>(null);
@@ -36,57 +36,146 @@ export default function ProductDetailModal({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
+  // Keyboard Escape listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Lock body scroll when modal is active
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
+  // Load product detail when modal opens with a valid slug
   useEffect(() => {
     if (!isOpen || !slug) {
-      setProduct(null);
       return;
     }
 
+    let isMounted = true;
     setIsLoading(true);
     setError(null);
+    setSubmitError(null);
+
     getProductDetailApi(slug)
       .then((data) => {
+        if (!isMounted) return;
         setProduct(data);
+
+        // Auto-select initial color and valid matching size
         if (data.availableColors.length > 0) {
-          setSelectedColor(data.availableColors[0].name);
-        }
-        if (data.availableSizes.length > 0) {
+          const initialColor = data.availableColors[0].name;
+          setSelectedColor(initialColor);
+
+          const matchingVariants = data.variants.filter(
+            (v) => v.colorName.toLowerCase() === initialColor.toLowerCase()
+          );
+          if (matchingVariants.length > 0) {
+            const inStockVar = matchingVariants.find((v) => v.inStock && v.stockQuantity > 0);
+            setSelectedSize(inStockVar ? inStockVar.size : matchingVariants[0].size);
+          } else if (data.availableSizes.length > 0) {
+            setSelectedSize(data.availableSizes[0]);
+          }
+        } else if (data.availableSizes.length > 0) {
           setSelectedSize(data.availableSizes[0]);
         }
+
         setSelectedImageIndex(0);
         setQuantity(1);
       })
       .catch((err) => {
-        setError(err.message || 'Không thể tải thông tin sản phẩm');
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Không thể tải thông tin sản phẩm');
       })
       .finally(() => {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, slug]);
 
-  // Find active variant corresponding to (selectedColor, selectedSize)
+  // Variants of the currently selected color
+  const variantsOfColor = useMemo(() => {
+    if (!product) return [];
+    return product.variants.filter(
+      (v) => v.colorName.toLowerCase() === selectedColor.toLowerCase()
+    );
+  }, [product, selectedColor]);
+
+  const variantIdsOfColor = useMemo(
+    () => new Set(variantsOfColor.map((v) => v.id)),
+    [variantsOfColor]
+  );
+
+  // Active gallery images: color-specific tagged images first, then general images, or all images fallback
+  const activeGalleryImages = useMemo(() => {
+    if (!product || product.images.length === 0) return [];
+    const colorImages = product.images.filter(
+      (img) => img.variantId && variantIdsOfColor.has(img.variantId)
+    );
+    const generalImages = product.images.filter((img) => !img.variantId);
+    if (colorImages.length > 0) {
+      return [...colorImages, ...generalImages];
+    }
+    return product.images;
+  }, [product, variantIdsOfColor]);
+
+  // Find exact active variant corresponding to (selectedColor, selectedSize)
   const currentVariant = useMemo(() => {
     if (!product) return null;
-    return product.variants.find(
-      (v) =>
-        v.colorName.toLowerCase() === selectedColor.toLowerCase() &&
-        v.size.toUpperCase() === selectedSize.toUpperCase()
-    ) || null;
+    return (
+      product.variants.find(
+        (v) =>
+          v.colorName.toLowerCase() === selectedColor.toLowerCase() &&
+          v.size.toUpperCase() === selectedSize.toUpperCase()
+      ) || null
+    );
   }, [product, selectedColor, selectedSize]);
 
-  // When clicking a color swatch, switch gallery to corresponding variant image if available
-  const handleColorChange = (colorName: string) => {
-    setSelectedColor(colorName);
+  // When clicking a color swatch, switch gallery and ensure selected size is valid for new color
+  const handleColorChange = (newColorName: string) => {
+    setSelectedColor(newColorName);
+    setSelectedImageIndex(0);
     if (!product) return;
 
-    // Check if any image has variantId matching this color
-    const matchingVariant = product.variants.find(
-      (v) => v.colorName.toLowerCase() === colorName.toLowerCase()
+    // Check if current selectedSize exists in this color
+    const newColorVariants = product.variants.filter(
+      (v) => v.colorName.toLowerCase() === newColorName.toLowerCase()
     );
-    if (matchingVariant) {
-      const imgIdx = product.images.findIndex((img) => img.variantId === matchingVariant.id);
-      if (imgIdx >= 0) {
-        setSelectedImageIndex(imgIdx);
+    const sizeExists = newColorVariants.some(
+      (v) => v.size.toUpperCase() === selectedSize.toUpperCase()
+    );
+
+    // If current size does not exist for the new color, auto-select a valid size
+    if (!sizeExists && newColorVariants.length > 0) {
+      const inStockVar = newColorVariants.find((v) => v.inStock && v.stockQuantity > 0);
+      setSelectedSize(inStockVar ? inStockVar.size : newColorVariants[0].size);
+    }
+  };
+
+  const handleThumbnailClick = (idx: number) => {
+    setSelectedImageIndex(idx);
+    const clickedImg = activeGalleryImages[idx];
+    if (clickedImg && clickedImg.variantId) {
+      const matchingVariant = product?.variants.find((v) => v.id === clickedImg.variantId);
+      if (matchingVariant && matchingVariant.colorName.toLowerCase() !== selectedColor.toLowerCase()) {
+        setSelectedColor(matchingVariant.colorName);
       }
     }
   };
@@ -103,10 +192,11 @@ export default function ProductDetailModal({
       setIsSubmitting(true);
       setSubmitError(null);
       setIsFlashActive(true);
-      setTimeout(() => setIsFlashActive(false), 120);
+      setTimeout(() => setIsFlashActive(false), 150);
 
       await addToCart(currentVariant.id, quantity);
       onClose();
+      openCart();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Không thể thêm vào giỏ hàng';
       setSubmitError(message);
@@ -117,9 +207,17 @@ export default function ProductDetailModal({
 
   if (!isOpen) return null;
 
+  const safeImageIndex = selectedImageIndex < activeGalleryImages.length ? selectedImageIndex : 0;
+  const currentImage = activeGalleryImages[safeImageIndex] || activeGalleryImages[0];
+
   return (
     <>
-      <div className="fixed inset-0 z-40 flex items-center justify-center p-0 md:p-6" role="dialog" aria-modal="true">
+      <div
+        className="fixed inset-0 z-40 flex items-center justify-center p-0 md:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-modal-title"
+      >
         {/* Backdrop */}
         <div
           className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
@@ -154,7 +252,7 @@ export default function ProductDetailModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="border border-white/20 text-white px-4 py-1.5 text-xs font-mono uppercase hover:border-[#C7AD83] hover:text-[#C7AD83] rounded-xs"
+                className="border border-white/20 text-white px-4 py-1.5 text-xs font-mono uppercase hover:border-[#C7AD83] hover:text-[#C7AD83] rounded-xs cursor-pointer"
               >
                 QUAY LẠI
               </button>
@@ -170,31 +268,52 @@ export default function ProductDetailModal({
 
                 {/* Main Large Image */}
                 <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-[#17181D]">
-                  <img
-                    src={product.images[selectedImageIndex]?.imageUrl || product.images[0]?.imageUrl}
-                    alt={product.images[selectedImageIndex]?.altText || product.name}
-                    className="w-full h-full object-cover object-top transition-all duration-300"
-                  />
-                  {product.images[selectedImageIndex]?.altText && (
+                  {currentImage ? (
+                    <img
+                      src={currentImage.imageUrl}
+                      alt={currentImage.altText || product.name}
+                      onError={(e) => {
+                        e.currentTarget.src =
+                          'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=900&q=80';
+                      }}
+                      className="w-full h-full object-cover object-top transition-all duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/30 font-mono text-xs">
+                      ATELIER LOOKBOOK
+                    </div>
+                  )}
+
+                  {currentImage?.altText && (
                     <div className="absolute bottom-2.5 left-2.5 bg-black/75 text-white/80 font-mono text-[10px] px-2.5 py-1 backdrop-blur-xs rounded-xs border border-white/10">
-                      {product.images[selectedImageIndex].altText}
+                      {currentImage.altText}
                     </div>
                   )}
                 </div>
 
                 {/* Thumbnails Row */}
-                {product.images.length > 1 && (
+                {activeGalleryImages.length > 1 && (
                   <div className="p-3 bg-black/40 border-t border-white/10 flex items-center gap-2 overflow-x-auto">
-                    {product.images.map((img, idx) => (
+                    {activeGalleryImages.map((img, idx) => (
                       <button
                         key={img.id}
                         type="button"
-                        onClick={() => setSelectedImageIndex(idx)}
+                        onClick={() => handleThumbnailClick(idx)}
                         className={`w-14 h-18 shrink-0 overflow-hidden border-2 transition-all cursor-pointer rounded-xs ${
-                          selectedImageIndex === idx ? 'border-[#C7AD83] scale-102' : 'border-white/10 opacity-60 hover:opacity-100'
+                          safeImageIndex === idx
+                            ? 'border-[#C7AD83] scale-102'
+                            : 'border-white/10 opacity-60 hover:opacity-100'
                         }`}
                       >
-                        <img src={img.imageUrl} alt="" className="w-full h-full object-cover" />
+                        <img
+                          src={img.imageUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src =
+                              'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=900&q=80';
+                          }}
+                        />
                       </button>
                     ))}
                   </div>
@@ -211,7 +330,10 @@ export default function ProductDetailModal({
                       <span>·</span>
                       <span>{product.brand || 'ATELIER'}</span>
                     </div>
-                    <h1 className="font-editorial text-2xl md:text-3xl tracking-tight font-medium text-white">
+                    <h1
+                      id="product-modal-title"
+                      className="font-editorial text-2xl md:text-3xl tracking-tight font-medium text-white"
+                    >
                       {product.name}
                     </h1>
                   </div>
@@ -226,11 +348,19 @@ export default function ProductDetailModal({
                         {formatVND(currentVariant?.compareAtPrice || product.compareAtPrice!)}
                       </span>
                     )}
-                    {currentVariant && currentVariant.compareAtPrice && currentVariant.compareAtPrice > currentVariant.price && (
-                      <span className="bg-[#C9184A] text-white text-[10px] font-mono uppercase px-2 py-0.5 tracking-wider font-semibold rounded-2xs">
-                        GIẢM {Math.round(((currentVariant.compareAtPrice - currentVariant.price) / currentVariant.compareAtPrice) * 100)}%
-                      </span>
-                    )}
+                    {currentVariant &&
+                      currentVariant.compareAtPrice &&
+                      currentVariant.compareAtPrice > currentVariant.price && (
+                        <span className="bg-[#C9184A] text-white text-[10px] font-mono uppercase px-2 py-0.5 tracking-wider font-semibold rounded-2xs">
+                          GIẢM{' '}
+                          {Math.round(
+                            ((currentVariant.compareAtPrice - currentVariant.price) /
+                              currentVariant.compareAtPrice) *
+                              100
+                          )}
+                          %
+                        </span>
+                      )}
                   </div>
 
                   {/* Color Selector */}
@@ -249,7 +379,9 @@ export default function ProductDetailModal({
                             onClick={() => handleColorChange(color.name)}
                             title={color.name}
                             className={`group relative p-0.5 rounded-full border-2 transition-all cursor-pointer ${
-                              isSelected ? 'border-[#C7AD83] scale-110 shadow-sm' : 'border-transparent hover:border-white/40'
+                              isSelected
+                                ? 'border-[#C7AD83] scale-110 shadow-sm'
+                                : 'border-transparent hover:border-white/40'
                             }`}
                           >
                             <span
@@ -277,32 +409,42 @@ export default function ProductDetailModal({
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                       {product.availableSizes.map((size) => {
-                        const variantForSize = product.variants.find(
-                          (v) =>
-                            v.size.toUpperCase() === size.toUpperCase() &&
-                            v.colorName.toLowerCase() === selectedColor.toLowerCase()
+                        const variantForSize = variantsOfColor.find(
+                          (v) => v.size.toUpperCase() === size.toUpperCase()
                         );
-                        const isStockAvailable = variantForSize ? variantForSize.inStock : false;
+                        const isOffered = Boolean(variantForSize);
+                        const isStockAvailable = variantForSize
+                          ? variantForSize.inStock && variantForSize.stockQuantity > 0
+                          : false;
                         const isSelected = selectedSize.toUpperCase() === size.toUpperCase();
 
                         return (
                           <button
                             key={size}
                             type="button"
-                            disabled={!isStockAvailable}
+                            disabled={!isOffered || !isStockAvailable}
                             onClick={() => setSelectedSize(size)}
-                            className={`relative h-10 border text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-center rounded-2xs ${
+                            title={
+                              !isOffered
+                                ? `Màu ${selectedColor} không có size ${size}`
+                                : !isStockAvailable
+                                ? `Size ${size} tạm thời hết hàng`
+                                : `Chọn size ${size}`
+                            }
+                            className={`relative h-10 border text-xs font-mono font-medium transition-all flex items-center justify-center rounded-2xs ${
                               isSelected
-                                ? 'border-[#C7AD83] bg-[#C7AD83]/20 text-[#C7AD83] font-bold shadow-xs'
+                                ? 'border-[#C7AD83] bg-[#C7AD83]/20 text-[#C7AD83] font-bold shadow-xs cursor-pointer'
+                                : !isOffered
+                                ? 'border-white/5 bg-white/[0.01] text-white/15 cursor-not-allowed opacity-30'
                                 : isStockAvailable
-                                ? 'border-white/15 bg-white/5 text-white hover:border-[#C7AD83]'
-                                : 'border-white/5 bg-white/[0.02] text-white/25 cursor-not-allowed'
+                                ? 'border-white/15 bg-white/5 text-white hover:border-[#C7AD83] cursor-pointer'
+                                : 'border-white/5 bg-white/[0.02] text-white/30 cursor-not-allowed'
                             }`}
                           >
                             <span>{size}</span>
-                            {!isStockAvailable && (
-                              <span className="absolute inset-0 flex items-center justify-center">
-                                <span className="w-full border-t border-white/25 rotate-[-25deg] transform"></span>
+                            {isOffered && !isStockAvailable && (
+                              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="w-full border-t border-red-400/50 rotate-[-25deg] transform"></span>
                               </span>
                             )}
                           </button>
@@ -314,7 +456,7 @@ export default function ProductDetailModal({
                   {/* Stock Availability Indicator */}
                   <div className="text-xs font-mono">
                     {currentVariant ? (
-                      currentVariant.inStock ? (
+                      currentVariant.inStock && currentVariant.stockQuantity > 0 ? (
                         currentVariant.stockQuantity <= 5 ? (
                           <span className="text-amber-400 bg-amber-950/30 border border-amber-500/30 px-2 py-0.5 inline-block rounded-2xs">
                             Chỉ còn {currentVariant.stockQuantity} sản phẩm trong kho
@@ -341,7 +483,9 @@ export default function ProductDetailModal({
                         type="button"
                         onClick={() => setActiveTab('details')}
                         className={`pb-2 px-3 border-b-2 font-medium uppercase tracking-wider transition-colors cursor-pointer ${
-                          activeTab === 'details' ? 'border-[#C7AD83] text-[#C7AD83]' : 'border-transparent text-white/40 hover:text-white'
+                          activeTab === 'details'
+                            ? 'border-[#C7AD83] text-[#C7AD83]'
+                            : 'border-transparent text-white/40 hover:text-white'
                         }`}
                       >
                         CHẤT LIỆU & PHOM DÁNG
@@ -350,7 +494,9 @@ export default function ProductDetailModal({
                         type="button"
                         onClick={() => setActiveTab('care')}
                         className={`pb-2 px-3 border-b-2 font-medium uppercase tracking-wider transition-colors cursor-pointer ${
-                          activeTab === 'care' ? 'border-[#C7AD83] text-[#C7AD83]' : 'border-transparent text-white/40 hover:text-white'
+                          activeTab === 'care'
+                            ? 'border-[#C7AD83] text-[#C7AD83]'
+                            : 'border-transparent text-white/40 hover:text-white'
                         }`}
                       >
                         BẢO QUẢN
@@ -359,7 +505,9 @@ export default function ProductDetailModal({
                         type="button"
                         onClick={() => setActiveTab('delivery')}
                         className={`pb-2 px-3 border-b-2 font-medium uppercase tracking-wider transition-colors cursor-pointer ${
-                          activeTab === 'delivery' ? 'border-[#C7AD83] text-[#C7AD83]' : 'border-transparent text-white/40 hover:text-white'
+                          activeTab === 'delivery'
+                            ? 'border-[#C7AD83] text-[#C7AD83]'
+                            : 'border-transparent text-white/40 hover:text-white'
                         }`}
                       >
                         GIAO HÀNG & ĐỔI TRẢ
@@ -369,14 +517,23 @@ export default function ProductDetailModal({
                     <div className="text-xs text-white/70 leading-relaxed pt-1 font-sans">
                       {activeTab === 'details' && (
                         <div className="space-y-1.5">
-                          <p><strong className="text-white">Chất liệu:</strong> {product.material || 'Vải cao cấp'}</p>
-                          <p><strong className="text-white">Form dáng:</strong> {product.fitStyle || 'Tiêu chuẩn'}</p>
+                          <p>
+                            <strong className="text-white">Chất liệu:</strong>{' '}
+                            {product.material || 'Vải cao cấp'}
+                          </p>
+                          <p>
+                            <strong className="text-white">Form dáng:</strong>{' '}
+                            {product.fitStyle || 'Tiêu chuẩn'}
+                          </p>
                           <p className="text-white/60 pt-1 leading-relaxed">{product.description}</p>
                         </div>
                       )}
                       {activeTab === 'care' && (
                         <div className="space-y-1 text-white/60 leading-relaxed">
-                          <p>{product.careInstructions || 'Giặt nhẹ bằng tay, phơi trong bóng râm, không dùng chất tẩy mạnh.'}</p>
+                          <p>
+                            {product.careInstructions ||
+                              'Giặt nhẹ bằng tay, phơi trong bóng râm, không dùng chất tẩy mạnh.'}
+                          </p>
                         </div>
                       )}
                       {activeTab === 'delivery' && (
@@ -396,18 +553,25 @@ export default function ProductDetailModal({
                   <div className="flex items-center border border-white/20 bg-white/5 font-mono text-sm h-11 rounded-xs">
                     <button
                       type="button"
-                      disabled={quantity <= 1}
+                      disabled={quantity <= 1 || !currentVariant || !currentVariant.inStock}
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="px-3.5 py-1 hover:bg-white/10 text-white disabled:opacity-30 cursor-pointer"
+                      className="px-3.5 py-1 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Giảm số lượng"
                     >
                       -
                     </button>
                     <span className="w-8 text-center font-bold text-white">{quantity}</span>
                     <button
                       type="button"
-                      disabled={!currentVariant || quantity >= currentVariant.stockQuantity}
+                      disabled={
+                        !currentVariant ||
+                        !currentVariant.inStock ||
+                        quantity >= currentVariant.stockQuantity ||
+                        quantity >= 20
+                      }
                       onClick={() => setQuantity((q) => q + 1)}
-                      className="px-3.5 py-1 hover:bg-white/10 text-white disabled:opacity-30 cursor-pointer"
+                      className="px-3.5 py-1 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Tăng số lượng"
                     >
                       +
                     </button>
@@ -426,7 +590,9 @@ export default function ProductDetailModal({
                       <>
                         <span>{currentVariant?.inStock ? 'THÊM VÀO GIỎ HÀNG' : 'HẾT HÀNG'}</span>
                         {currentVariant?.inStock && (
-                          <span className="text-[#0A0B0E]/70 font-semibold">({formatVND(currentVariant.price * quantity)})</span>
+                          <span className="text-[#0A0B0E]/70 font-semibold">
+                            ({formatVND(currentVariant.price * quantity)})
+                          </span>
                         )}
                       </>
                     )}

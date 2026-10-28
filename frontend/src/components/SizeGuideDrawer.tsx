@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 interface SizeGuideRow {
   size: string;
@@ -40,6 +40,19 @@ export default function SizeGuideDrawer({
   // Fallback standardized guide for Tops, Dresses, Pants
   const isPants = categoryName.toLowerCase().includes('quần');
   const isDress = categoryName.toLowerCase().includes('đầm') || categoryName.toLowerCase().includes('váy');
+
+  // Keyboard Escape listener to dismiss size guide drawer
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

@@ -34,7 +34,13 @@ function StorefrontContent() {
     return DEFAULT_FILTERS;
   });
 
-  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(null);
+  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('product') || null;
+    }
+    return null;
+  });
   const [isStylingStudioOpen, setIsStylingStudioOpen] = useState(false);
   const [isRunwayActive, setIsRunwayActive] = useState(true);
 
@@ -52,6 +58,8 @@ function StorefrontContent() {
     const handlePopState = () => {
       const urlFilters = parseCatalogUrl(window.location.search);
       setFilters(urlFilters);
+      const params = new URLSearchParams(window.location.search);
+      setSelectedProductSlug(params.get('product') || null);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -67,7 +75,7 @@ function StorefrontContent() {
       .catch((err) => console.error('Lỗi tải danh mục:', err));
   }, []);
 
-  // Load Products whenever filters change, protected by AbortController
+  // Load Products whenever filters change, protected by AbortController and response ignore guard
   useEffect(() => {
     const controller = new AbortController();
     setIsCatalogLoading(true);
@@ -75,6 +83,7 @@ function StorefrontContent() {
 
     getProductsApi(filters, controller.signal)
       .then((data) => {
+        if (controller.signal.aborted) return;
         setProductsData(data);
         setIsCatalogLoading(false);
       })
@@ -94,6 +103,27 @@ function StorefrontContent() {
       controller.abort();
     };
   }, [filters]);
+
+  const handleSelectProduct = (slug: string) => {
+    setSelectedProductSlug(slug);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('product', slug);
+      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      window.history.pushState({ ...window.history.state, product: slug }, '', newUrl);
+    }
+  };
+
+  const handleCloseProductModal = () => {
+    setSelectedProductSlug(null);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('product');
+      const qs = params.toString();
+      const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+      window.history.pushState({ ...window.history.state, product: null }, '', newUrl);
+    }
+  };
 
   const handleFilterChange = (
     newFilters: ProductFilterParams,
@@ -427,7 +457,7 @@ function StorefrontContent() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  onSelect={(slug) => setSelectedProductSlug(slug)}
+                  onSelect={handleSelectProduct}
                 />
               ))}
             </div>
@@ -483,7 +513,7 @@ function StorefrontContent() {
       <ProductDetailModal
         slug={selectedProductSlug}
         isOpen={Boolean(selectedProductSlug)}
-        onClose={() => setSelectedProductSlug(null)}
+        onClose={handleCloseProductModal}
       />
       <MiniCartDrawer
         onProceedToCheckout={() => {
