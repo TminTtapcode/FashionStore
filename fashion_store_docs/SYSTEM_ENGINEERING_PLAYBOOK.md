@@ -358,25 +358,50 @@ sequenceDiagram
   3. **Lỗi P2 — Ô tìm kiếm lệch pha kết quả (Input Out-of-Sync)**: Người dùng gõ từ khóa rồi lập tức nhấp chuyển danh mục. Timer bị hủy trước khi kịp áp dụng từ khóa, nhưng ô input vẫn giữ nguyên chữ vừa gõ dù catalog chỉ hiển thị danh mục mà không có từ khóa đó.
 
 * **Giải pháp Kỹ thuật Phòng thủ Đa tầng (Defense-in-Depth Architecture)**:
-  - **1. Pattern `filtersRef` (Anti-Stale Closure)**:
-    Duy trì một `filtersRef = useRef(filters)` được cập nhật qua `useEffect(() => { filtersRef.current = filters; }, [filters])`. Bất kỳ callback bất đồng bộ nào trong `setTimeout` đều đọc `filtersRef.current`, tuyệt đối không dùng biến `filters` từ closure render cũ.
-  - **2. Hủy timer toàn diện theo `[filters]`**:
-    `useEffect` hủy timer lắng nghe toàn bộ đối tượng `[filters]` thay vì chỉ `[filters.search]`. Bất kể thay đổi nào (Back/Forward `popstate`, đổi danh mục, đổi trang, xóa chip giá), timer đang chờ đều bị `clearTimeout` lập tức.
-  - **3. Điều chỉnh State ngay trong Render (Render State Adjustment)**:
-    Áp dụng pattern chính thức của React (*You Might Not Need an Effect*):
+  - **1. Centralized Synchronous Dispatcher (`applyFilter`) & Anti-Stale Ref**:
+    Thay vì chỉ cập nhật `filtersRef.current` bất đồng bộ trong `useEffect` (chạy sau paint), mọi tương tác của người dùng (`handleCategorySelect`, `handleSizeSelect`, `handleColorSelect`, `handlePricePresetSelect`, `handleClearPrice`, `handleSortChange`, `handleInStockToggle`, Enter key, debounce timer callback) đều đi qua hàm điều phối tập trung:
     ```typescript
+    const applyFilter = (next: ProductFilterParams, options?: { replace?: boolean }) => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
+      filtersRef.current = next; // Đồng bộ tức thì, không có độ trễ paint
+      onFilterChange(next, options);
+    };
+    ```
+  - **2. Semantic Change Detection (Bảo vệ Typing Draft trước Re-render tham chiếu)**:
+    Khi component cha re-render và truyền vào prop `filters` mới nhưng có cùng nội dung ngữ nghĩa (`newFilters = { ...filters }`), nếu chỉ so sánh tham chiếu `filters !== prevFilters` sẽ làm mất ký tự người dùng đang gõ dở. Hệ thống phân tách thành 2 kiểm tra:
+    ```typescript
+    const isCommittedSearchChanged = filters.search !== prevFilters.search;
+    const isContextFilterChanged =
+      filters.categorySlug !== prevFilters.categorySlug ||
+      filters.size !== prevFilters.size ||
+      filters.color !== prevFilters.color ||
+      filters.minPrice !== prevFilters.minPrice ||
+      filters.maxPrice !== prevFilters.maxPrice ||
+      filters.sort !== prevFilters.sort ||
+      filters.page !== prevFilters.page ||
+      filters.inStockOnly !== prevFilters.inStockOnly;
+
     if (filters !== prevFilters) {
       setPrevFilters(filters);
-      setSearchInput(filters.search || '');
+      // Chỉ reset input khi search thực sự đã commit đổi, hoặc ngữ cảnh bộ lọc bị đổi
+      if (isCommittedSearchChanged || isContextFilterChanged) {
+        setSearchInput(filters.search || '');
+      }
       setCustomMinPrice(filters.minPrice !== undefined ? filters.minPrice.toString() : '');
       setCustomMaxPrice(filters.maxPrice !== undefined ? filters.maxPrice.toString() : '');
       setPriceInputError(null);
     }
     ```
-    Khi `filters` thay đổi từ bất kỳ nguồn nào ngoài ô search (như Back, đổi danh mục), `searchInput` được đồng bộ ngược về `filters.search` ngay lập tức, triệt tiêu hoàn toàn hiện tượng lệch pha.
+  - **3. Hủy timer toàn diện theo `[filters]`**:
+    `useEffect` hủy timer lắng nghe toàn bộ đối tượng `[filters]` thay vì chỉ `[filters.search]`. Bất kể thay đổi nào (Back/Forward `popstate`, đổi danh mục, đổi trang, xóa chip giá), timer đang chờ đều bị `clearTimeout` lập tức.
   - **4. Bàn giao phím Enter**: Bổ sung `onKeyDown` cho ô input, cho phép người dùng nhấn `Enter` để flush tìm kiếm ngay lập tức mà không cần chờ hết 350ms.
-  - **5. Kiểm thử Tự động Chống Tái Diễn**:
-    Toàn bộ 3 kịch bản P1 và P2 được mô phỏng và kiểm chứng tự động trong [`frontend/src/utils/filterDebounceCoordination.test.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/filterDebounceCoordination.test.ts), đảm bảo 100% test pass và không bao giờ tái diễn.
+  - **5. Kiểm thử Tự động Transpile Component thật trên Node VM**:
+    Bộ kiểm thử [`frontend/src/utils/filterDebounceCoordination.test.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/filterDebounceCoordination.test.ts) đọc trực tiếp file TSX thật, transpile qua TypeScript Compiler API và chạy trong Node `vm` với 8 kịch bản bao phủ trọn vẹn vòng đời và edge cases (P1 Back, P2 Price, P2 Category, Enter flush, Rapid typing, Unmount cleanup, Referential re-render draft preservation, Context filter change draft reset).
+  - **6. Kiểm chứng Thực tế trên Trình duyệt Live (Chrome DevTools MCP)**:
+    Đã thực thi chuỗi hành động trên Chrome thật tại `http://localhost:5173`: click chọn danh mục, xóa chip giá, nhập tìm kiếm "Blazer", xác minh debounce 350ms tự động nổ trên URL thật, và gọi `window.history.back()` để kiểm chứng input tự xóa rỗng và chip giá phục hồi. Không có lỗi console.
 
 ### 6.4. Thanh Thẻ Lọc Đang Hoạt Động (Active Filter Chips)
 * **Trải nghiệm Người dùng (UX Pattern)**:

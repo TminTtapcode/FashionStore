@@ -66,7 +66,25 @@ Acceptance: 66 backend tests passed; frontend build thành công (429ms); bảo 
 - Hủy đơn hàng và hoàn tồn kho nguyên tử (`restoreStock`).
 - Trang quản lý đơn hàng cho chủ shop.
 
-## Phase 5 — Shop owner operations
+## Phase 5A — Catalog UX & URL Synchronization (Living Shader & Debounced Search)
+- **Phase 5A.1 — URL Sync & Debounce Coordination** [Hoàn tất — Commit `c3b25c7`]:
+  - Đồng bộ 2 chiều qua Web History API (`pushState` vs `replaceState`).
+  - Strict URL validation & sanitization (`Number.isInteger`, `Number.isFinite`, loại bỏ cận sai).
+  - Khắc phục triệt để P1 Back override, P2 Price resurrect, P2 Search desync.
+  - Dispatcher tập trung `applyFilter` cập nhật ref đồng bộ, semantic equality check bảo vệ typing draft.
+  - Bộ 19 tests tự động PASS (11 URL tests + 8 component integration tests transpiled thật trên Node VM).
+  - Đã kiểm chứng trực tiếp trên trình duyệt thật qua Chrome DevTools MCP (5/5 actions verified).
+- **Phase 5A.2 — Price Presets, Filter Chips & Clear-All UX** [Tiếp theo]:
+  - Hoàn thiện bộ chọn preset giá (`≤500k`, `500k - 1tr`, `1tr - 2tr`, `≥2tr`) và input giá tùy chỉnh.
+  - Active filter chips cho Size, Màu sắc, Sắp xếp và nút "Xóa tất cả".
+  - Kiểm thử tích hợp UI và kiểm chứng hành vi trình duyệt.
+
+## Phase 5B — Product Detail Lookbook Experience
+- Trang/Modal chi tiết trang phục chuyên sâu, gallery ảnh đổi theo Color Swatch.
+- Bảng Size Guide drawer tra cứu số đo 3 vòng theo nhóm sản phẩm (Đầm/Quần/Áo).
+
+## Phase 5C — Shop owner operations (Layout Quản Trị Riêng)
+- Cổng quản trị riêng biệt cho Shop Owner/Admin (`/owner` hoặc portal tách khỏi storefront).
 - Product/variant CRUD and image management.
 - Inventory adjustment with audit/history as needed.
 - Order list/detail and allowed status transitions.
