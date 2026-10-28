@@ -22,12 +22,22 @@
 | Xem danh sách đơn toàn shop (`/api/v1/owner/orders`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
 | Chuyển trạng thái đơn (`PENDING -> CONFIRMED -> PROCESSING...`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
 | Xác nhận hàng hoàn vật lý về kho (`POST /confirm-return`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Quản lý Catalog & Biến thể (`/api/v1/owner/products/**`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Khởi tạo Sản phẩm mới (`POST /api/v1/owner/products`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Đổi trạng thái Sản phẩm (`PATCH /status`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Thêm/Sửa/Xóa Biến thể (`/variants/**`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Xóa cứng Sản phẩm/Biến thể đã có đơn hàng | Bị cấm (400) | Bị cấm (400) | Bị cấm (400) | Bị cấm (400) |
 
 ### Phân định Rạch ròi giữa Role-level và Object-level Authorization:
 - **Role-level Security**: Sử dụng Spring Security `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")` ở cấp controller/method để chặn toàn bộ user không có thẩm quyền quản trị.
 - **Object-level Security (Resource Ownership)**: 
   - Khách hàng gọi `GET /api/v1/orders/{orderNumber}`: Backend bắt buộc kiểm tra `order.getUserId().equals(principal.getId())`. Nếu không khớp, trả về 404/403 để ngăn chặn lỗi IDOR (Insecure Direct Object Reference).
-  - Chủ shop gọi `/api/v1/owner/orders/**`: Backend xác thực đơn hàng thuộc quyền quản lý của shop do owner phụ trách.
+  - Chủ shop gọi `/api/v1/owner/orders/**` và `/api/v1/owner/products/**`: Backend xác thực tài nguyên thuộc quyền quản lý của shop do owner phụ trách (`shopId = 1`).
+
+### Phòng vệ Mass-Assignment & Khai thác Giá (Over-Posting Defense):
+- Mọi endpoint cập nhật sản phẩm/biến thể đều sử dụng các Java Records DTO chuyên dụng với Bean Validation (`@NotNull`, `@Size`, `@DecimalMin`).
+- Tuyệt đối không nhận trực tiếp JPA Entity từ Request Body. Các trường nội bộ như `id`, `shop_id`, `created_at`, `updated_at` hoàn toàn do Server kiểm soát.
+- Giá bán bắt buộc $\ge 1.000₫$, giá niêm yết $\ge$ giá bán, tồn kho ban đầu $\ge 0$. Mọi giá trị sai lệch đều bị từ chối ngay tại tầng validation trước khi chạm tới tầng cơ sở dữ liệu.
 
 ## 2. Input & browser security
 - Bean Validation, parameterized queries/JPA, output encoding và policy CSP phù hợp.

@@ -887,6 +887,77 @@ stateDiagram-v2
      Thực hiện trong cùng 1 ACID transaction: chuyển đơn sang `RETURNED`, hoàn tồn kho từng SKU, giải phóng coupon và ghi vết lịch sử kiểm toán.
   4. Nếu có người cố tình gọi PATCH trạng thái thông thường để chuyển sang `RETURNED`, backend lập tức từ chối với HTTP 400 (`RETURN_CONFIRMATION_REQUIRED`).
 
+---
+
+## 9. QUẢN TRỊ SẢN PHẨM & BIẾN THỂ THỜI TRANG (PHASE 5C.2)
+
+### 9.1. Sơ đồ Vòng đời Sản phẩm (Product Lifecycle State Machine)
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: Khởi tạo sản phẩm mới
+    DRAFT --> ACTIVE: Xuất bản lên Storefront (Yêu cầu >= 1 biến thể ACTIVE)
+    DRAFT --> ARCHIVED: Hủy bỏ / Lưu trữ mẫu thử
+    ACTIVE --> HIDDEN: Tạm ẩn khỏi Storefront (Hết mùa / Bảo trì)
+    ACTIVE --> ARCHIVED: Ngừng kinh doanh vĩnh viễn (Terminal)
+    HIDDEN --> ACTIVE: Mở bán lại (Yêu cầu >= 1 biến thể ACTIVE)
+    HIDDEN --> ARCHIVED: Ngừng kinh doanh vĩnh viễn (Terminal)
+    ARCHIVED --> [*]
+```
+
+### 9.2. Post-Mortem 13: Bẫy Phá vỡ Tính Bất biến SKU trên Biến thể đã Có Đơn hàng (SKU Immutability vs Historical Audit Trail)
+* **Vấn đề Phát hiện:**
+  * Nếu cho phép chủ shop tự do sửa đổi mã SKU của một biến thể hoặc xóa biến thể đó sau khi đã phát sinh đơn hàng, toàn bộ hệ thống kế toán, đối soát COD và lịch sử mua sắm của khách hàng sẽ bị đứt gãy. Khi in lại vận đơn hoặc đối chiếu kiểm toán, mã SKU lưu trên hóa đơn sẽ không còn ánh xạ được tới bất kỳ bản ghi nào trong kho.
+* **Nguyên nhân Gốc rễ:**
+  * Xem biến thể đơn thuần là một bản ghi CRUD thông thường thay vì một thực thể giao dịch gắn liền với trách nhiệm tài chính và kho vận.
+* **Giải pháp Khắc phục (Defense-in-depth):**
+  1. Kiểm tra ràng buộc qua `OrderItemRepository.existsByVariantId(variantId)` trước bất kỳ thao tác sửa SKU hoặc xóa biến thể nào.
+  2. Nếu biến thể đã có đơn hàng trong `order_items`:
+     * Khi sửa SKU: Ném ngoại lệ `IMMUTABLE_SKU` (HTTP 400): *"Biến thể đã có lịch sử đơn hàng, không được phép thay đổi SKU"*.
+     * Khi xóa biến thể: Ném ngoại lệ `VARIANT_HAS_ORDERS` (HTTP 400): *"Không thể xóa biến thể đã phát sinh đơn hàng, hãy vô hiệu hóa (status=INACTIVE)"*.
+  3. Trên giao diện `OwnerProductDetailModal`, trường SKU của biến thể có đơn hàng được hiển thị ở chế độ `readOnly` kèm huy hiệu khóa bảo vệ và ghi chú giải thích trực quan cho chủ shop.
+
+### 9.3. Post-Mortem 14: Lỗ hổng Xuất bản Sản phẩm Rỗng Lên Storefront (Ghost Product Publishing Breach)
+* **Vấn đề Phát hiện:**
+  * Chủ shop tạo sản phẩm mới nhưng quên thêm biến thể (hoặc tất cả biến thể đều để `INACTIVE`), sau đó bấm kích hoạt mở bán (`status = ACTIVE`). Khi khách hàng truy cập Storefront, sản phẩm hiển thị trên card catalog nhưng khi mở modal xem chi tiết thì không có size/màu nào để chọn, giá hiển thị 0₫ hoặc crash giao diện tính toán giỏ hàng.
+* **Nguyên nhân Gốc rễ:**
+  * Thiếu validation ở tầng domain service khi chuyển trạng thái sản phẩm sang `ACTIVE`.
+* **Giải pháp Khắc phục:**
+  1. Ở Backend (`OwnerProductService.canTransitionTo` & `updateProductStatus`):
+     * Bắt buộc kiểm tra điều kiện:
+       ```java
+       if (nextStatus == ProductStatus.ACTIVE) {
+           boolean hasActiveVariant = product.getVariants().stream()
+                   .anyMatch(v -> v.getStatus() == ProductVariantStatus.ACTIVE);
+           if (!hasActiveVariant) {
+               throw new ApiException(HttpStatus.BAD_REQUEST, "ACTIVE_REQUIRES_VARIANTS", 
+                   "Sản phẩm phải có ít nhất một biến thể hoạt động để có thể xuất bản ở trạng thái Hoạt động (ACTIVE)");
+           }
+       }
+       ```
+  2. Ở Frontend (`OwnerProductStatusModal`):
+     * Tự động kiểm tra danh sách biến thể trước khi cho phép chọn `ACTIVE`. Nếu không đủ điều kiện, hiển thị cảnh báo đỏ và vô hiệu hóa nút xác nhận chuyển trạng thái.
+
+### 9.4. Post-Mortem 15: Chuẩn hóa Mã Hàng & Tự động Giải quyết Xung đột SKU (SKU Normalization & Collision Counter)
+* **Vấn đề Phát hiện:**
+  * Khi sinh SKU tự động từ tên tiếng Việt (ví dụ "Áo Sơ Mi Lụa Cổ V"), nếu không xử lý bảng mã Unicode, ký tự có dấu hoặc khoảng trắng sẽ gây lỗi hiển thị mã vạch, không tương thích với máy quét barcode 1D/2D tại kho và vượt quá giới hạn độ dài cột database.
+* **Giải pháp Khắc phục:**
+  1. Xây dựng `SkuGeneratorService.java` áp dụng chuẩn hóa Unicode NFD:
+     ```java
+     String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+     normalized = Pattern.compile("\\p{InCombiningDiacriticalMarks}+").matcher(normalized).replaceAll("");
+     normalized = normalized.replace('đ', 'd').replace('Đ', 'D').toUpperCase().replaceAll("[^A-Z0-9\\s-]", "");
+     ```
+  2. Cắt tỉa độ dài nghiêm ngặt $\le 60$ ký tự, đảm bảo luôn giữ lại hậu tố kích cỡ và số phân biệt (ví dụ `-XL-2`).
+  3. Kiểm tra trùng lặp qua `variantRepository.existsBySku(candidateSku)`. Nếu trùng, tự động lặp tăng dần hậu tố `-2`, `-3` cho đến khi tìm được SKU duy nhất trong hệ thống.
+
+### 9.5. Post-Mortem 16: Bảo vệ Tính Toàn vẹn Dữ liệu Khỏi Xóa Cứng Sản phẩm Có Đơn hàng Lịch sử
+* **Vấn đề Phát hiện:**
+  * Thao tác xóa cứng sản phẩm (`DELETE FROM products WHERE id = :id`) có thể dẫn đến việc phá vỡ ràng buộc khóa ngoại (Foreign Key Constraint Violation) nếu sản phẩm đó đã được mua trong các đơn hàng trước đó, hoặc làm biến mất thông tin sản phẩm trên báo cáo đối soát doanh thu.
+* **Giải pháp Khắc phục:**
+  1. Trước khi xóa, `OwnerProductService` gọi `orderItemRepository.existsByProductId(productId)`.
+  2. Nếu đã có đơn hàng: Chặn đứng thao tác với lỗi `PRODUCT_HAS_ORDERS` (HTTP 400): *"Không thể xóa sản phẩm đã có đơn hàng trong hệ thống. Vui lòng chuyển sang ARCHIVED"*.
+  3. Hướng dẫn chủ shop sử dụng tính năng chuyển trạng thái sang `ARCHIVED` (Lưu trữ vĩnh viễn). Trạng thái này gỡ sản phẩm khỏi mọi hoạt động bán hàng mà vẫn giữ nguyên vẹn 100% dữ liệu lịch sử cho báo cáo tài chính và đối soát bưu tá.
+
 
 
 

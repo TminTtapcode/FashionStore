@@ -153,10 +153,23 @@ Deliverables:
     - Frontend Suite: **39/39 tests PASS (100%)** (11 URL + 12 filter debounce + 10 product lookbook + 6 owner portal integration tests).
     - Code Quality: tsc -b && vite build hoàn tất sạch sẽ trong 164ms (~109.65 kB gzip); 0 lỗi lint mới.
     - Chrome DevTools MCP: Live browser verification thành công (xác thực RBAC gate 401, nút điều hướng Storefront <-> Owner, Back/Forward browser history, 0 lỗi console).
-- **Phase 5C.2 — Quản lý Sản phẩm & Biến thể (Product & Variant Management)** [Kế tiếp]:
-  - Thêm, sửa, ẩn/hiển thị, lưu nháp sản phẩm (DRAFT, ACTIVE, HIDDEN, ARCHIVED).
-  - Quản lý ma trận biến thể thời trang (Size x Màu sắc), tạo SKU tự động, cài đặt giá niêm yết và giá bán.
-- **Phase 5C.3 — Quản lý Tồn kho & Nhật ký Nhập/Xuất (Inventory Audit Trail)** [Dự kiến].
+- **Phase 5C.2 — Quản lý Sản phẩm & Biến thể (Product & Variant Management)** [Hoàn tất]:
+  - **Backend Domain & CRUD**:
+    - State Machine vòng đời sản phẩm: DRAFT -> ACTIVE -> HIDDEN -> ARCHIVED với điều kiện tiên quyết chặt chẽ (ACTIVE yêu cầu ít nhất 1 biến thể active; ARCHIVED là trạng thái kết thúc).
+    - Chuẩn hóa mã SKU tự động: `{PRODUCT_CODE}-{COLOR_CODE}-{SIZE}`, Unicode NFD diacritics stripping, max length 60, tự động tăng hậu tố giải quyết va chạm `-2`, `-3`.
+    - Bảo vệ tính bất biến SKU: Biến thể đã có trong `order_items` tuyệt đối không được phép đổi SKU hoặc xóa cứng (`IMMUTABLE_SKU` / `VARIANT_HAS_ORDERS`).
+    - Bảo vệ tính toàn vẹn dữ liệu: Chặn xóa cứng sản phẩm đã có đơn hàng lịch sử (`PRODUCT_HAS_ORDERS`).
+    - API Endpoints chuyên dụng tại `/api/v1/owner/products/**`, bảo vệ bằng `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")`.
+    - 14 integration tests mới bổ sung, nâng tổng số backend tests lên **121/121 tests PASS (100%)**.
+  - **Frontend UI & Quick Matrix Generator**:
+    - Kích hoạt mục "Sản phẩm & Biến thể" trên Sidebar của `OwnerPortal.tsx`.
+    - `OwnerProductsView.tsx`: Bộ lọc 5 tab trạng thái (TẤT CẢ, ACTIVE, DRAFT, HIDDEN, ARCHIVED), dropdown danh mục cha-con, tìm kiếm tên/thương hiệu/slug, bảng hiển thị ảnh thumbnail, khoảng giá, tổng tồn kho và số biến thể.
+    - `OwnerProductDetailModal.tsx`: Chế độ tạo mới & chỉnh sửa, công cụ Quick Matrix Generator sinh tích Descartes (Size × Màu sắc), bảng biến thể hỗ trợ xóa và sửa inline, cảnh báo thay đổi chưa lưu (unsaved changes guard).
+    - `OwnerProductStatusModal.tsx`: Hộp thoại chuyển đổi trạng thái vòng đời sản phẩm, phân tích hệ quả vận hành và ghi chú kiểm toán.
+    - 18 frontend unit/integration tests mới bổ sung, nâng tổng số frontend tests lên **57/57 tests PASS (100%)**.
+    - Frontend build hoàn tất sạch sẽ (`tsc -b && vite build`) trong 473ms; 0 lint errors mới.
+    - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (đăng nhập SHOP_OWNER, xem bảng sản phẩm, tạo sản phẩm mới bằng ma trận biến thể, chuyển DRAFT -> ACTIVE, phản chiếu tức thì trên Storefront, mở modal và thêm vào giỏ hàng).
+- **Phase 5C.3 — Quản lý Tồn kho & Nhật ký Nhập/Xuất (Inventory Audit Trail)** [Kế tiếp].
 - **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Dự kiến].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
 

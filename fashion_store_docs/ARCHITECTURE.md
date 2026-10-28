@@ -130,13 +130,32 @@ Không bắt buộc tạo bốn lớp cho mọi CRUD nhỏ nếu chỉ làm tăn
 frontend/src/
   ├── components/owner/
   │     ├── OwnerPortal.tsx               # Shell quản trị, RBAC Gate, Top Header & Sidebar
-  │     ├── OwnerOrdersView.tsx           # Bảng điều hành đơn hàng, bộ lọc 9 trạng thái, pagination
+  │     ├── OwnerOrdersView.tsx           # Bảng điều hành đơn hàng, bộ lọc trạng thái, pagination
   │     ├── OwnerOrderDetailModal.tsx     # Modal chi tiết đơn, thông tin giao hàng, tài chính & Timeline
-  │     └── OwnerActionConfirmModal.tsx   # Modal xác nhận thao tác chuyển trạng thái & cảnh báo nghiệp vụ
+  │     ├── OwnerActionConfirmModal.tsx   # Modal xác nhận thao tác chuyển trạng thái đơn hàng
+  │     ├── OwnerProductsView.tsx         # Bảng catalog quản trị, tab DRAFT/ACTIVE/HIDDEN/ARCHIVED
+  │     ├── OwnerProductDetailModal.tsx   # Modal tạo/sửa sản phẩm, Quick Matrix Generator, bảng biến thể
+  │     └── OwnerProductStatusModal.tsx   # Modal chuyển vòng đời sản phẩm, kiểm soát điều kiện tiên quyết
   └── api/
-        └── ownerOrderApi.ts              # Client API kết nối các endpoint /api/v1/owner/orders/**
+        ├── ownerOrderApi.ts              # Client API kết nối /api/v1/owner/orders/**
+        └── ownerProductApi.ts            # Client API kết nối /api/v1/owner/products/**
 ```
 
 ### 7.4. Ranh giới API Tách biệt giữa Storefront và Owner
-- **Customer Endpoints (`/api/v1/orders/**`)**: Khách hàng chỉ xem và thao tác trên các đơn hàng gắn với `authPrincipal.getUserId()`.
-- **Owner Endpoints (`/api/v1/owner/orders/**`)**: Được bảo vệ bởi `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")`. Backend lọc và xác thực quyền quản trị trên dữ liệu của cửa hàng, không cho phép truy cập chéo dữ liệu trái phép.
+- **Customer Endpoints (`/api/v1/orders/**`, `/api/v1/products/**`)**: Khách hàng chỉ xem sản phẩm `ACTIVE` có biến thể `ACTIVE`, và chỉ thao tác trên các đơn hàng gắn với `authPrincipal.getUserId()`.
+- **Owner Endpoints (`/api/v1/owner/**`)**: Được bảo vệ toàn diện bởi `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")`. Backend lọc và xác thực quyền quản trị trên dữ liệu của cửa hàng (`shopId = 1`), không cho phép truy cập trái phép.
+
+### 7.5. Kiến trúc Quản trị Sản phẩm & Biến thể (Phase 5C.2)
+- **API Boundary**: Mọi endpoint quản trị sản phẩm nằm tại `/api/v1/owner/products/**`, tách biệt hoàn toàn khỏi `/api/v1/products/**` của Storefront:
+  - `GET /api/v1/owner/products`: Danh sách phân trang, tìm kiếm và lọc theo trạng thái (`ALL`, `ACTIVE`, `DRAFT`, `HIDDEN`, `ARCHIVED`) hoặc danh mục.
+  - `GET /api/v1/owner/products/{id}`: Chi tiết toàn diện sản phẩm, danh sách biến thể, ảnh lookbook, cờ cảnh báo lịch sử đơn hàng (`hasOrders`).
+  - `POST /api/v1/owner/products`: Tạo mới sản phẩm kèm tùy chọn ma trận biến thể ban đầu trong một transaction nguyên tử.
+  - `PUT /api/v1/owner/products/{id}`: Cập nhật thông tin chung của sản phẩm (tên, danh mục, chất liệu, form dáng, bảo quản, mô tả).
+  - `PATCH /api/v1/owner/products/{id}/status`: Chuyển đổi trạng thái vòng đời sản phẩm (`DRAFT`, `ACTIVE`, `HIDDEN`, `ARCHIVED`) kèm kiểm tra điều kiện tiên quyết.
+  - `POST /api/v1/owner/products/{id}/variants`: Bổ sung biến thể mới vào sản phẩm đã có.
+  - `PUT /api/v1/owner/products/{id}/variants/{variantId}`: Cập nhật thông tin biến thể (bảo vệ bất biến SKU nếu đã có đơn hàng).
+  - `DELETE /api/v1/owner/products/{id}/variants/{variantId}`: Xóa biến thể (chặn nếu đã có đơn hàng).
+  - `DELETE /api/v1/owner/products/{id}`: Xóa sản phẩm (chặn nếu đã có đơn hàng trong hệ thống).
+- **Transaction Boundaries & DTO Isolation**:
+  - DTOs được đóng gói riêng biệt trong `com.fashionstore.catalog.dto.owner.*`, ngăn chặn triệt để lỗ hổng Mass-Assignment và Over-Posting.
+  - Toàn bộ các thao tác ghi dữ liệu được bọc trong `@Transactional(rollbackFor = Exception.class)`, bảo đảm tính toàn vẹn tuyệt đối khi sinh ma trận biến thể hoặc kiểm tra ràng buộc SKU trùng lặp.

@@ -221,7 +221,35 @@ Coupon --< CouponRedemption >-- Order
 - **Giữ hàng trong giỏ**: Không; tồn kho chỉ được kiểm tra và trừ lúc checkout.
 - **Thanh toán ban đầu**: Đã chốt theo ADR-005 (khởi đầu với COD).
 - **Phạm vi catalog**: Đã chốt theo ADR-010 (chuyên biệt 100% thời trang may mặc, loại bỏ đồng hồ/thiết bị khác, dùng size/color có cấu trúc rõ ràng thay cho EAV).
-- **Quyết định còn cần chủ shop xác nhận trước migration Phase 2**:
-  1. Quy chuẩn danh sách size: Dùng size chữ chuẩn quốc tế (`XS`, `S`, `M`, `L`, `XL`, `XXL`, `FreeSize`) và size số (`28`, `29`, `30`, `31`, `32`, `33`, `34` cho quần/áo vest) hay cho phép nhập size tùy do? Khuyến nghị: Chuẩn hóa bộ enum/whitelist size phổ biến để tối ưu bộ lọc.
-  2. Quy định số lượng ảnh tối đa cho mỗi sản phẩm (ví dụ: tối đa 8 ảnh/sản phẩm) và kích thước dung lượng file cho phép.
-  3. Chính sách hiển thị `compare_at_price`: Chỉ hiển thị giá gạch ngang khi `compare_at_price > price`.
+- **Quy chuẩn danh mục & thuộc tính**: Chuẩn hóa size chữ (`XS`, `S`, `M`, `L`, `XL`, `XXL`, `FREESIZE`) và size số (`28`, `29`, `30`, `31`, `32`).
+
+## 6. Thiết kế Miền Sản phẩm Quản trị Atelier (Phase 5C.2)
+
+### 6.1 Mô hình Đơn Cửa Hàng (Single-Store Boutique Monolith)
+- Mặc dù schema database có bảng `shops` với khóa chính `id = 1` (`IVRE Atelier`), bảng `orders` không có cột `shop_id` và toàn bộ ứng dụng trong MVP vận hành như một boutique thời trang đơn lẻ.
+- `OwnerProductController` và `OwnerProductService` mặc định neo toàn bộ hoạt động vào `shopId = 1`. Mọi sản phẩm mới khởi tạo đều tự động liên kết với `shops(id = 1)`.
+
+### 6.2 Ma trận Vòng đời Sản phẩm (Product Lifecycle State Machine)
+Trạng thái sản phẩm tuân thủ nghiêm ngặt 4 trạng thái:
+1. `DRAFT` (Bản nháp): Sản phẩm mới khởi tạo, chỉ hiển thị trong Owner Portal, hoàn toàn vô hình đối với Storefront của khách hàng.
+   - Chuyển được sang: `ACTIVE` (bắt buộc có ít nhất 1 biến thể ở trạng thái `ACTIVE`), `ARCHIVED`.
+2. `ACTIVE` (Hoạt động): Sản phẩm được xuất bản công khai lên Storefront, hiển thị trên card catalog, xuất hiện trong bộ lọc tìm kiếm và cho phép khách chọn size/màu để thêm vào giỏ.
+   - Chuyển được sang: `HIDDEN` (tạm ẩn khỏi Storefront), `ARCHIVED` (ngừng kinh doanh vĩnh viễn).
+3. `HIDDEN` (Tạm ẩn): Sản phẩm tạm ngừng hiển thị với khách hàng (do hết mùa vụ, bảo dưỡng thông tin), khách hàng không thể tìm kiếm hoặc mua trực tiếp.
+   - Chuyển được sang: `ACTIVE` (mở bán lại, yêu cầu $\ge 1$ biến thể active), `ARCHIVED`.
+4. `ARCHIVED` (Lưu trữ vĩnh viễn): Trạng thái kết thúc (Terminal State). Sản phẩm bị gỡ vĩnh viễn khỏi vòng kinh doanh.
+   - Không cho phép chuyển ngược lại bất kỳ trạng thái nào khác (`DRAFT`, `ACTIVE`, `HIDDEN`).
+
+### 6.3 Chuẩn hóa SKU & Bảo vệ Tính Bất Biến (SKU Standard & Immutability)
+- **Định dạng chuẩn**: `{PRODUCT_CODE}-{COLOR_CODE}-{SIZE}`
+  - Tự động chuẩn hóa: chuyển chữ hoa, loại bỏ dấu tiếng Việt (NFD diacritics stripping: ví dụ "Áo Sơ Mi" $\to$ "AO-SO-MI"), chuyển khoảng trắng thành gạch ngang `-`, loại bỏ ký tự đặc biệt.
+  - Chiều dài tối đa: Giới hạn $\le 60$ ký tự để đảm bảo index database `uk_product_variants_sku` tối ưu và vừa vặn trên tem nhãn in nhiệt mã vạch.
+  - Cơ chế chống trùng (Collision Resolution): Khi SKU đã tồn tại trong cơ sở dữ liệu, tự động bổ sung hậu tố `-2`, `-3` (ví dụ `DAM-MAXI-TRANG-S-2`).
+- **Bảo vệ Tính Bất Biến (SKU Immutability Guard)**:
+  - Khi một biến thể đã phát sinh đơn hàng (tồn tại trong `order_items`), SKU của biến thể đó là **bất biến vĩnh viễn (strictly immutable)**.
+  - Ngăn chặn triệt để hành vi đổi SKU hoặc xóa cứng biến thể để bảo toàn tính toàn vẹn của lịch sử kế toán, phiếu đóng gói và hóa đơn COD đã bàn giao bưu tá. Nếu không muốn bán tiếp, chủ shop phải chuyển trạng thái biến thể sang `status = INACTIVE`.
+
+### 6.4 Ranh giới Quản lý Tồn kho Ban đầu (Initial Inventory vs Audit Trail)
+- Áp dụng **Phương án B (Option B)**:
+  - Khi khởi tạo sản phẩm và sinh ma trận biến thể, chủ shop được phép khai báo số lượng tồn kho ban đầu (`stock_quantity >= 0`).
+  - Sau khi biến thể được khởi tạo, không cho phép cập nhật tùy tiện số lượng tồn kho qua API cập nhật thông tin chung. Mọi biến động xuất/nhập kho tiếp theo sẽ được kiểm soát chặt chẽ thông qua luồng đặt hàng/hủy đơn và tính năng **Sổ cái Kiểm toán Tồn kho (Inventory Audit Trail)** chuyên biệt trong Phase 5C.3.

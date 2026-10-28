@@ -150,3 +150,54 @@ Trạng thái payment tách khỏi order status:
 - Email provider lỗi nhưng order vẫn được ghi nhận.
 - Customer A cố truy cập order của Customer B.
 - Shop owner thử sửa sản phẩm/đơn không thuộc shop.
+
+## 9. Luồng Nghiệp vụ Quản trị Sản phẩm & Biến thể (Shop Owner Operations - Phase 5C.2)
+
+### 9.1 Khởi tạo Sản phẩm và Sinh Ma trận Biến thể (Product & Matrix Creation)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Owner as Chủ Shop (SHOP_OWNER)
+    participant UI as Owner Portal (React)
+    participant API as OwnerProductController
+    participant Svc as OwnerProductService
+    participant SkuSvc as SkuGeneratorService
+    participant DB as MySQL Database
+
+    Owner->>UI: Mở modal "+ THÊM SẢN PHẨM MỚI"
+    Owner->>UI: Nhập Tên, Danh mục, Chất liệu, Form dáng
+    Owner->>UI: Bật "⚡ Sinh ma trận tự động" (Chọn sizes S, M, L × Màu Trắng, Đen)
+    UI->>UI: Tính tích Descartes (3 sizes × 2 màu = 6 biến thể)
+    Owner->>UI: Bấm "TẠO SẢN PHẨM"
+    UI->>API: POST /api/v1/owner/products (CreateProductRequest)
+    API->>Svc: createProduct(request)
+    Svc->>SkuSvc: generateUniqueSlug(name)
+    loop Từng biến thể
+        Svc->>SkuSvc: generateSku(productName, color, size)
+        SkuSvc->>DB: existsBySku(candidateSku)
+        Note over SkuSvc,DB: Nếu trùng, bổ sung hậu tố -2, -3...
+    end
+    Svc->>DB: INSERT products & product_variants (Trạng thái DRAFT)
+    DB-->>Svc: Persisted Product ID
+    Svc-->>API: OwnerProductDetailDto
+    API-->>UI: HTTP 201 Created
+    UI-->>Owner: Hiển thị sản phẩm mới trong tab "BẢN NHÁP (DRAFT)"
+```
+
+### 9.2 Luồng Xuất bản Sản phẩm lên Storefront (Publishing Invariant Guard)
+- Khi chuyển trạng thái từ `DRAFT` sang `ACTIVE`:
+  - `OwnerProductService` bắt buộc kiểm tra điều kiện tiên quyết: sản phẩm phải có $\ge 1$ biến thể ở trạng thái `ACTIVE`.
+  - Nếu sản phẩm không có biến thể hoặc tất cả biến thể đều là `INACTIVE`, hệ thống từ chối bằng lỗi HTTP 400 `ACTIVE_REQUIRES_VARIANTS` ("Sản phẩm phải có ít nhất một biến thể hoạt động để có thể mở bán").
+  - Sau khi xuất bản thành công, sản phẩm lập tức phản chiếu lên Storefront catalog và các bộ lọc tìm kiếm của khách hàng.
+
+### 9.3 Luồng Bảo vệ Sản phẩm có Đơn hàng Lịch sử (Historical Orders Guard)
+- Khi Chủ shop yêu cầu xóa cứng sản phẩm (`DELETE /api/v1/owner/products/{id}`):
+  - Hệ thống kiểm tra liên kết thông qua `OrderItemRepository.existsByProductId(productId)`.
+  - Nếu sản phẩm đã từng phát sinh bất kỳ đơn hàng nào trong quá khứ, backend chặn đứng hành động và trả về HTTP 400 `PRODUCT_HAS_ORDERS` ("Không thể xóa sản phẩm đã có đơn hàng trong hệ thống. Vui lòng chuyển sang ARCHIVED.").
+  - Tương tự, nếu một biến thể cụ thể đã nằm trong `order_items`, việc đổi SKU hoặc xóa biến thể đó bị chặn triệt để (`IMMUTABLE_SKU` / `VARIANT_HAS_ORDERS`).
+
+### 9.4 Hành vi của Storefront khi Sản phẩm bị Ẩn / Lưu trữ
+- Nếu khách hàng đã thêm biến thể vào giỏ hàng từ trước, nhưng sau đó Chủ shop chuyển sản phẩm sang `HIDDEN` hoặc `ARCHIVED`:
+  - Storefront catalog lập tức ẩn sản phẩm khỏi danh sách tìm kiếm và danh mục.
+  - Khi mở Giỏ hàng hoặc tiến hành Checkout, Facade kiểm tra `status` của Product và Variant.
+  - Các biến thể thuộc sản phẩm không còn `ACTIVE` sẽ được đánh dấu `[TẠM HẾT HÀNG / NGỪNG BÁN]`, vô hiệu hóa nút tăng số lượng và ngăn chặn checkout thành công với thông báo rõ ràng cho khách hàng.
