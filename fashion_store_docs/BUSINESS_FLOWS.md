@@ -67,22 +67,45 @@
 9. Nếu bước ngoài DB thất bại, có cơ chế xử lý trạng thái và hoàn tồn kho đã được định nghĩa; không để order/stock ở trạng thái mơ hồ.
 10. Trả order number và trạng thái cho client.
 
-## 4. Trạng thái đơn hàng
-Đề xuất MVP:
-- `PENDING_CONFIRMATION`: đã đặt, chờ shop xác nhận (COD hoặc chính sách tương ứng).
-- `CONFIRMED`: shop xác nhận.
-- `PROCESSING`: đang chuẩn bị.
-- `SHIPPED`: đã bàn giao vận chuyển.
-- `DELIVERED`: giao thành công.
-- `CANCELLED`: đã hủy hợp lệ.
-- `RETURN_REQUESTED`, `RETURNED` hoặc `REFUND_PENDING`, `REFUNDED` chỉ triển khai đầy đủ khi chính sách đổi trả/hoàn tiền đã chốt.
+## 4. Trạng thái đơn hàng & State Machine Vận hành Chủ shop (Phase 5C.0 - 5C.1)
 
-Transition mẫu:
-`PENDING_CONFIRMATION -> CONFIRMED | CANCELLED`
-`CONFIRMED -> PROCESSING | CANCELLED` (hủy phải kiểm tra hàng/ship policy)
-`PROCESSING -> SHIPPED | CANCELLED` (chỉ nếu chưa bàn giao và chính sách cho phép)
-`SHIPPED -> DELIVERED`
-Không cho client tự set status. Mỗi transition phải có actor, quyền, precondition, lịch sử và kiểm thử. Admin override nếu có phải ghi audit log.
+Các trạng thái đơn hàng chuẩn mực trong hệ thống:
+- `PENDING`: Đơn mới tạo, đang chờ shop xác nhận (khách hàng có thể tự hủy ở trạng thái này).
+- `CONFIRMED`: Chủ shop đã tiếp nhận và xác nhận đơn hàng.
+- `PROCESSING`: Nhân viên kho đang chuẩn bị, nhặt hàng và đóng gói sản phẩm.
+- `SHIPPING`: Đã đóng gói và bàn giao cho bưu tá / đơn vị vận chuyển (3PL).
+- `DELIVERED`: Đơn vị vận chuyển báo đã phát hàng thành công cho khách.
+- `COMPLETED`: Đơn hàng hoàn tất, khách hàng hài lòng; với đơn COD, hệ thống tự động cập nhật `payment_status` từ `PENDING` sang `PAID`.
+- `CANCELLED`: Đơn hàng bị hủy trước khi bàn giao vận chuyển (hoàn tồn kho nguyên tử + giải phóng quota coupon).
+- `DELIVERY_FAILED`: Đơn vị vận chuyển giao hàng thất bại (khách từ chối nhận, không liên lạc được). **CHƯA** hoàn kho vì hàng còn trên đường vận chuyển.
+- `RETURNED`: Kiện hàng đã được bưu tá chuyển hoàn thực tế về kho shop, chủ shop kiểm tra nguyên vẹn bao bì và xác nhận qua endpoint chuyên biệt `POST /confirm-return` (hoàn tồn kho nguyên tử + giải phóng coupon).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: Khách đặt hàng (COD)
+    PENDING --> CONFIRMED: Shop xác nhận
+    PENDING --> CANCELLED: Khách / Shop hủy đơn (Hoàn kho ngay)
+    CONFIRMED --> PROCESSING: Chuẩn bị đóng gói
+    CONFIRMED --> CANCELLED: Shop hủy đơn (Hoàn kho ngay)
+    PROCESSING --> SHIPPING: Bàn giao bưu tá / 3PL
+    PROCESSING --> CANCELLED: Shop hủy trước khi xuất kho (Hoàn kho ngay)
+    SHIPPING --> DELIVERED: Giao thành công
+    SHIPPING --> DELIVERY_FAILED: Giao thất bại (Hàng còn ở 3PL - KHÔNG hoàn kho)
+    DELIVERED --> COMPLETED: Khách nhận & Thu tiền COD xong (Tự động set PAID)
+    DELIVERY_FAILED --> RETURNED: Xác nhận hàng thực tế về kho qua /confirm-return (Hoàn kho)
+    COMPLETED --> [*]
+    CANCELLED --> [*]
+    RETURNED --> [*]
+```
+
+### Quy tắc Điều phối & An toàn Nghiệp vụ:
+1. **Không cho client tự ý set status**: Mọi thao tác chuyển trạng thái phải đi qua `PATCH /api/v1/owner/orders/{orderNumber}/status` hoặc `POST /api/v1/owner/orders/{orderNumber}/confirm-return`.
+2. **Khách hàng (`CUSTOMER`)**: Chỉ được phép hủy đơn của chính mình khi đơn đang ở trạng thái `PENDING`. Sau khi shop đã xác nhận (`CONFIRMED`), khách không thể tự hủy qua API mà phải liên hệ hỗ trợ.
+3. **Chủ shop (`SHOP_OWNER`) & Quản trị viên (`ADMIN`)**:
+   - Được phép chuyển đổi trạng thái tuần tự theo State Machine.
+   - Khi chuyển trạng thái, giao diện Owner Portal bắt buộc hiển thị `OwnerActionConfirmModal` để cảnh báo hệ quả nghiệp vụ (ví dụ: cảnh báo hoàn tồn kho khi hủy đơn, cảnh báo trách nhiệm pháp lý khi bàn giao vận chuyển).
+   - Mọi thao tác bắt buộc ghi kèm ghi chú (`note`) lưu vết vào bảng `order_status_history`.
+4. **Bảo toàn Doanh thu COD**: Khi đơn COD chuyển sang `COMPLETED`, backend tự động chuyển `payment_status` sang `PAID`, bảo đảm khớp dữ liệu kế toán và đối soát dòng tiền.
 
 ## 5. Thanh toán
 Trạng thái payment tách khỏi order status:

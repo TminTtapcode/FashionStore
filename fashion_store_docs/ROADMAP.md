@@ -132,12 +132,33 @@ Deliverables:
   - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (giữ size M hết hàng khi đổi màu, Escape drawer trước - modal sau, history back không lặp, stepper limit 10, clean console 0 JS error).
 
 ## Phase 5C — Shop owner operations (Layout Quản Trị Riêng)
-- Cổng quản trị riêng biệt cho Shop Owner/Admin (`/owner` hoặc portal tách khỏi storefront).
-- Product/variant CRUD and image management.
-- Inventory adjustment with audit/history as needed.
-- Order list/detail and allowed status transitions.
-- Basic dashboard reports based on defined calculations.
-Acceptance: owner cannot modify other shop data; every transition is validated.
+- **Phase 5C.0 & 5C.1 — Kiến trúc Quản trị & Vận hành Đơn hàng MVP (Shop Owner Operations MVP)** [Hoàn tất]:
+  - **Baseline Audit & Vá lỗi Tồn dư**:
+    - Vá triệt để công thức hạn mức giỏ hàng: max(0, min(10, stockQuantity) - existingCartQuantity), bảo vệ bất biến kho hàng khi tồn kho vật lý thấp hơn hạn mức dòng hàng 10.
+    - Hoàn thiện bẫy tiêu điểm (Focus Trap Containment) và hoàn trả focus chuẩn A11y cho SizeGuideDrawer.
+  - **Kiến trúc Domain & Phân quyền RBAC**:
+    - Xác lập kiến trúc Single-store MVP (bảng shops ID 1 IVRE Atelier, products.shop_id = 1) và tính sẵn sàng mở rộng Multi-shop.
+    - Ma trận phân quyền RBAC đa tác nhân (CUSTOMER, SHOP_OWNER, ADMIN), bảo vệ Object-level security.
+  - **Cổng Quản trị Atelier SPA (/owner)**:
+    - Điều phối tuyến /owner siêu nhẹ không cài thêm thư viện router (ADR-012 compliant, Browser History API).
+    - Tầng bảo vệ an ninh RBAC Gate: Atelier Brand Loading Skeleton, Màn hình 401 Unauthorized (yêu cầu đăng nhập), Màn hình 403 Forbidden (chặn Customer), và Authorized Owner Shell.
+    - Atelier Top Navbar (Badge cửa hàng, user info, nút chuyển nhanh về Storefront, Đăng xuất) & Sidebar (Đơn hàng kích hoạt; Sản phẩm 5C.2, Kho hàng 5C.3, Media 5C.4, Báo cáo 5C.5 hiển thị badge Sắp ra mắt).
+    - Bảng điều hành đơn hàng: 9 tab lọc trạng thái (TẤT CẢ, CHỜ XÁC NHẬN, ĐÃ XÁC NHẬN, ĐANG ĐÓNG GÓI, ĐANG GIAO, GIAO THẤT BẠI, ĐÃ GIAO, HOÀN TẤT, ĐÃ HỦY, ĐÃ HOÀN), ô tìm kiếm mã đơn/khách hàng, phân trang.
+    - Modal Chi tiết Đơn hàng: Thông tin người nhận, snapshot dòng hàng, chi tiết tài chính, Dòng thời gian Lịch sử trạng thái đầy đủ (order_status_history), và các nút hành động chuyển đổi trạng thái khả dụng theo State Machine.
+    - Modal Xác nhận Thao tác: Cảnh báo hệ quả nghiệp vụ (hoàn kho, giải phóng coupon, trách nhiệm vận chuyển), ô nhập ghi chú bắt buộc.
+    - Tách biệt an toàn giữa giao hàng thất bại (DELIVERY_FAILED) và nhận hàng hoàn vật lý về kho (RETURNED qua POST /confirm-return).
+    - Tự động hoàn tất thanh toán COD (payment_status = PAID) khi đơn sang COMPLETED.
+  - **Bằng chứng Nghiệm thu**:
+    - Backend Suite: **107/107 tests PASS (100%)**.
+    - Frontend Suite: **39/39 tests PASS (100%)** (11 URL + 12 filter debounce + 10 product lookbook + 6 owner portal integration tests).
+    - Code Quality: tsc -b && vite build hoàn tất sạch sẽ trong 164ms (~109.65 kB gzip); 0 lỗi lint mới.
+    - Chrome DevTools MCP: Live browser verification thành công (xác thực RBAC gate 401, nút điều hướng Storefront <-> Owner, Back/Forward browser history, 0 lỗi console).
+- **Phase 5C.2 — Quản lý Sản phẩm & Biến thể (Product & Variant Management)** [Kế tiếp]:
+  - Thêm, sửa, ẩn/hiển thị, lưu nháp sản phẩm (DRAFT, ACTIVE, HIDDEN, ARCHIVED).
+  - Quản lý ma trận biến thể thời trang (Size x Màu sắc), tạo SKU tự động, cài đặt giá niêm yết và giá bán.
+- **Phase 5C.3 — Quản lý Tồn kho & Nhật ký Nhập/Xuất (Inventory Audit Trail)** [Dự kiến].
+- **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Dự kiến].
+- **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
 
 ## Phase 6 — Payment gateway
 - Choose provider based on merchant eligibility, fees and official docs.

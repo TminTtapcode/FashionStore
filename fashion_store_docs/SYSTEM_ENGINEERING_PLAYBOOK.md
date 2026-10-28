@@ -798,6 +798,96 @@ getProductsApi(currentFilters, controller.signal)
        *"Ảnh minh họa kiểu dáng (Chưa có ảnh riêng cho màu [Tên màu])"*.
   * Tuyệt đối không để lộ danh sách ảnh chi tiết của màu khác, bảo vệ tính trung thực và cao cấp của thương hiệu thời trang.
 
+---
+
+## 8. VẬN HÀNH CHỦ SHOP & BẢO MẬT PHÂN QUYỀN RBAC (PHASE 5C.0 & 5C.1)
+
+### 8.1. Sơ đồ Vòng đời Đơn hàng & State Machine Vận hành Chủ shop
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: Khách đặt hàng COD
+    PENDING --> CONFIRMED: Chủ shop xác nhận đơn
+    PENDING --> CANCELLED: Khách / Shop hủy đơn (Hoàn kho ngay)
+    CONFIRMED --> PROCESSING: Chuyển sang đóng gói
+    CONFIRMED --> CANCELLED: Shop hủy đơn trước khi xuất kho (Hoàn kho ngay)
+    PROCESSING --> SHIPPING: Bàn giao bưu tá / Đơn vị vận chuyển
+    PROCESSING --> CANCELLED: Shop hủy khẩn cấp trước khi giao (Hoàn kho ngay)
+    SHIPPING --> DELIVERED: Giao hàng thành công
+    SHIPPING --> DELIVERY_FAILED: Giao hàng thất bại (Hàng còn ở 3PL - KHÔNG hoàn kho)
+    DELIVERED --> COMPLETED: Hoàn tất đơn hàng (Tự động set payment_status = PAID)
+    DELIVERY_FAILED --> RETURNED: Xác nhận hàng thực tế về kho qua /confirm-return (Hoàn kho)
+    COMPLETED --> [*]
+    CANCELLED --> [*]
+    RETURNED --> [*]
+```
+
+### 8.2. Post-Mortem 10: Lỗ hổng Công thức Giới hạn Thêm vào Giỏ (Warehouse Invariant Breach)
+* **Vấn đề Phát hiện (Phase 5C Baseline Audit):**
+  * Trong Phase 5B.1, công thức tính số lượng thêm tối đa được viết là:
+    ```typescript
+    const remainingByPolicy = Math.max(0, MAX_PER_LINE - existingCartQuantity);
+    return Math.min(remainingByPolicy, currentVariant.stockQuantity);
+    ```
+  * Giả sử: Biến thể chỉ còn tồn kho thực tế là 5 chiếc (`stockQuantity = 5`), và khách hàng đã có 3 chiếc trong giỏ (`existingCartQuantity = 3`).
+  * Tính theo công thức cũ: `remainingByPolicy = 10 - 3 = 7`.
+  * Kết quả `maxAddable = min(7, 5) = 5`!
+  * Khi khách hàng thêm 5 chiếc, tổng số lượng trong giỏ trở thành `3 + 5 = 8 chiếc` $\rightarrow$ Vượt quá tồn kho thực tế của kho hàng (chỉ có 5 chiếc)!
+* **Nguyên nhân Gốc rễ:**
+  * Đánh đồng hạn mức chính sách tối đa mỗi dòng hàng (`MAX_PER_LINE = 10`) với tồn kho vật lý hiện có. Đúng ra, trần số lượng cho phép trong giỏ tại mọi thời điểm là $\min(\text{MAX\_PER\_LINE}, \text{stockQuantity})$.
+* **Giải pháp Khắc phục:**
+  * Chuẩn hóa công thức bất biến:
+    $$\text{maxTotalAllowed} = \min(\text{MAX\_PER\_LINE}, \text{stockQuantity})$$
+    $$\text{maxAddable} = \max(0, \text{maxTotalAllowed} - \text{existingCartQuantity})$$
+  * Áp dụng trong mã nguồn:
+    ```typescript
+    const maxTotalAllowed = Math.min(MAX_PER_LINE, currentVariant.stockQuantity);
+    return Math.max(0, maxTotalAllowed - existingCartQuantity);
+    ```
+  * Trong ví dụ trên: `maxTotalAllowed = min(10, 5) = 5`. Số lượng được thêm tối đa là `max(0, 5 - 3) = 2 chiếc` $\rightarrow$ Tổng số lượng trong giỏ luôn $\le 5$, triệt tiêu hoàn toàn nguy cơ vượt tồn kho.
+
+### 8.3. Post-Mortem 11: Cô lập Tiêu điểm & Hoàn trả Focus trong Ngữ cảnh Dual Dialog (A11y Focus Containment)
+* **Vấn đề Phát hiện (Phase 5C Baseline Audit):**
+  * Khi người dùng mở Bảng tra cứu số đo (`SizeGuideDrawer`) trượt ra đè lên `ProductDetailModal`, phím `Tab` không bị bẫy tuần hoàn bên trong Drawer mà có thể lọt ra ngoài, làm mất dấu tiêu điểm bàn phím. Đồng thời khi đóng Drawer, focus không được hoàn trả lại nút "Bảng size" ban đầu mà bị nhảy lên đầu trang.
+* **Nguyên nhân Gốc rễ:**
+  * `SizeGuideDrawer` chưa có cơ chế focus trap cho phím `Tab` và `Shift+Tab`, và chưa lưu lại `document.activeElement` trước khi mở.
+* **Giải pháp Khắc phục:**
+  1. Sử dụng `previouslyFocusedElementRef` để chụp lại `document.activeElement` ngay khi `isOpen = true`.
+  2. Bổ sung `onKeyDown` xử lý bẫy tiêu điểm vòng tròn:
+     ```typescript
+     const handleKeyDownTrap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+       if (e.key !== 'Tab' || !drawerContainerRef.current) return;
+       const focusableElements = drawerContainerRef.current.querySelectorAll<HTMLElement>(
+         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+       );
+       if (focusableElements.length === 0) return;
+       const firstElement = focusableElements[0];
+       const lastElement = focusableElements[focusableElements.length - 1];
+       if (e.shiftKey && document.activeElement === firstElement) {
+         e.preventDefault();
+         lastElement.focus();
+       } else if (!e.shiftKey && document.activeElement === lastElement) {
+         e.preventDefault();
+         firstElement.focus();
+       }
+     };
+     ```
+  3. Khi component unmount hoặc `isOpen = false`, tự động gọi `previouslyFocusedElementRef.current?.focus()` để khôi phục tiêu điểm chính xác.
+
+### 8.4. Post-Mortem 12: Tách biệt Báo Giao hàng Thất bại vs Hoàn kho Thực tế (Deferred Stock Restoration & Carrier Custody)
+* **Vấn đề Phát hiện:**
+  * Trong các hệ thống e-commerce nghiệp dư, khi nhận webhook hoặc báo cáo giao hàng không thành công (`DELIVERY_FAILED`), hệ thống tự động cộng hoàn kho ngay lập tức.
+  * Hậu quả vận hành: Khi kiện hàng vẫn đang nằm trong thùng xe của bưu tá hoặc lưu kho chuyển tiếp của đơn vị vận chuyển, kho hàng đã cộng số lượng và cho phép khách hàng khác đặt mua. Nếu kiện hàng bị thất lạc, vỡ nát hoặc bị giữ lại đối soát nhiều tuần, kho hàng rơi vào tình trạng "ảo" (phantom inventory), dẫn đến việc không có hàng để giao cho khách hàng mới.
+* **Nguyên nhân Gốc rễ:**
+  * Nhầm lẫn giữa "thông tin trạng thái giao vận" (carrier notification) với "sự kiện nhập kho vật lý" (physical warehouse receipt).
+* **Giải pháp Khắc phục:**
+  1. Khi trạng thái chuyển sang `DELIVERY_FAILED`: Đơn hàng được gắn cờ giao thất bại, **tuyệt đối không cộng tồn kho** và **không giải phóng coupon**.
+  2. Chỉ khi bưu tá mang trả gói hàng về kho của shop, nhân viên kho mở kiểm tra chất lượng còn nguyên tem mác, chủ shop mới bấm nút "XÁC NHẬN HÀNG HOÀN VỀ KHO".
+  3. Thao tác này kích hoạt endpoint chuyên dụng:
+     `POST /api/v1/owner/orders/{orderNumber}/confirm-return`
+     Thực hiện trong cùng 1 ACID transaction: chuyển đơn sang `RETURNED`, hoàn tồn kho từng SKU, giải phóng coupon và ghi vết lịch sử kiểm toán.
+  4. Nếu có người cố tình gọi PATCH trạng thái thông thường để chuyển sang `RETURNED`, backend lập tức từ chối với HTTP 400 (`RETURN_CONFIRMATION_REQUIRED`).
+
+
 
 
 

@@ -163,10 +163,16 @@ erDiagram
 - `coupon_redemptions`: coupon_id, user_id, order_id, redeemed_at.
 
 ### Order & payment
-- `orders`: id/public_order_number, user_id, shop_id, status, payment_status, subtotal, discount_total, shipping_fee, grand_total, coupon_id nullable, shipping snapshot fields, note nullable, created_at, updated_at.
+- `orders`: id/public_order_number (`ORD-YYYYMMDD-XXXX`), user_id, status, payment_status, payment_method, subtotal, discount_total, shipping_fee, grand_total, coupon_id nullable, shipping snapshot fields (recipient_name, phone, address_line, ward, district, province), note nullable, created_at, updated_at.
+  - *Kiến trúc Đơn hàng & Cửa hàng (Phase 5C.0 Analysis)*: Bảng `shops` lưu thông tin boutique store (`id = 1`, `IVRE Atelier`). Các bảng `products` gắn `shop_id = 1`. Trong kiến trúc hiện tại, bảng `orders` phục vụ đơn hàng của boutique duy nhất này; tầng nghiệp vụ `OwnerOrderService` thực hiện lọc và bảo vệ ranh giới dữ liệu shop.
 - `order_items`: id, order_id, variant_id nullable, product_name_snapshot, sku_snapshot, size_snapshot, color_snapshot, unit_price_snapshot, quantity, line_total.
+  - *Tại sao bắt buộc snapshot bất biến?*: Hóa đơn mua sắm là chứng từ tài chính và pháp lý có giá trị vĩnh viễn. Nếu chỉ trỏ FK tới `product_variants`, mọi thay đổi sau này của chủ shop (sửa tên sản phẩm, tăng/giảm giá, đổi mã SKU, hoặc ngừng kinh doanh một size) sẽ làm biến dạng hóa đơn trong quá khứ hoặc vi phạm toàn vẹn dữ liệu. Bằng cách lưu snapshot `product_name_snapshot`, `sku_snapshot`, `size_snapshot`, `color_snapshot`, `unit_price_snapshot`, hóa đơn được bảo toàn 100% nguyên trạng kể cả khi sản phẩm gốc bị xóa hoặc chỉnh sửa.
 - `payments`: id, order_id, provider, provider_transaction_id nullable, amount, status, idempotency/provider reference, created_at, updated_at.
-- `order_status_history`: order_id, old_status, new_status, actor_user_id nullable, note, created_at.
+- `order_status_history`: id, order_id, old_status, new_status, actor_user_id nullable, note, created_at.
+  - *Tại sao bảng này tối quan trọng?*:
+    1. **Truy xuất nguồn gốc & Trách nhiệm giải trình (Audit Trail & Accountability)**: Ghi lại chính xác ai (Customer, Shop Owner hay Admin) đã chuyển trạng thái, vào thời điểm nào, kèm theo ghi chú nghiệp vụ.
+    2. **Minh bạch với Khách hàng**: Khách hàng và Chủ shop có thể xem toàn bộ dòng thời gian (vertical timeline) từ lúc đặt hàng, qua các khâu xử lý, đóng gói, bàn giao vận chuyển đến khi phát thành công.
+    3. **Phòng vệ Tranh chấp & Khiếu nại Vận chuyển**: Phân định rạch ròi giữa thời điểm đơn vị vận chuyển báo giao thất bại (`SHIPPING -> DELIVERY_FAILED`) và thời điểm kiện hàng thực tế được chuyển hoàn về kho shop (`DELIVERY_FAILED -> RETURNED`).
 - Có thể thêm `payment_webhook_events` hoặc bảng inbox/idempotency khi tích hợp gateway để theo dõi sự kiện đã xử lý.
 
 ### Reviews & audit

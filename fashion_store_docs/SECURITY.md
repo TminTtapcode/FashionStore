@@ -10,6 +10,25 @@
 - Admin role chỉ được cấp bằng flow quản trị bảo vệ; không cho user tự sửa role.
 - Bảo vệ CSRF nếu dùng cookie auth; CORS không phải biện pháp chống CSRF.
 
+### Ma trận Phân quyền Vai trò (Role-Based Access Control Matrix - Phase 5C)
+| Thao tác / Tài nguyên | Guest (Vãng lai) | Customer (Khách mua) | Shop Owner (Chủ shop) | Admin (Quản trị viên) |
+| :--- | :---: | :---: | :---: | :---: |
+| Duyệt Catalog, xem Lookbook, Lọc sản phẩm | Cho phép | Cho phép | Cho phép | Cho phép |
+| Thêm vào Giỏ hàng, sửa Cart Items | Chặn (Yêu cầu login) | Cho phép (Sở hữu) | Cho phép | Cho phép |
+| Đặt hàng COD (Checkout) | Chặn | Cho phép | Cho phép | Cho phép |
+| Xem lịch sử đơn hàng của mình (`/api/v1/orders/my-orders`) | Chặn (401) | Cho phép (Sở hữu) | Cho phép (Sở hữu) | Cho phép (Sở hữu) |
+| Hủy đơn hàng ở trạng thái `PENDING` | Chặn | Cho phép (Chính chủ) | Cho phép | Cho phép |
+| Truy cập Cổng Quản trị (`/owner`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Xem danh sách đơn toàn shop (`/api/v1/owner/orders`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Chuyển trạng thái đơn (`PENDING -> CONFIRMED -> PROCESSING...`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Xác nhận hàng hoàn vật lý về kho (`POST /confirm-return`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+
+### Phân định Rạch ròi giữa Role-level và Object-level Authorization:
+- **Role-level Security**: Sử dụng Spring Security `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")` ở cấp controller/method để chặn toàn bộ user không có thẩm quyền quản trị.
+- **Object-level Security (Resource Ownership)**: 
+  - Khách hàng gọi `GET /api/v1/orders/{orderNumber}`: Backend bắt buộc kiểm tra `order.getUserId().equals(principal.getId())`. Nếu không khớp, trả về 404/403 để ngăn chặn lỗi IDOR (Insecure Direct Object Reference).
+  - Chủ shop gọi `/api/v1/owner/orders/**`: Backend xác thực đơn hàng thuộc quyền quản lý của shop do owner phụ trách.
+
 ## 2. Input & browser security
 - Bean Validation, parameterized queries/JPA, output encoding và policy CSP phù hợp.
 - Không render HTML do user nhập trực tiếp nếu chưa sanitize.

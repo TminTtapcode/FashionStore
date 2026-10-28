@@ -103,3 +103,40 @@ Không bắt buộc tạo bốn lớp cho mọi CRUD nhỏ nếu chỉ làm tăn
 - Health/readiness check không tiết lộ thông tin nội bộ.
 - Migration phải chạy theo release có kiểm soát.
 - Backup cần thử restore định kỳ; “có file backup” chưa đủ.
+
+## 7. Kiến trúc Giao diện Quản trị Shop Owner & Điều phối Route (`/owner`)
+
+### 7.1. Single SPA Routing theo ADR-012
+- Tuân thủ nghiêm ngặt nguyên lý kiến trúc ADR-012: Toàn bộ hệ thống frontend là một Single Page Application duy nhất, không cài đặt thêm thư viện router bên thứ ba cồng kềnh (như `react-router-dom` hay TanStack Router) nhằm giữ bundle size siêu gọn (~109 kB gzip) và tốc độ tải trang tức thì.
+- Phân luồng giữa Storefront (`/`) và Cổng Quản trị Atelier (`/owner`) được điều phối qua Browser History API chuẩn mực (`window.history.pushState` và sự kiện `popstate`):
+  ```typescript
+  // App.tsx điều phối cấp cao nhất:
+  {currentPath.startsWith('/owner') ? (
+    <OwnerPortal onNavigateStorefront={() => navigateTo('/')} />
+  ) : (
+    <StorefrontContent onNavigateOwner={() => navigateTo('/owner')} />
+  )}
+  ```
+
+### 7.2. Tầng Phòng vệ Phân quyền RBAC Gate
+- Component `OwnerPortal.tsx` đóng vai trò là một chốt chặn bảo mật (Security Gate):
+  1. **Loading State**: Hiển thị Atelier Brand Loader trong lúc `useAuth()` xác thực session qua cookie HttpOnly.
+  2. **401 Unauthorized Screen**: Khi người dùng chưa đăng nhập (Guest), hiển thị màn hình yêu cầu xác thực với nút "ĐĂNG NHẬP ATELIER" kích hoạt `openAuthModal('login')`.
+  3. **403 Forbidden Screen**: Khi người dùng đã đăng nhập nhưng chỉ có role `CUSTOMER` (không có role `SHOP_OWNER` hoặc `ADMIN`), hiển thị màn hình từ chối quyền truy cập kèm thông tin email hiện tại và nút điều hướng "VỀ TRANG CHỦ MUA SẮM".
+  4. **Authorized Owner Shell**: Khi người dùng có role hợp lệ (`SHOP_OWNER` hoặc `ADMIN`), hiển thị toàn bộ giao diện quản trị Atelier Dark Luxe.
+
+### 7.3. Cấu trúc Component Cổng Quản trị Atelier
+```text
+frontend/src/
+  ├── components/owner/
+  │     ├── OwnerPortal.tsx               # Shell quản trị, RBAC Gate, Top Header & Sidebar
+  │     ├── OwnerOrdersView.tsx           # Bảng điều hành đơn hàng, bộ lọc 9 trạng thái, pagination
+  │     ├── OwnerOrderDetailModal.tsx     # Modal chi tiết đơn, thông tin giao hàng, tài chính & Timeline
+  │     └── OwnerActionConfirmModal.tsx   # Modal xác nhận thao tác chuyển trạng thái & cảnh báo nghiệp vụ
+  └── api/
+        └── ownerOrderApi.ts              # Client API kết nối các endpoint /api/v1/owner/orders/**
+```
+
+### 7.4. Ranh giới API Tách biệt giữa Storefront và Owner
+- **Customer Endpoints (`/api/v1/orders/**`)**: Khách hàng chỉ xem và thao tác trên các đơn hàng gắn với `authPrincipal.getUserId()`.
+- **Owner Endpoints (`/api/v1/owner/orders/**`)**: Được bảo vệ bởi `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")`. Backend lọc và xác thực quyền quản trị trên dữ liệu của cửa hàng, không cho phép truy cập chéo dữ liệu trái phép.
