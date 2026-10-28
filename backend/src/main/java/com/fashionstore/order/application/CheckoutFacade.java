@@ -55,8 +55,11 @@ public class CheckoutFacade {
     }
 
     private OrderConfirmationDto verifyAndMapReplay(Order order, CheckoutRequest request) {
-        if (!order.getShippingPhone().equals(request.getShippingPhone().trim()) ||
-            !order.getShippingAddress().equals(request.getShippingAddress().trim())) {
+        String reqPhone = request.getShippingPhone() != null ? request.getShippingPhone().trim() : "";
+        String reqAddress = request.getShippingAddress() != null ? request.getShippingAddress().trim() : "";
+
+        if (!java.util.Objects.equals(order.getShippingPhone(), reqPhone) ||
+            !java.util.Objects.equals(order.getShippingAddress(), reqAddress)) {
             throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "Khóa request đã được sử dụng cho một đơn hàng khác");
         }
         return checkoutService.mapToOrderConfirmationDto(order, true);
@@ -77,3 +80,4 @@ public class CheckoutFacade {
         return false;
     }
 }
+

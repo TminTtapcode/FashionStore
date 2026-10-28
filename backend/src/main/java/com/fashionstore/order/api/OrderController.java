@@ -11,6 +11,7 @@ import com.fashionstore.order.domain.OrderRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public class OrderController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<OrderConfirmationDto>>> getMyOrders(
             @AuthenticationPrincipal UserPrincipal principal) {
         List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(principal.getId());
@@ -36,6 +38,7 @@ public class OrderController {
     }
 
     @GetMapping("/{orderNumber}")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<OrderConfirmationDto>> getOrderByNumber(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String orderNumber) {

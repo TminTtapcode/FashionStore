@@ -12,6 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -225,6 +227,31 @@ class OrderLifecycleServiceTest {
         verify(couponUsageRepository, never()).findByOrderIdAndStatus(any(), any());
     }
 
+    @ParameterizedTest
+    @EnumSource(OrderStatus.class)
+    @DisplayName("PATCH RETURNED yêu cầu xác nhận hàng hoàn riêng và không thay đổi đơn hàng")
+    void updateOrderStatusByOwner_ReturnedRequiresConfirmation(OrderStatus currentStatus) {
+        testOrder.setStatus(currentStatus);
+        when(orderRepository.findByOrderNumberWithLock("ORD-20261028-0001"))
+                .thenReturn(Optional.of(testOrder));
+
+        assertThatThrownBy(() -> orderLifecycleService.updateOrderStatusByOwner(
+                "ORD-20261028-0001", OrderStatus.RETURNED, "Hàng đã về kho", "Shop Owner"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(ex -> {
+                    ApiException apiEx = (ApiException) ex;
+                    assertThat(apiEx.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(apiEx.getCode()).isEqualTo("RETURN_CONFIRMATION_REQUIRED");
+                    assertThat(apiEx.getMessage()).contains("confirm-return");
+                });
+
+        assertThat(testOrder.getStatus()).isEqualTo(currentStatus);
+        assertThat(testOrder.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(testOrder.getStatusHistory()).isEmpty();
+        verify(orderRepository, never()).save(any(Order.class));
+        verifyNoInteractions(variantRepository, couponUsageRepository);
+    }
+
     @Test
     @DisplayName("Chủ shop xác nhận hàng hoàn về kho (DELIVERY_FAILED -> RETURNED): Mới chính thức hoàn kho an toàn")
     void confirmReturnByOwner_Success_RestoresStock() {
@@ -251,7 +278,14 @@ class OrderLifecycleServiceTest {
 
         // Voucher released
         assertThat(usage.getStatus()).isEqualTo(CouponUsage.STATUS_RELEASED);
+        assertThat(usage.getReleasedAt()).isNotNull();
         verify(couponUsageRepository, times(1)).save(usage);
+
+        assertThat(testOrder.getStatusHistory()).singleElement().satisfies(history -> {
+            assertThat(history.getFromStatus()).isEqualTo(OrderStatus.DELIVERY_FAILED);
+            assertThat(history.getToStatus()).isEqualTo(OrderStatus.RETURNED);
+            assertThat(history.getChangedBy()).isEqualTo("Kho Thu Duc");
+        });
     }
 
     @Test

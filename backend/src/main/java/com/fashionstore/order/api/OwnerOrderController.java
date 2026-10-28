@@ -21,6 +21,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public class OwnerOrderController {
      * List, filter, search, and paginate orders for shop management.
      */
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<PageResponse<OrderConfirmationDto>>> getOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -95,6 +97,7 @@ public class OwnerOrderController {
      * Retrieve full order details including timeline status history.
      */
     @GetMapping("/{orderNumber}")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<OrderConfirmationDto>> getOrderDetail(@PathVariable String orderNumber) {
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + orderNumber));
@@ -149,3 +152,4 @@ public class OwnerOrderController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
+

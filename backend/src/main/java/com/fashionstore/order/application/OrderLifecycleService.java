@@ -87,6 +87,14 @@ public class OrderLifecycleService {
         Order order = orderRepository.findByOrderNumberWithLock(orderNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + orderNumber));
 
+        if (toStatus == OrderStatus.RETURNED) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "RETURN_CONFIRMATION_REQUIRED",
+                    "Vui lòng dùng endpoint confirm-return để xác nhận hàng hoàn đã về kho"
+            );
+        }
+
         if (order.getStatus().isTerminal()) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
