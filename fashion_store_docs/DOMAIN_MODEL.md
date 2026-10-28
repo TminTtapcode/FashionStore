@@ -253,3 +253,71 @@ Trạng thái sản phẩm tuân thủ nghiêm ngặt 4 trạng thái:
 - Áp dụng **Phương án B (Option B)**:
   - Khi khởi tạo sản phẩm và sinh ma trận biến thể, chủ shop được phép khai báo số lượng tồn kho ban đầu (`stock_quantity >= 0`).
   - Sau khi biến thể được khởi tạo, không cho phép cập nhật tùy tiện số lượng tồn kho qua API cập nhật thông tin chung. Mọi biến động xuất/nhập kho tiếp theo sẽ được kiểm soát chặt chẽ thông qua luồng đặt hàng/hủy đơn và tính năng **Sổ cái Kiểm toán Tồn kho (Inventory Audit Trail)** chuyên biệt trong Phase 5C.3.
+
+## 7. Thiết kế Miền Sổ Cái Tồn Kho Bất Biến (Phase 5C.3 — Immutable Inventory Ledger)
+
+### 7.1. Cấu trúc Thực thể `inventory_movements` (Flyway Migration V8)
+Bảng `inventory_movements` là sổ cái kiểm toán ghi nối tiếp (append-only ledger), lưu vết 100% mọi biến động tăng/giảm tồn kho của từng biến thể sản phẩm.
+
+```mermaid
+erDiagram
+    PRODUCT_VARIANT ||--o{ INVENTORY_MOVEMENT : "audit trails"
+    USERS ||--o{ INVENTORY_MOVEMENT : "created by"
+
+    PRODUCT_VARIANT {
+        bigint id PK
+        varchar sku UK
+        int stock_quantity "Tồn kho khả dụng (ATS)"
+    }
+
+    INVENTORY_MOVEMENT {
+        bigint id PK
+        bigint variant_id FK "ON DELETE RESTRICT"
+        varchar movement_type "OPENING_BALANCE, STOCK_RECEIPT, ORDER_DEDUCT, CANCEL_RESTORE, RETURN_RESTORE, MANUAL_ADJUSTMENT, INITIAL_STOCK"
+        int quantity_delta "Giá trị biến thiên (âm = xuất/giảm, dương = nhập/tăng)"
+        int stock_before "Số tồn ngay trước giao dịch"
+        int stock_after "Số tồn ngay sau giao dịch"
+        varchar reference_id "Mã đơn hàng, mã phiếu nhập, v.v."
+        varchar movement_key UK "Khóa chống trùng lặp (Idempotency Key)"
+        text reason "Lý do kiểm toán / biên bản"
+        bigint created_by FK "ID tài khoản thực hiện"
+        timestamp created_at "Thời điểm giao dịch bất biến"
+    }
+```
+
+### 7.2. Định nghĩa Ý nghĩa Tồn kho (Available-to-Sell vs Physical On-Hand)
+- **Available-to-Sell (ATS - Tồn kho Khả dụng Mở bán)**:
+  - Cột `product_variants.stock_quantity` đại diện cho tồn kho **ATS**.
+  - Ngay khi khách hàng bấm đặt hàng thành công (`ORDER_DEDUCT`), số tồn `stock_quantity` bị trừ ngay lập tức để ngăn chặn bán vượt (overselling / double-spending).
+  - Khi đơn hàng bị hủy trước khi xuất kho (`CANCEL_RESTORE`), số tồn ATS được hoàn trả ngay lập tức.
+- **Physical On-Hand (Tồn kho Vật lý Thực tế tại Giá kệ)**:
+  - Hàng hóa chỉ thực sự rời khỏi kệ khi bưu tá lấy hàng (`SHIPPING`).
+  - Khi giao hàng thất bại (`DELIVERY_FAILED`), hàng vẫn ở đơn vị vận chuyển $\rightarrow$ **chưa** hoàn tồn ATS.
+  - Chỉ khi bưu tá hoàn trả kiện hàng về kho và chủ shop nghiệm thu bao bì nguyên vẹn qua `/confirm-return` (`RETURN_RESTORE`), tồn kho ATS mới được cộng lại.
+  - Công thức quan hệ:
+    $$\text{Physical On-Hand} = \text{ATS} + \text{Allocated (Đơn hàng PENDING, CONFIRMED, PROCESSING)}$$
+
+### 7.3. Định lý Bất Biến Kiểm Toán (Mathematical Reconciliation Invariant)
+Mọi biến thể sản phẩm đều phải thỏa mãn đẳng thức toán học nghiệm thu:
+$$\text{Current Stock} = \text{Opening Balance} + \sum_{i=1}^{n} \Delta_i$$
+- Khi chạy migration `V8__create_inventory_ledger.sql` (Cutover Migration), toàn bộ 32 biến thể hiện hữu được khởi tạo một dòng `OPENING_BALANCE` với:
+  - `stock_before = 0`
+  - `quantity_delta = current_stock_quantity`
+  - `stock_after = current_stock_quantity`
+  - `movement_key = 'OPENING-CUTOVER-V8-VAR-{variantId}'`
+- Khi tạo biến thể mới qua `OwnerProductService`, nếu `stockQuantity > 0`, hệ thống ghi nhận giao dịch `INITIAL_STOCK` với:
+  - `stock_before = 0`, `quantity_delta = initialStock`, `stock_after = initialStock`.
+- Bất kỳ sai lệch nào giữa `currentStock` và $\sum \Delta$ (`reconciled = false`, `discrepancy != 0`) đều là bằng chứng của việc can thiệp trái phép trực tiếp vào database hoặc vi phạm transaction.
+
+### 7.4. Phân loại Nghiệp vụ Biến động Kho (Inventory Movement Types)
+1. `OPENING_BALANCE` ($\Delta > 0$): Số dư mở sổ chốt tại thời điểm đưa hệ thống sổ cái vào vận hành (Cutover point).
+2. `INITIAL_STOCK` ($\Delta > 0$): Số tồn ban đầu khai báo khi sinh biến thể mới qua Quick Matrix Generator.
+3. `STOCK_RECEIPT` ($\Delta > 0$): Nhập hàng bổ sung từ xưởng may hoặc nhà cung cấp (bắt buộc có mã chứng từ phiếu nhập `referenceId`).
+4. `ORDER_DEDUCT` ($\Delta < 0$): Xuất kho phục vụ đơn hàng checkout (`referenceId = orderNumber`).
+5. `CANCEL_RESTORE` ($\Delta > 0$): Hoàn kho khi đơn hàng bị hủy trước khi giao (`referenceId = orderNumber`).
+6. `RETURN_RESTORE` ($\Delta > 0$): Hoàn kho khi đơn giao thất bại được bàn giao vật lý trở lại kho shop (`referenceId = orderNumber`).
+7. `MANUAL_ADJUSTMENT` ($\Delta \in \mathbb{Z} \setminus \{0\}$): Điều chỉnh kiểm kê đột xuất (hao hụt, lỗi vải, làm mẫu chụp lookbook studio, tìm thấy hàng thất lạc) - bắt buộc giải trình lý do (`reason`).
+
+### 7.5. Bảo vệ Toàn Vẹn & Khóa Cạnh tranh (Concurrency & Foreign Key Guard)
+- **Khóa Bi quan (Pessimistic Locking)**: Mọi thao tác biến động kho trong `InventoryService` đều thực thi câu lệnh `SELECT ... FOR UPDATE` thông qua `@Lock(LockModeType.PESSIMISTIC_WRITE)` trên `product_variants`. Đảm bảo tuần tự hóa tuyệt đối, loại trừ hoàn toàn Lost Updates khi nhiều luồng checkout hoặc nhập hàng diễn ra đồng thời.
+- **Ràng buộc Chống Xóa Sổ cái (`ON DELETE RESTRICT`)**: Khóa ngoại `fk_inv_movement_variant` không dùng `ON DELETE CASCADE`. Không cho phép xóa biến thể nếu sổ cái còn lưu vết kiểm toán, bảo đảm tính bất biến vĩnh viễn phục vụ thanh tra thuế và kế toán.

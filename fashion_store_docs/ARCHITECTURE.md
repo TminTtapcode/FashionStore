@@ -159,3 +159,73 @@ frontend/src/
 - **Transaction Boundaries & DTO Isolation**:
   - DTOs được đóng gói riêng biệt trong `com.fashionstore.catalog.dto.owner.*`, ngăn chặn triệt để lỗ hổng Mass-Assignment và Over-Posting.
   - Toàn bộ các thao tác ghi dữ liệu được bọc trong `@Transactional(rollbackFor = Exception.class)`, bảo đảm tính toàn vẹn tuyệt đối khi sinh ma trận biến thể hoặc kiểm tra ràng buộc SKU trùng lặp.
+
+## 8. Kiến trúc Sổ Cái Quản Trị Tồn Kho Bất Biến (Phase 5C.3 — Immutable Inventory Ledger Architecture)
+
+### 8.1. Flyway Migration V8 & Chiến lược Chuyển đổi Số dư Mở sổ (Cutover Migration)
+- Tập tin `V8__create_inventory_ledger.sql` tạo lập bảng `inventory_movements`:
+  - Khóa chính `id BIGINT AUTO_INCREMENT`.
+  - Khóa ngoại `variant_id BIGINT NOT NULL` tham chiếu `product_variants(id)` với hành vi `ON DELETE RESTRICT` nhằm ngăn chặn xóa mất dấu vết lịch sử kế toán.
+  - Cột `quantity_delta INT NOT NULL` (giá trị biến động âm hoặc dương).
+  - Cột snapshot `stock_before INT NOT NULL` và `stock_after INT NOT NULL`.
+  - Chỉ mục duy nhất `uk_inv_movement_key (movement_key)` ngăn chặn nhân đôi bản ghi kiểm toán khi mạng chập chờn hoặc retry request.
+  - Các chỉ mục tối ưu hóa tìm kiếm: `idx_inv_movements_variant_created (variant_id, created_at DESC)`, `idx_inv_movements_ref (reference_id)`.
+- **Chiến lược Cutover**: Ngay trong script migration V8, một câu lệnh SQL tự động khởi tạo dòng `OPENING_BALANCE` cho toàn bộ 32 biến thể hiện có:
+  ```sql
+  INSERT INTO inventory_movements (
+      variant_id, movement_type, quantity_delta, stock_before, stock_after, 
+      reference_id, movement_key, reason, created_by, created_at
+  )
+  SELECT 
+      id, 'OPENING_BALANCE', stock_quantity, 0, stock_quantity,
+      'CUTOVER-V8', CONCAT('OPENING-CUTOVER-V8-VAR-', id),
+      'Số dư mở sổ ban đầu khi triển khai Phase 5C.3 Inventory Ledger',
+      NULL, CURRENT_TIMESTAMP
+  FROM product_variants;
+  ```
+  Nhờ đó, tính toàn vẹn toán học $\text{Current} == \text{Opening} + \sum \Delta$ được thỏa mãn tuyệt đối 100% ngay từ giây phút đầu tiên hệ thống vận hành.
+
+### 8.2. Mẫu Thiết kế Sổ cái Append-Only (Append-Only Ledger Pattern)
+- **Tính Bất biến (Immutability)**: Bảng `inventory_movements` chỉ hỗ trợ duy nhất thao tác `INSERT`. Tuyệt đối không cung cấp bất kỳ API hoặc phương thức repository nào cho phép `UPDATE` hoặc `DELETE` dòng kiểm toán.
+- **Truy xuất Nguồn gốc 2 Chiều**: Mọi giao dịch nhập/xuất đều lưu vết mã chứng từ tham chiếu (`reference_id`), người thực hiện (`created_by`), lý do (`reason`), số tồn trước (`stock_before`), số tồn sau (`stock_after`) và dấu thời gian chính xác (`created_at`).
+
+### 8.3. Khóa Bi quan & Kiểm soát Cạnh tranh (Pessimistic Locking Concurrency)
+- Trong `InventoryService`, mọi hành vi điều chỉnh tồn kho đều kích hoạt câu truy vấn khóa hàng:
+  ```java
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT v FROM ProductVariant v WHERE v.id = :id")
+  Optional<ProductVariant> findByIdWithLock(@Param("id") Long id);
+  ```
+- Lợi ích kiến trúc:
+  1. Loại bỏ triệt để hiện tượng **Lost Updates** khi nhiều đơn hàng cùng mua một size hoặc khi chủ shop đang nhập hàng cùng lúc với khách checkout.
+  2. Đảm bảo số lượng `stock_before` đọc được là số tồn nguyên tử tuyệt đối tại thời điểm khóa hàng, và `stock_after = stock_before + delta` luôn chính xác.
+  3. Kiểm tra điều kiện tồn kho sau biến động `stock_after >= 0`; nếu vi phạm lập tức rollback transaction và ném ngoại lệ `INSUFFICIENT_STOCK`.
+
+### 8.4. Ranh giới Phân hệ & Cấu trúc Component Quản trị Tồn kho
+```text
+backend/src/main/java/com/fashionstore/
+  ├── inventory/
+  │     ├── domain/
+  │     │     ├── InventoryMovement.java         # JPA Entity ánh xạ inventory_movements
+  │     │     └── InventoryMovementType.java     # Enum 7 loại nghiệp vụ kho
+  │     ├── infrastructure/
+  │     │     └── InventoryMovementRepository.java # Truy vấn sumDelta, findOpeningBalance, findByMovementKey
+  │     ├── application/
+  │     │     └── InventoryService.java          # Cơ quan thẩm quyền trung tâm duy nhất quản lý tồn kho
+  │     ├── api/
+  │     │     └── OwnerInventoryController.java  # REST Controller /api/v1/owner/inventory/** (RBAC Gate)
+  │     └── dto/
+  │           ├── InventoryMovementDto.java
+  │           ├── InventorySummaryDto.java
+  │           ├── InventoryReconciliationDto.java
+  │           ├── StockReceiptRequest.java
+  │           └── ManualAdjustmentRequest.java
+frontend/src/
+  ├── components/owner/
+  │     ├── OwnerInventoryView.tsx               # Bảng tổng quan tồn kho, tìm kiếm, lọc danh mục & thẻ thống kê
+  │     ├── OwnerInventoryLedgerDrawer.tsx       # Ngăn kéo sổ cái lịch sử & thẻ đối soát toán học tự động
+  │     ├── OwnerStockReceiptModal.tsx           # Hộp thoại nhập hàng bổ sung kèm dự phóng tồn kho
+  │     └── OwnerStockAdjustmentModal.tsx        # Hộp thoại kiểm kê điều chỉnh với xác thực âm kho
+  └── api/
+        └── ownerInventoryApi.ts                 # REST client kết nối module inventory
+```

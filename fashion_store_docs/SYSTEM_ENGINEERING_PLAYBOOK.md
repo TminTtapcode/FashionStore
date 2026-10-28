@@ -35,6 +35,23 @@
      - 7.8.3. Post-Mortem 7: Chống Vòng lặp Web History Stack (`history.back()` vs `replaceState()`)
      - 7.8.4. Post-Mortem 8: Bảo vệ Bất biến Giới hạn Dòng hàng Giỏ hàng (ADR-011 Invariant)
      - 7.8.5. Post-Mortem 9: Cách ly Hình ảnh Biến thể & Fallback Minh bạch
+8. [VẬN HÀNH ĐƠN HÀNG & PHÂN QUYỀN CHỦ SHOP ATELIER (PHASE 5C.0 - 5C.1)](#8-vận-hành-đơn-hàng--phân-quyền-chủ-shop-atelier-phase-5c0---5c1)
+   - 8.1. Post-Mortem 10: Lỗ hổng Cập nhật Trạng thái Trực tiếp & Phân tầng Quyền Hủy Đơn
+   - 8.2. Post-Mortem 11: Bẫy Trôi Dòng tiền COD khi Hoàn tất Đơn hàng
+   - 8.3. Post-Mortem 12: Phân định Nghiệp vụ Giao thất bại vs Xác nhận Hàng hoàn Thực tế
+9. [QUẢN TRỊ SẢN PHẨM & BIẾN THỂ THỜI TRANG (PHASE 5C.2)](#9-quản-trị-sản-phẩm--biến-thể-thời-trang-phase-5c2)
+   - 9.1. Sơ đồ Vòng đời Sản phẩm (Product Lifecycle State Machine)
+   - 9.2. Post-Mortem 13: Bẫy Phá vỡ Tính Bất biến SKU trên Biến thể đã Có Đơn hàng
+   - 9.3. Post-Mortem 14: Lỗ hổng Xuất bản Sản phẩm Rỗng Lên Storefront
+   - 9.4. Post-Mortem 15: Chuẩn hóa Mã Hàng & Tự động Giải quyết Xung đột SKU
+   - 9.5. Post-Mortem 16: Bảo vệ Tính Toàn vẹn Dữ liệu Khỏi Xóa Cứng Sản phẩm Có Đơn hàng
+10. [QUẢN TRỊ TỒN KHO & SỔ CÁI KIỂM TOÁN BẤT BIẾN (PHASE 5C.3)](#10-quản-trị-tồn-kho--sổ-cái-kiểm-toán-bất-biến-phase-5c3)
+    - 10.1. Sơ đồ Thực thể Sổ cái & Invariant Mathematical Reconciliation
+    - 10.2. Available-to-Sell (ATS) vs Physical On-Hand Semantics
+    - 10.3. Post-Mortem 17: Bẫy Trôi Tồn Kho khi Cập nhật Trực tiếp Không Qua Sổ Cái
+    - 10.4. Post-Mortem 18: Idempotency Protection trên Ledger Movements
+    - 10.5. Post-Mortem 19: Khóa Bi quan (Pessimistic Locking) Chống Race Condition Nhập/Xuất
+    - 10.6. SOP Kiểm kê Hàng ngày & Quy trình Leo thang Xử lý Lệch Kho
 
 ---
 
@@ -958,7 +975,125 @@ stateDiagram-v2
   2. Nếu đã có đơn hàng: Chặn đứng thao tác với lỗi `PRODUCT_HAS_ORDERS` (HTTP 400): *"Không thể xóa sản phẩm đã có đơn hàng trong hệ thống. Vui lòng chuyển sang ARCHIVED"*.
   3. Hướng dẫn chủ shop sử dụng tính năng chuyển trạng thái sang `ARCHIVED` (Lưu trữ vĩnh viễn). Trạng thái này gỡ sản phẩm khỏi mọi hoạt động bán hàng mà vẫn giữ nguyên vẹn 100% dữ liệu lịch sử cho báo cáo tài chính và đối soát bưu tá.
 
+---
 
+## 10. QUẢN TRỊ TỒN KHO & SỔ CÁI KIỂM TOÁN BẤT BIẾN (PHASE 5C.3)
 
+### 10.1. Sơ đồ Thực thể Sổ cái & Đẳng thức Bất biến Toán học
+Bảng `inventory_movements` đóng vai trò là Sổ cái Kế toán Kho Bất biến (Immutable Append-Only Audit Ledger). Mỗi giao dịch tăng giảm số lượng trên bất kỳ biến thể nào bắt buộc phải ghi lại một bản ghi kiểm toán kèm theo số tồn trước (`stock_before`) và số tồn sau (`stock_after`).
 
+```mermaid
+erDiagram
+    PRODUCT_VARIANTS ||--o{ INVENTORY_MOVEMENTS : "tracks stock changes"
+    USERS ||--o{ INVENTORY_MOVEMENTS : "recorded by actor"
 
+    PRODUCT_VARIANTS {
+        bigint id PK
+        varchar sku UK
+        int stock_quantity "Tồn kho khả dụng (ATS)"
+    }
+
+    INVENTORY_MOVEMENTS {
+        bigint id PK
+        bigint variant_id FK "ON DELETE RESTRICT"
+        varchar movement_type "OPENING, RECEIPT, DEDUCT, RESTORE, ADJUST"
+        int quantity_delta "Biến thiên delta"
+        int stock_before "Tồn kho trước biến động"
+        int stock_after "Tồn kho sau biến động"
+        varchar reference_id "Mã đơn hàng / Phiếu nhập"
+        varchar movement_key UK "Khóa duy nhất chống duplicate"
+        text reason "Giải trình nghiệp vụ"
+        bigint created_by FK "ID tác nhân thực hiện"
+        timestamp created_at "Thời điểm giao dịch"
+    }
+```
+
+#### Đẳng thức Bất biến Kiểm toán (Mathematical Reconciliation Invariant):
+$$\text{Current Stock} = \text{Opening Balance} + \sum_{i=1}^{n} \Delta_i$$
+- **Tính tự kiểm tra (Self-Reconciling)**:
+  - Khi đối soát, backend chạy câu truy vấn tổng: `SELECT SUM(quantity_delta) FROM inventory_movements WHERE variant_id = :id`.
+  - Giá trị này bắt buộc phải trùng khớp 100% với `product_variants.stock_quantity`.
+  - Nếu `discrepancy != 0`, hệ thống lập tức gắn cờ cảnh báo đỏ, chỉ ra rằng đã có thao tác cập nhật trực tiếp database bỏ qua service layer hoặc có sự cố đứt gãy transaction.
+
+---
+
+### 10.2. Available-to-Sell (ATS) vs Physical On-Hand Semantics
+Một sai lầm kinh điển trong các hệ thống thương mại điện tử là đồng nhất tồn kho vật lý tại giá kệ với tồn kho mở bán trên website.
+
+| Khái niệm | Vị trí phản ánh | Thời điểm tác động | Ý nghĩa nghiệp vụ |
+| :--- | :--- | :--- | :--- |
+| **Available-to-Sell (ATS)** | `product_variants.stock_quantity` | Giảm ngay khi khách đặt hàng thành công (`PENDING`); tăng khi đơn bị hủy (`CANCELLED`) hoặc hàng hoàn vật lý về kho (`RETURNED`). | Ngăn chặn bán vượt (overselling). Khách hàng không thể mua quá số lượng hàng chưa bị cam kết giao. |
+| **Physical On-Hand** | Thực tế tại kệ hàng / Báo cáo kiểm kê kho | Giảm khi bưu tá lấy hàng đi giao (`SHIPPING`); tăng khi nhập kho bổ sung (`STOCK_RECEIPT`) hoặc nhận hàng hoàn (`RETURNED`). | Số lượng trang phục thực tế đang nằm trên móc/kệ tại kho boutique. |
+
+$$\text{Physical On-Hand} = \text{ATS} + \text{Allocated (Đơn hàng PENDING, CONFIRMED, PROCESSING)}$$
+
+---
+
+### 10.3. Post-Mortem 17: Bẫy Trôi Tồn Kho khi Cập nhật Trực tiếp Không Qua Sổ Cái (Stock Drift Prevention)
+* **Vấn đề Phát hiện:**
+  * Nếu cho phép chủ shop sửa trực tiếp ô `stock_quantity` trên bảng sản phẩm/biến thể (như các hệ thống CRUD thông thường), số tồn kho sẽ bị "trôi" (stock drift) mà không ai biết do đâu: do nhân viên làm mất, do bưu tá làm rách, do làm mẫu chụp ảnh hay do nhập hàng mới từ xưởng.
+* **Nguyên nhân Gốc rễ:**
+  * Xem tồn kho là một thuộc tính có thể tùy tiện gán giá trị mới (`SET stock_quantity = :val`) thay vì xem tồn kho là tích phân của chuỗi các sự kiện biến động kho (`stock = \int \Delta dt`).
+* **Giải pháp Khắc phục (Centralized Authority Pattern):**
+  1. Loại bỏ hoàn toàn khả năng cập nhật trường `stockQuantity` trong `OwnerProductService.updateVariant()`.
+  2. Toàn bộ thao tác thay đổi tồn kho bắt buộc phải ủy quyền duy nhất cho `InventoryService`:
+     - Nhập hàng: `recordStockReceipt()`
+     - Điều chỉnh kiểm kê: `recordManualAdjustment()`
+     - Khấu trừ đơn hàng: `deductStockForOrder()`
+     - Hoàn kho hủy đơn: `restoreStockForCancellation()`
+     - Hoàn kho bưu tá trả hàng: `restoreStockForReturn()`
+  3. Mọi phương thức trên đều bắt buộc tạo bản ghi `InventoryMovement` trong cùng một database transaction. Nếu ghi sổ cái thất bại, cập nhật số tồn biến thể cũng bị rollback 100%.
+
+---
+
+### 10.4. Post-Mortem 18: Idempotency Protection trên Ledger Movements (Khóa Chống Ghi Trùng Lặp)
+* **Vấn đề Phát hiện:**
+  * Khi mạng chập chờn hoặc người dùng click đúp vào nút "Hủy đơn" / "Xác nhận hàng hoàn", hoặc bưu tá gọi retry webhook, một đơn hàng có thể bị hoàn kho 2 lần (+2 số tồn thay vì +1), làm sai lệch sổ sách kế toán.
+* **Nguyên nhân Gốc rễ:**
+  * Thiếu khóa bảo vệ tính duy nhất (Unique Idempotency Key) ở cấp độ dòng sổ cái kiểm toán.
+* **Giải pháp Khắc phục:**
+  1. Bổ sung cột `movement_key VARCHAR(100) UNIQUE` trong bảng `inventory_movements`.
+  2. Sinh khóa tất định theo chuẩn nghiệp vụ:
+     - Xuất kho đơn hàng: `ORDER-{orderNumber}-VAR-{variantId}`
+     - Hoàn kho hủy đơn: `CANCEL-{orderNumber}-VAR-{variantId}`
+     - Hoàn kho hàng hoàn: `RETURN-{orderNumber}-VAR-{variantId}`
+     - Số dư mở sổ: `OPENING-CUTOVER-V8-VAR-{variantId}`
+     - Tồn kho ban đầu: `INIT-VAR-{variantId}`
+     - Nhập kho: `RECEIPT-{refId}-{variantId}-{timestamp}`
+     - Điều chỉnh kiểm kê: `ADJUST-VAR-{variantId}-{timestamp}`
+  3. Nếu luồng thứ hai cố tình chèn lại bản ghi có cùng khóa, MySQL lập tức ném lỗi vi phạm ràng buộc Unique Index (`DuplicateKeyException`), ngăn chặn nhân đôi biến động tồn kho.
+
+---
+
+### 10.5. Post-Mortem 19: Khóa Bi quan (Pessimistic Locking) Chống Race Condition Nhập/Xuất Kho Đồng Thời
+* **Vấn đề Phát hiện:**
+  * Giả sử biến thể có tồn kho hiện tại là 1. Tại đúng một mili-giây:
+    - Luồng A: Khách hàng mua 1 chiếc (Checkout trừ 1).
+    - Luồng B: Chủ shop kiểm kê thấy hao hụt 1 chiếc (Manual Adjustment giảm 1).
+    - Nếu cả hai luồng cùng đọc `stock_quantity = 1` rồi thực thi tính toán riêng rẽ: Luồng A tính ra `1 - 1 = 0`, Luồng B tính ra `1 - 1 = 0`. Cả hai đều ghi nhận thành công, nhưng kết quả thực tế đã xuất 2 chiếc từ 1 chiếc có sẵn $\rightarrow$ Âm kho ngầm hoặc mất mát doanh thu.
+* **Giải pháp Khắc phục:**
+  1. Trong `InventoryService`, phương thức đọc biến thể luôn sử dụng:
+     ```java
+     @Lock(LockModeType.PESSIMISTIC_WRITE)
+     @Query("SELECT v FROM ProductVariant v WHERE v.id = :id")
+     Optional<ProductVariant> findByIdWithLock(@Param("id") Long id);
+     ```
+  2. Lệnh này sinh câu lệnh SQL `SELECT ... FOR UPDATE`, thiết lập exclusive row lock trên dòng biến thể tại tầng MySQL engine:
+     - Luồng A khóa dòng biến thể, đọc tồn kho 1, trừ 1 còn 0, ghi sổ cái, commit transaction và nhả khóa.
+     - Luồng B phải chờ Luồng A commit. Sau khi có khóa, Luồng B đọc số tồn mới là 0. Luồng B kiểm tra điều kiện giảm 1 $\rightarrow$ phát hiện `stock_after = -1 < 0` và ném ngoại lệ `INSUFFICIENT_STOCK`, từ chối thao tác ngay lập tức.
+
+---
+
+### 10.6. SOP Kiểm Kê Hàng Ngày & Quy Trình Leo Thang Xử Lý Lệch Kho (Discrepancy Escalation Protocol)
+1. **Kiểm tra Đối soát Tự động Hàng ngày (Daily Reconciliation Routine)**:
+   - Cuối mỗi ngày làm việc, chủ shop mở tab "🏷️ Tồn kho & Audit Trail" trên Cổng Quản trị Atelier (`/owner`).
+   - Kiểm tra các thẻ thống kê tổng quan: Tổng SKU đang quản lý, Số SKU an toàn, Số SKU sắp hết (< 5), Số SKU hết hàng (= 0).
+   - Mở ngăn kéo Sổ cái kiểm toán (`OwnerInventoryLedgerDrawer`) của các biến thể có lượng giao dịch lớn trong ngày.
+   - Xác nhận Thẻ đối soát hiển thị trạng thái xanh lá: **"Cân đối (Lệch 0)"**.
+2. **Quy trình Leo thang khi Phát hiện Chênh lệch (Discrepancy Escalation)**:
+   - Nếu Thẻ đối soát hiển thị màu đỏ **"Lệch tồn kho (Lệch X đơn vị)"**:
+     - **Bước 1 (Đóng băng)**: Tạm thời chuyển trạng thái biến thể sang `INACTIVE` để ngăn khách hàng đặt mua biến thể đang bị nghi ngờ sai lệch.
+     - **Bước 2 (Kiểm kê Vật lý)**: Cử nhân viên kiểm đếm chính xác số lượng trang phục thực tế đang treo trên móc/kệ tại kho boutique.
+     - **Bước 3 (Truy vết Sổ cái)**: Rà soát từng dòng biến động trong ngăn kéo sổ cái đối chiếu với phiếu giao nhận bưu tá và biên bản nhập hàng xưởng.
+     - **Bước 4 (Cân đối & Giải trình)**: Thực hiện thao tác "Điều chỉnh kiểm kê" (`POST /api/v1/owner/inventory/adjust`), ghi rõ mã biên bản kiểm kê, lý do chênh lệch (mất mát, hỏng khóa kéo, rách chỉ) và ID nhân viên kiểm đếm.
+     - **Bước 5 (Mở bán lại)**: Chuyển lại trạng thái biến thể sang `ACTIVE` sau khi chỉ số đối soát đã trở về trạng thái Cân đối (Lệch 0).

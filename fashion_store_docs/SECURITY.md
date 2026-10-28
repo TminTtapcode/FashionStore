@@ -27,12 +27,36 @@
 | Đổi trạng thái Sản phẩm (`PATCH /status`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
 | Thêm/Sửa/Xóa Biến thể (`/variants/**`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
 | Xóa cứng Sản phẩm/Biến thể đã có đơn hàng | Bị cấm (400) | Bị cấm (400) | Bị cấm (400) | Bị cấm (400) |
+| Xem Tổng quan Tồn kho (`GET /api/v1/owner/inventory`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Xem Sổ cái Biến thể (`GET /api/v1/owner/inventory/variants/{id}/ledger`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Đối soát Toán học Sổ cái (`GET /variants/{id}/reconciliation`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Nhập kho Hàng hóa (`POST /api/v1/owner/inventory/receipt`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Điều chỉnh Kiểm kê Thủ công (`POST /api/v1/owner/inventory/adjust`) | Chặn (401) | Chặn (403 Forbidden) | Cho phép | Cho phép |
+| Sửa / Xóa Bản ghi Sổ cái (`inventory_movements`) | Bị cấm (Không hỗ trợ) | Bị cấm (Không hỗ trợ) | Bị cấm (Không hỗ trợ) | Bị cấm (Không hỗ trợ) |
 
 ### Phân định Rạch ròi giữa Role-level và Object-level Authorization:
 - **Role-level Security**: Sử dụng Spring Security `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")` ở cấp controller/method để chặn toàn bộ user không có thẩm quyền quản trị.
 - **Object-level Security (Resource Ownership)**: 
   - Khách hàng gọi `GET /api/v1/orders/{orderNumber}`: Backend bắt buộc kiểm tra `order.getUserId().equals(principal.getId())`. Nếu không khớp, trả về 404/403 để ngăn chặn lỗi IDOR (Insecure Direct Object Reference).
-  - Chủ shop gọi `/api/v1/owner/orders/**` và `/api/v1/owner/products/**`: Backend xác thực tài nguyên thuộc quyền quản lý của shop do owner phụ trách (`shopId = 1`).
+  - Chủ shop gọi `/api/v1/owner/orders/**`, `/api/v1/owner/products/**`, `/api/v1/owner/inventory/**`: Backend xác thực tài nguyên thuộc quyền quản lý của shop do owner phụ trách (`shopId = 1`).
+
+### Bảo Mật Sổ Cái Kiểm Toán & Chống Gian Lận Tồn Kho (Phase 5C.3 Inventory Security)
+1. **Append-Only Immutability (Bất biến Tuyệt đối)**:
+   - Cơ sở dữ liệu và Spring Boot backend tuyệt đối không có endpoint `PUT`, `PATCH`, `DELETE` trên bảng `inventory_movements`.
+   - Khóa ngoại `fk_inv_movement_variant` áp dụng `ON DELETE RESTRICT`. Biến thể đã có bản ghi sổ cái kiểm toán không thể bị xóa khỏi hệ thống.
+2. **Actor Traceability (Lưu vết Tác nhân Đích danh)**:
+   - Mọi bản ghi `inventory_movements` đều gắn với `created_by` (khóa ngoại trỏ đến `users.id` của người đăng nhập thực hiện thao tác).
+   - Với giao dịch tự động của hệ thống (Checkout, Cancel, Confirm Return), hệ thống lưu vết ID của User kích hoạt sự kiện đó.
+3. **Idempotency Protection (Phòng chống Ghi trùng Lặp)**:
+   - Mỗi bản ghi có `movement_key` duy nhất (`UNIQUE KEY uk_inv_movement_key`).
+   - Các giao dịch vòng đời đơn hàng sinh khóa xác định: `ORDER-{orderNumber}-VAR-{variantId}`, `CANCEL-{orderNumber}-VAR-{variantId}`, `RETURN-{orderNumber}-VAR-{variantId}`.
+   - Khi mạng bị chập chờn hoặc client gửi lặp request, câu lệnh `INSERT` thứ hai sẽ bị chặn ngay bởi ràng buộc Unique Index, ngăn chặn triệt để tình trạng trừ kho hoặc hoàn kho 2 lần.
+4. **Input Sanitization & Giá trị Tồn Hợp lệ**:
+   - Nghiêm cấm hoàn toàn hành vi điều chỉnh với $\Delta = 0$ (`ZERO_DELTA_NOT_ALLOWED`).
+   - Bắt buộc kiểm tra điều kiện tồn kho sau điều chỉnh `stock_after = stock_before + delta >= 0`. Nếu số lượng xuất kho lớn hơn số tồn hiện tại, backend ném ngoại lệ `INSUFFICIENT_STOCK` (HTTP 400).
+   - Thao tác điều chỉnh thủ công bắt buộc phải có nội dung giải trình (`reason` không được để trống, $\ge 5$ ký tự).
+5. **Chính sách Không Tiết lộ Bí Mật & Mật khẩu trong Tài liệu & Logs**:
+   - Tuyệt đối không lưu mật khẩu, JWT token, bcrypt hashes hay bearer tokens trong bất kỳ tài liệu kiến trúc, sơ đồ sequence hay commit log. Mọi ví dụ chỉ dùng định danh giả định an toàn: `<OWNER_EMAIL>`, `<SECURE_PASSWORD>`.
 
 ### Phòng vệ Mass-Assignment & Khai thác Giá (Over-Posting Defense):
 - Mọi endpoint cập nhật sản phẩm/biến thể đều sử dụng các Java Records DTO chuyên dụng với Bean Validation (`@NotNull`, `@Size`, `@DecimalMin`).

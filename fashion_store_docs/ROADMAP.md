@@ -169,8 +169,28 @@ Deliverables:
     - 18 frontend unit/integration tests mới bổ sung, nâng tổng số frontend tests lên **57/57 tests PASS (100%)**.
     - Frontend build hoàn tất sạch sẽ (`tsc -b && vite build`) trong 473ms; 0 lint errors mới.
     - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (đăng nhập SHOP_OWNER, xem bảng sản phẩm, tạo sản phẩm mới bằng ma trận biến thể, chuyển DRAFT -> ACTIVE, phản chiếu tức thì trên Storefront, mở modal và thêm vào giỏ hàng).
-- **Phase 5C.3 — Quản lý Tồn kho & Nhật ký Nhập/Xuất (Inventory Audit Trail)** [Kế tiếp].
-- **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Dự kiến].
+- **Phase 5C.3 — Quản lý Tồn kho & Sổ cái Kiểm toán Bất biến (Inventory Audit Trail)** [Hoàn tất — Code Commit `a79ca5b`]:
+  - **Flyway Migration V8 & Số dư Mở sổ (Cutover Baseline)**:
+    - `V8__create_inventory_ledger.sql`: Bảng `inventory_movements` (append-only ledger) với khóa ngoại `variant_id` (`ON DELETE RESTRICT`), khóa chống trùng lặp `uk_inv_movement_key (movement_key)`.
+    - Script migration tự động ghi nhận số dư mở sổ `OPENING_BALANCE` cho toàn bộ 32 biến thể hiện hữu.
+  - **Backend Domain & Inventory Authority**:
+    - Thực thể `InventoryMovement.java`, enum `InventoryMovementType.java` (7 loại: `OPENING_BALANCE`, `INITIAL_STOCK`, `STOCK_RECEIPT`, `ORDER_DEDUCT`, `CANCEL_RESTORE`, `RETURN_RESTORE`, `MANUAL_ADJUSTMENT`).
+    - `InventoryService.java` đóng vai trò là cơ quan thẩm quyền trung tâm duy nhất: kiểm soát thay đổi tồn kho qua khóa bi quan `@Lock(LockModeType.PESSIMISTIC_WRITE)`, kiểm tra bất biến không âm kho và cấm delta = 0.
+    - Tích hợp vòng đời đơn hàng: `CheckoutService` (trừ kho khi đặt hàng), `OrderLifecycleService` (hoàn kho khi hủy đơn hoặc nhận hàng hoàn qua `/confirm-return`), `OwnerProductService` (ghi nhận tồn kho ban đầu khi tạo biến thể).
+    - API Endpoints tại `/api/v1/owner/inventory/**` được bảo vệ bằng `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")`.
+    - 12 integration tests mới tại `OwnerInventoryControllerIntegrationTest.java`, nâng tổng số test suite backend lên **133/133 tests PASS (100%)**.
+  - **Frontend UI & Sổ cái Đối soát Toán học**:
+    - Kích hoạt mục "🏷️ Tồn kho & Audit Trail" trên Sidebar của `OwnerPortal.tsx`.
+    - `OwnerInventoryView.tsx`: Bảng quản lý 32 SKU, tìm kiếm, lọc danh mục, các tab lọc tồn kho (TẤT CẢ, AN TOÀN, SẮP HẾT < 5, HẾT HÀNG = 0) và thẻ thống kê thời gian thực.
+    - `OwnerInventoryLedgerDrawer.tsx`: Ngăn kéo xem lịch sử biến động sổ cái, phân trang, thẻ đối soát toán học tự động ($\text{Current} == \text{Opening} + \sum \Delta$), cảnh báo lệch kho.
+    - `OwnerStockReceiptModal.tsx`: Hộp thoại nhập hàng bổ sung kèm dự phóng tồn kho trực quan và mã phiếu chứng từ.
+    - `OwnerStockAdjustmentModal.tsx`: Hộp thoại điều chỉnh kiểm kê đột xuất, xác thực âm kho và bắt buộc giải trình lý do.
+    - 15 unit tests mới tại `ownerInventory.test.ts`, nâng tổng số frontend tests lên **72/72 tests PASS (100%)**.
+    - Frontend build hoàn tất sạch sẽ (`tsc -b && vite build`) trong 734ms; `oxlint` 0 lỗi.
+    - Chrome DevTools MCP: 5/5 kịch bản live browser PASS (đăng nhập SHOP_OWNER, xem tổng quan 32 SKU, mở sổ cái kiểm tra số dư mở sổ cân đối lệch 0, nhập kho +15 thành 25, điều chỉnh kiểm kê -2 còn 23, đối soát sổ cái 3 dòng cân đối lệch 0).
+  - **Báo cáo Phân tích Dữ liệu Học thuật & Vận hành**:
+    - Bản thiết kế `fashion_store_docs/DATA_ANALYTICS_REPORT.md`: Star schema Data Warehouse (`FACT_INVENTORY_MOVEMENTS`, `FACT_INVENTORY_DAILY_SNAPSHOT`, `DIM_PRODUCT_VARIANT` SCD-2), CDC streaming pipeline (Debezium + Kafka + Spark), công thức toán học tính ITR, DSI, Stockout rate, STR, RTO rate, shrinkage rate, và các thuật toán Data Mining (LightGBM/Prophet dự báo nhu cầu, FP-Growth gợi ý phối đồ lookbook, Isolation Forest phát hiện gian lận).
+- **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Kế tiếp].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
 
 ## Phase 6 — Payment gateway

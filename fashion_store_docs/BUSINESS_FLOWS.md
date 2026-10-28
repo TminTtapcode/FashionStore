@@ -201,3 +201,92 @@ sequenceDiagram
   - Storefront catalog lập tức ẩn sản phẩm khỏi danh sách tìm kiếm và danh mục.
   - Khi mở Giỏ hàng hoặc tiến hành Checkout, Facade kiểm tra `status` của Product và Variant.
   - Các biến thể thuộc sản phẩm không còn `ACTIVE` sẽ được đánh dấu `[TẠM HẾT HÀNG / NGỪNG BÁN]`, vô hiệu hóa nút tăng số lượng và ngăn chặn checkout thành công với thông báo rõ ràng cho khách hàng.
+
+## 10. Luồng Nghiệp vụ Quản trị Tồn kho & Sổ cái Kiểm toán Bất biến (Phase 5C.3 — Inventory Ledger & Audit Trails)
+
+### 10.1 Nhập kho Bổ sung (Stock Receipt Workflow)
+Áp dụng khi chủ shop nhận lô hàng mới từ xưởng sản xuất hoặc đối tác gia công:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Owner as Chủ Shop (SHOP_OWNER)
+    participant UI as Owner Portal (React)
+    participant API as OwnerInventoryController
+    participant Svc as InventoryService
+    participant DB as MySQL Database
+
+    Owner->>UI: Bấm nút "Nhập kho" trên SKU tương ứng
+    UI->>UI: Hiển thị OwnerStockReceiptModal
+    Owner->>UI: Nhập số lượng (+15), Mã phiếu ("PNK-2026-LIVE01"), Ghi chú
+    UI->>UI: Dự phóng tồn kho trực quan (Tồn hiện tại: 10 → Dự kiến sau nhập: 25)
+    Owner->>UI: Xác nhận "XÁC NHẬN NHẬP KHO"
+    UI->>API: POST /api/v1/owner/inventory/receipt (StockReceiptRequest)
+    API->>Svc: recordStockReceipt(variantId, request, actorId)
+    Note over Svc,DB: Mở ACID Transaction
+    Svc->>DB: SELECT * FROM product_variants WHERE id = :id FOR UPDATE (Khóa bi quan)
+    Svc->>Svc: stockAfter = stockBefore + 15
+    Svc->>DB: UPDATE product_variants SET stock_quantity = stockAfter
+    Svc->>DB: INSERT INTO inventory_movements (STOCK_RECEIPT, +15, 10, 25, key, actor)
+    Note over Svc,DB: Commit Transaction
+    DB-->>Svc: Persisted Movement & Variant
+    Svc-->>API: InventoryMovementDto
+    API-->>UI: HTTP 200 OK
+    UI-->>Owner: Thông báo thành công, cập nhật số tồn 25 và thống kê tổng kho
+```
+
+### 10.2 Điều chỉnh Tồn kho Kiểm kê Thủ công (Manual Inventory Adjustment Workflow)
+Áp dụng khi phát hiện chênh lệch kiểm kê định kỳ, hao hụt vải vụn, làm mẫu chụp studio hoặc hư hỏng:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Owner as Chủ Shop (SHOP_OWNER)
+    participant UI as Owner Portal (React)
+    participant API as OwnerInventoryController
+    participant Svc as InventoryService
+    participant DB as MySQL Database
+
+    Owner->>UI: Bấm nút "Điều chỉnh" trên dòng biến thể
+    UI->>UI: Hiển thị OwnerStockAdjustmentModal
+    Owner->>UI: Chọn chiều điều chỉnh (- GIẢM), nhập số lượng (2), Lý do kiểm toán ("Hao hụt 2 chiếc làm mẫu studio")
+    UI->>UI: Tính toán delta = -2, Dự phóng tồn kho (25 → 23)
+    UI->>UI: Kiểm tra điều kiện tồn kho sau chỉnh >= 0
+    Owner->>UI: Xác nhận "XÁC NHẬN ĐIỀU CHỈNH"
+    UI->>API: POST /api/v1/owner/inventory/adjust (ManualAdjustmentRequest)
+    API->>Svc: recordManualAdjustment(variantId, request, actorId)
+    Note over Svc,DB: Mở ACID Transaction
+    Svc->>DB: SELECT * FROM product_variants WHERE id = :id FOR UPDATE (Pessimistic Write)
+    Svc->>Svc: Kiểm tra delta != 0 và stockBefore + delta >= 0
+    Svc->>DB: UPDATE product_variants SET stock_quantity = stockAfter (23)
+    Svc->>DB: INSERT INTO inventory_movements (MANUAL_ADJUSTMENT, -2, 25, 23, reason, actor)
+    Note over Svc,DB: Commit Transaction
+    DB-->>Svc: Persisted Movement
+    Svc-->>API: InventoryMovementDto
+    API-->>UI: HTTP 200 OK
+    UI-->>Owner: Cập nhật dòng biến thể trên bảng tồn kho
+```
+
+### 10.3 Khấu trừ Tồn kho & Hoàn kho Tự động trong Vòng đời Đơn hàng (Order Lifecycle Integration)
+Sổ cái tồn kho được tích hợp trực tiếp vào 3 sự kiện nghiệp vụ then chốt:
+1. **Checkout (Đặt hàng thành công)**:
+   - `CheckoutService` gọi `inventoryService.deductStockForOrder(variant, quantity, orderNumber, actorId)`.
+   - Sinh bản ghi `ORDER_DEDUCT` với $\Delta = -\text{quantity}$, `reference_id = orderNumber`, `movement_key = ORDER-{orderNumber}-VAR-{variantId}`.
+2. **Order Cancellation (Hủy đơn hàng)**:
+   - Khi đơn ở `PENDING`, `CONFIRMED`, `PROCESSING` bị hủy, `OrderLifecycleService` gọi `inventoryService.restoreStockForCancellation(variant, quantity, orderNumber, actorId)`.
+   - Sinh bản ghi `CANCEL_RESTORE` với $\Delta = +\text{quantity}$, `movement_key = CANCEL-{orderNumber}-VAR-{variantId}`.
+3. **Physical Return Confirmation (Xác nhận hàng hoàn về kho)**:
+   - Khi đơn vị vận chuyển giao thất bại và mang trả hàng về shop, chủ shop gọi `POST /api/v1/owner/orders/{orderNumber}/confirm-return`.
+   - `OrderLifecycleService` gọi `inventoryService.restoreStockForReturn(variant, quantity, orderNumber, actorId)`.
+   - Sinh bản ghi `RETURN_RESTORE` với $\Delta = +\text{quantity}$, `movement_key = RETURN-{orderNumber}-VAR-{variantId}`.
+
+### 10.4 Đối soát Tính Toàn vẹn Toán học Thời gian Thực (Real-Time Ledger Reconciliation)
+- Khi mở ngăn kéo sổ cái (`OwnerInventoryLedgerDrawer.tsx`):
+  - Frontend gọi song song `GET /api/v1/owner/inventory/variants/{id}/ledger` và `GET /api/v1/owner/inventory/variants/{id}/reconciliation`.
+  - Backend thực thi truy vấn toán học nguyên thủy:
+    ```sql
+    SELECT COALESCE(SUM(quantity_delta), 0) FROM inventory_movements WHERE variant_id = :variantId
+    ```
+  - Đối chiếu với số tồn hiện hành `product_variants.stock_quantity`.
+  - Nếu `currentStock == openingBalance + sum(deltas)`: Trả về `reconciled = true`, `discrepancy = 0`.
+  - Drawer hiển thị huy hiệu xanh lá `"Cân đối (Lệch 0)"` cùng thẻ đối soát 3 chỉ số minh bạch: Tồn hiện tại, Số dư mở sổ, Tổng biến thiên lũy kế. Nếu phát hiện chênh lệch, lập tức hiển thị cảnh báo đỏ `"Lệch tồn kho"` yêu cầu kiểm toán khẩn cấp.
