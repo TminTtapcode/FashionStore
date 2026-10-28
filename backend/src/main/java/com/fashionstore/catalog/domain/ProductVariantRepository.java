@@ -20,6 +20,12 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     boolean existsBySku(String sku);
 
+    boolean existsBySkuAndIdNot(String sku, Long id);
+
+    boolean existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCase(Long productId, String size, String colorName);
+
+    boolean existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCaseAndIdNot(Long productId, String size, String colorName, Long id);
+
     /**
      * Conditional atomic stock deduction:
      * Only updates if variant is ACTIVE and remaining stock >= requested quantity.

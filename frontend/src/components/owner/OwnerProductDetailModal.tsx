@@ -1,0 +1,956 @@
+import { useState, useEffect, useRef } from 'react';
+import {
+  getOwnerProductDetailApi,
+  createOwnerProductApi,
+  updateOwnerProductApi,
+  addOwnerVariantApi,
+  updateOwnerVariantApi,
+  type OwnerProductDetail,
+  type OwnerVariant,
+  type CreateVariantPayload,
+} from '../../api/ownerProductApi';
+import { getCategoriesApi } from '../../api/catalogApi';
+import type { Category } from '../../types/catalog';
+
+interface OwnerProductDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  productId: number | null; // null means Create Product mode
+  onSuccess: () => void;
+}
+
+const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'FREESIZE', '28', '29', '30', '31', '32'];
+const DEFAULT_COLORS = [
+  { name: 'Trắng', hex: '#FFFFFF' },
+  { name: 'Đen', hex: '#1A1A1A' },
+  { name: 'Xanh Navy', hex: '#000080' },
+  { name: 'Be', hex: '#F5F5DC' },
+  { name: 'Hồng Pastel', hex: '#FFD1DC' },
+  { name: 'Xanh Rêu', hex: '#4B5320' },
+];
+
+export default function OwnerProductDetailModal({
+  isOpen,
+  onClose,
+  productId,
+  onSuccess,
+}: OwnerProductDetailModalProps) {
+  const isCreateMode = productId === null;
+
+  // Form State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState<number>(1);
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [brand, setBrand] = useState('IVRE Atelier');
+  const [material, setMaterial] = useState('');
+  const [fitStyle, setFitStyle] = useState('Regular Fit');
+  const [careInstructions, setCareInstructions] = useState('');
+  const [description, setDescription] = useState('');
+  const [specifications, setSpecifications] = useState('{}');
+  const [status, setStatus] = useState<'DRAFT' | 'ACTIVE'>('DRAFT');
+
+  // Variants in Create Mode
+  const [createVariants, setCreateVariants] = useState<CreateVariantPayload[]>([
+    { size: 'S', colorName: 'Trắng', colorHex: '#FFFFFF', price: 500000, compareAtPrice: 650000, stockQuantity: 10, status: 'ACTIVE' },
+    { size: 'M', colorName: 'Trắng', colorHex: '#FFFFFF', price: 500000, compareAtPrice: 650000, stockQuantity: 10, status: 'ACTIVE' },
+  ]);
+
+  // Quick Matrix Generator state
+  const [matrixSizes, setMatrixSizes] = useState<string[]>(['S', 'M', 'L']);
+  const [matrixColorNames, setMatrixColorNames] = useState<string>('Trắng, Đen');
+  const [matrixBasePrice, setMatrixBasePrice] = useState<number>(500000);
+  const [matrixComparePrice, setMatrixComparePrice] = useState<number>(650000);
+  const [matrixInitialStock, setMatrixInitialStock] = useState<number>(10);
+  const [showMatrixGenerator, setShowMatrixGenerator] = useState(false);
+
+  // Loaded Details in Edit Mode
+  const [loadedProduct, setLoadedProduct] = useState<OwnerProductDetail | null>(null);
+  const [editingVariant, setEditingVariant] = useState<OwnerVariant | null>(null);
+  const [isAddingVariant, setIsAddingVariant] = useState(false);
+
+  // New variant form in Edit Mode
+  const [newVarSize, setNewVarSize] = useState('S');
+  const [newVarColor, setNewVarColor] = useState('Đen');
+  const [newVarHex, setNewVarHex] = useState('#1A1A1A');
+  const [newVarPrice, setNewVarPrice] = useState(500000);
+  const [newVarComparePrice, setNewVarComparePrice] = useState(650000);
+  const [newVarStock, setNewVarStock] = useState(10);
+  const [newVarSku, setNewVarSku] = useState('');
+
+  // UI status
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Load Categories on mount
+  useEffect(() => {
+    if (!isOpen) return;
+    getCategoriesApi()
+      .then((cats) => {
+        setCategories(cats);
+        if (cats.length > 0 && isCreateMode) {
+          const firstSub = cats[0].children?.[0]?.id || cats[0].id;
+          setCategoryId(firstSub);
+        }
+      })
+      .catch((err) => console.error('Failed to load categories', err));
+  }, [isOpen, isCreateMode]);
+
+  // Load Product in Edit Mode
+  useEffect(() => {
+    if (!isOpen) return;
+    if (productId !== null) {
+      setIsLoading(true);
+      setError(null);
+      getOwnerProductDetailApi(productId)
+        .then((p) => {
+          setLoadedProduct(p);
+          setCategoryId(p.categoryId);
+          setName(p.name);
+          setSlug(p.slug);
+          setBrand(p.brand || '');
+          setMaterial(p.material || '');
+          setFitStyle(p.fitStyle || '');
+          setCareInstructions(p.careInstructions || '');
+          setDescription(p.description || '');
+          setSpecifications(p.specifications || '{}');
+          setIsDirty(false);
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setIsLoading(false));
+    } else {
+      // Reset for create
+      setLoadedProduct(null);
+      setName('');
+      setSlug('');
+      setMaterial('100% Cotton Organic');
+      setFitStyle('Regular Fit');
+      setCareInstructions('Giặt tay nhẹ, ủi ở nhiệt độ trung bình');
+      setDescription('');
+      setSpecifications('{}');
+      setStatus('DRAFT');
+      setIsDirty(false);
+    }
+  }, [isOpen, productId]);
+
+  const handleSafeClose = () => {
+    if (isDirty) {
+      if (!window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng form không?')) {
+        return;
+      }
+    }
+    onClose();
+  };
+
+  // Escape key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleSafeClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isDirty, onClose]);
+
+  // Matrix Generator: Generates combinations
+  const handleGenerateMatrix = () => {
+    const rawColors = matrixColorNames
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    if (matrixSizes.length === 0 || rawColors.length === 0) {
+      setError('Vui lòng chọn ít nhất 1 kích cỡ và 1 màu sắc để sinh ma trận');
+      return;
+    }
+
+    const generated: CreateVariantPayload[] = [];
+    for (const color of rawColors) {
+      const matchDefault = DEFAULT_COLORS.find(
+        (dc) => dc.name.toLowerCase() === color.toLowerCase()
+      );
+      const hex = matchDefault ? matchDefault.hex : '#888888';
+
+      for (const size of matrixSizes) {
+        generated.push({
+          size,
+          colorName: color,
+          colorHex: hex,
+          price: matrixBasePrice,
+          compareAtPrice: matrixComparePrice || null,
+          stockQuantity: matrixInitialStock,
+          status: 'ACTIVE',
+        });
+      }
+    }
+
+    setCreateVariants(generated);
+    setShowMatrixGenerator(false);
+    setIsDirty(true);
+    setError(null);
+  };
+
+  // Save General Product Form (Create or Update)
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError('Tên sản phẩm không được để trống');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      if (isCreateMode) {
+        await createOwnerProductApi({
+          categoryId,
+          name: name.trim(),
+          slug: slug.trim() || undefined,
+          description: description.trim() || undefined,
+          brand: brand.trim() || undefined,
+          material: material.trim() || undefined,
+          fitStyle: fitStyle.trim() || undefined,
+          careInstructions: careInstructions.trim() || undefined,
+          specifications: specifications.trim() || undefined,
+          status,
+          variants: createVariants,
+        });
+      } else if (productId !== null) {
+        await updateOwnerProductApi(productId, {
+          categoryId,
+          name: name.trim(),
+          slug: slug.trim() || undefined,
+          description: description.trim() || undefined,
+          brand: brand.trim() || undefined,
+          material: material.trim() || undefined,
+          fitStyle: fitStyle.trim() || undefined,
+          careInstructions: careInstructions.trim() || undefined,
+          specifications: specifications.trim() || undefined,
+        });
+      }
+
+      setIsDirty(false);
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Có lỗi khi lưu sản phẩm');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Add Variant in Edit Mode
+  const handleAddVariantInEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productId) return;
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      await addOwnerVariantApi(productId, {
+        sku: newVarSku.trim() || undefined,
+        size: newVarSize,
+        colorName: newVarColor,
+        colorHex: newVarHex,
+        price: newVarPrice,
+        compareAtPrice: newVarComparePrice || null,
+        stockQuantity: newVarStock,
+        status: 'ACTIVE',
+      });
+
+      // Reload product details
+      const refreshed = await getOwnerProductDetailApi(productId);
+      setLoadedProduct(refreshed);
+      setIsAddingVariant(false);
+      onSuccess();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Không thể thêm biến thể');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Update existing variant in Edit Mode
+  const handleUpdateVariantInEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productId || !editingVariant) return;
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      await updateOwnerVariantApi(productId, editingVariant.id, {
+        sku: editingVariant.sku,
+        size: editingVariant.size,
+        colorName: editingVariant.colorName,
+        colorHex: editingVariant.colorHex || undefined,
+        price: editingVariant.price,
+        compareAtPrice: editingVariant.compareAtPrice,
+        status: editingVariant.status,
+      });
+
+      const refreshed = await getOwnerProductDetailApi(productId);
+      setLoadedProduct(refreshed);
+      setEditingVariant(null);
+      onSuccess();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Không thể cập nhật biến thể');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs focus:outline-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="owner-product-modal-title"
+    >
+      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#141414] border border-[#C7AD83]/30 rounded-xs shadow-2xl text-white overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1a1a1a]">
+          <div>
+            <span className="text-[10px] font-mono tracking-widest uppercase text-[#C7AD83]">
+              {isCreateMode ? 'KHỞI TẠO SẢN PHẨM MỚI' : 'CHỈNH SỬA SẢN PHẨM'}
+            </span>
+            <h2 id="owner-product-modal-title" className="text-base font-serif font-bold text-white line-clamp-1">
+              {isCreateMode ? (name || 'Sản phẩm mới') : loadedProduct?.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleSafeClose}
+            className="p-1.5 text-white/50 hover:text-white rounded-xs border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
+            aria-label="Đóng"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {error && (
+            <div className="p-3 bg-red-950/50 border border-red-500/40 text-red-200 text-xs rounded-2xs">
+              {error}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="py-20 text-center text-xs text-white/50 animate-pulse">
+              Đang tải thông tin sản phẩm...
+            </div>
+          ) : (
+            <form onSubmit={handleSaveProduct} className="space-y-6">
+              {/* Section 1: Thông tin cơ bản */}
+              <div className="bg-white/5 p-4 rounded-xs border border-white/10 space-y-4">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#C7AD83] border-b border-white/10 pb-2">
+                  1. THÔNG TIN CƠ BẢN
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                      Tên sản phẩm <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="Ví dụ: Đầm Lụa Maxi Cổ Chữ V"
+                      required
+                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                      Danh mục thời trang <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={categoryId}
+                      onChange={(e) => {
+                        setCategoryId(Number(e.target.value));
+                        setIsDirty(true);
+                      }}
+                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    >
+                      {categories.map((cat) => (
+                        <optgroup key={cat.id} label={cat.name}>
+                          <option value={cat.id}>{cat.name} (Tất cả)</option>
+                          {cat.children?.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              &nbsp;&nbsp;↳ {sub.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                      Thương hiệu / Dòng sản phẩm
+                    </label>
+                    <input
+                      type="text"
+                      value={brand}
+                      onChange={(e) => {
+                        setBrand(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="IVRE Atelier"
+                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                      Chất liệu vải
+                    </label>
+                    <input
+                      type="text"
+                      value={material}
+                      onChange={(e) => {
+                        setMaterial(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="Ví dụ: 100% Lụa Tơ Tằm, Cotton Organic..."
+                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                      Form dáng (Fit Style)
+                    </label>
+                    <input
+                      type="text"
+                      value={fitStyle}
+                      onChange={(e) => {
+                        setFitStyle(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="Ví dụ: Regular Fit, Dáng xòe, Oversized..."
+                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                      Đường dẫn tĩnh (Slug) - Tùy chọn
+                    </label>
+                    <input
+                      type="text"
+                      value={slug}
+                      onChange={(e) => {
+                        setSlug(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="Tự động sinh từ tên nếu để trống"
+                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                    Hướng dẫn bảo quản & Giặt ủi
+                  </label>
+                  <input
+                    type="text"
+                    value={careInstructions}
+                    onChange={(e) => {
+                      setCareInstructions(e.target.value);
+                      setIsDirty(true);
+                    }}
+                    placeholder="Giặt tay nhẹ với nước lạnh, không dùng chất tẩy, ủi hơi nước nhiệt độ thấp"
+                    className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                    Mô tả kiểu dáng & Hoàn cảnh mặc
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      setIsDirty(true);
+                    }}
+                    rows={2}
+                    placeholder="Mô tả phong cách, sự kiện phù hợp (dạo phố, công sở, dạ hội)..."
+                    className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs p-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Quản lý Ma trận Biến thể */}
+              <div className="bg-white/5 p-4 rounded-xs border border-white/10 space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#C7AD83]">
+                    2. MA TRẬN BIẾN THỂ (SIZE × MÀU SẮC)
+                  </h3>
+
+                  {isCreateMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowMatrixGenerator(!showMatrixGenerator)}
+                      className="px-2.5 py-1 text-[11px] font-mono text-[#C7AD83] bg-[#C7AD83]/15 hover:bg-[#C7AD83]/25 border border-[#C7AD83]/30 rounded-2xs cursor-pointer flex items-center gap-1"
+                    >
+                      <span>⚡ Sinh ma trận tự động</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingVariant(!isAddingVariant)}
+                      className="px-2.5 py-1 text-[11px] font-mono text-[#C7AD83] bg-[#C7AD83]/15 hover:bg-[#C7AD83]/25 border border-[#C7AD83]/30 rounded-2xs cursor-pointer flex items-center gap-1"
+                    >
+                      <span>+ Thêm biến thể mới</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Create Mode: Quick Matrix Generator Panel */}
+                {isCreateMode && showMatrixGenerator && (
+                  <div className="p-4 bg-[#1e1e1e] border border-[#C7AD83]/40 rounded-xs space-y-3">
+                    <p className="text-xs font-mono font-bold text-[#C7AD83]">CÔNG CỤ SINH MA TRẬN BIẾN THỂ NHANH</p>
+                    <div>
+                      <span className="block text-[11px] font-mono text-white/70 mb-1">Chọn kích cỡ:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_SIZES.map((sz) => (
+                          <label key={sz} className="flex items-center gap-1.5 text-xs bg-white/5 px-2 py-1 rounded-2xs cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={matrixSizes.includes(sz)}
+                              onChange={(e) => {
+                                if (e.target.checked) setMatrixSizes([...matrixSizes, sz]);
+                                else setMatrixSizes(matrixSizes.filter((s) => s !== sz));
+                              }}
+                              className="accent-[#C7AD83]"
+                            />
+                            <span>{sz}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-mono text-white/70 mb-1">
+                          Các màu sản xuất (ngăn cách bằng dấu phẩy):
+                        </label>
+                        <input
+                          type="text"
+                          value={matrixColorNames}
+                          onChange={(e) => setMatrixColorNames(e.target.value)}
+                          placeholder="Ví dụ: Trắng, Đen, Xanh Navy, Be"
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-white/70 mb-1">Tồn kho mỗi size:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={matrixInitialStock}
+                          onChange={(e) => setMatrixInitialStock(Number(e.target.value))}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-white/70 mb-1">Giá bán cơ sở (VNĐ):</label>
+                        <input
+                          type="number"
+                          step="1000"
+                          value={matrixBasePrice}
+                          onChange={(e) => setMatrixBasePrice(Number(e.target.value))}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-white/70 mb-1">Giá niêm yết (gạch ngang):</label>
+                        <input
+                          type="number"
+                          step="1000"
+                          value={matrixComparePrice}
+                          onChange={(e) => setMatrixComparePrice(Number(e.target.value))}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowMatrixGenerator(false)}
+                        className="px-3 py-1 text-xs text-white/60 hover:text-white"
+                      >
+                        Đóng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGenerateMatrix}
+                        className="px-3 py-1 text-xs font-mono font-bold bg-[#C7AD83] text-black rounded-2xs cursor-pointer"
+                      >
+                        Áp Dụng Ma Trận
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Mode: Add Variant Form Panel */}
+                {!isCreateMode && isAddingVariant && (
+                  <div className="p-4 bg-[#1e1e1e] border border-[#C7AD83]/40 rounded-xs space-y-3">
+                    <p className="text-xs font-mono font-bold text-[#C7AD83]">THÊM BIẾN THỂ MỚI</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Kích cỡ:</label>
+                        <select
+                          value={newVarSize}
+                          onChange={(e) => setNewVarSize(e.target.value)}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        >
+                          {COMMON_SIZES.map((sz) => (
+                            <option key={sz} value={sz}>{sz}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Tên màu:</label>
+                        <input
+                          type="text"
+                          value={newVarColor}
+                          onChange={(e) => setNewVarColor(e.target.value)}
+                          placeholder="Trắng, Đen..."
+                          required
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Mã Hex:</label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={newVarHex}
+                            onChange={(e) => setNewVarHex(e.target.value)}
+                            className="w-7 h-7 rounded-2xs border border-white/20 cursor-pointer bg-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={newVarHex}
+                            onChange={(e) => setNewVarHex(e.target.value)}
+                            className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1 text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Tồn kho khởi tạo:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newVarStock}
+                          onChange={(e) => setNewVarStock(Number(e.target.value))}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Giá bán (VNĐ):</label>
+                        <input
+                          type="number"
+                          step="1000"
+                          value={newVarPrice}
+                          onChange={(e) => setNewVarPrice(Number(e.target.value))}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Giá niêm yết (VNĐ):</label>
+                        <input
+                          type="number"
+                          step="1000"
+                          value={newVarComparePrice}
+                          onChange={(e) => setNewVarComparePrice(Number(e.target.value))}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Mã SKU (để trống tự sinh):</label>
+                        <input
+                          type="text"
+                          value={newVarSku}
+                          onChange={(e) => setNewVarSku(e.target.value)}
+                          placeholder="Tự động sinh..."
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingVariant(false)}
+                        className="px-3 py-1 text-xs text-white/60 hover:text-white"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddVariantInEdit}
+                        disabled={isSaving}
+                        className="px-3 py-1 text-xs font-mono font-bold bg-[#C7AD83] text-black rounded-2xs cursor-pointer"
+                      >
+                        {isSaving ? 'Đang thêm...' : 'Lưu Biến Thể'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Mode: Edit Existing Variant Sub-Modal / Panel */}
+                {!isCreateMode && editingVariant && (
+                  <div className="p-4 bg-[#1e1e1e] border border-yellow-500/40 rounded-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono font-bold text-yellow-400">
+                        CHỈNH SỬA BIẾN THỂ: {editingVariant.sku}
+                      </p>
+                      {editingVariant.hasOrders && (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-2xs">
+                          🔒 Đã có đơn hàng - Khóa sửa SKU
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Kích cỡ:</label>
+                        <select
+                          value={editingVariant.size}
+                          onChange={(e) => setEditingVariant({ ...editingVariant, size: e.target.value })}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        >
+                          {COMMON_SIZES.map((sz) => (
+                            <option key={sz} value={sz}>{sz}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Tên màu:</label>
+                        <input
+                          type="text"
+                          value={editingVariant.colorName}
+                          onChange={(e) => setEditingVariant({ ...editingVariant, colorName: e.target.value })}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Giá bán (VNĐ):</label>
+                        <input
+                          type="number"
+                          step="1000"
+                          value={editingVariant.price}
+                          onChange={(e) => setEditingVariant({ ...editingVariant, price: Number(e.target.value) })}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/60 mb-1">Trạng thái:</label>
+                        <select
+                          value={editingVariant.status}
+                          onChange={(e) => setEditingVariant({ ...editingVariant, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
+                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                        >
+                          <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                          <option value="INACTIVE">Vô hiệu hóa (INACTIVE)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingVariant(null)}
+                        className="px-3 py-1 text-xs text-white/60 hover:text-white"
+                      >
+                        Đóng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUpdateVariantInEdit}
+                        disabled={isSaving}
+                        className="px-3 py-1 text-xs font-mono font-bold bg-[#C7AD83] text-black rounded-2xs cursor-pointer"
+                      >
+                        {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Variants Table */}
+                <div className="overflow-x-auto border border-white/10 rounded-2xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/5 font-mono text-[10px] uppercase text-white/50 border-b border-white/10">
+                      <tr>
+                        <th className="p-2.5">SKU</th>
+                        <th className="p-2.5">Kích cỡ</th>
+                        <th className="p-2.5">Màu sắc</th>
+                        <th className="p-2.5">Giá bán</th>
+                        <th className="p-2.5">Giá niêm yết</th>
+                        <th className="p-2.5">Tồn kho</th>
+                        <th className="p-2.5">Trạng thái</th>
+                        <th className="p-2.5 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {isCreateMode ? (
+                        createVariants.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="p-6 text-center text-white/40">
+                              Chưa có biến thể nào. Hãy bấm ⚡ Sinh ma trận tự động ở trên!
+                            </td>
+                          </tr>
+                        ) : (
+                          createVariants.map((v, idx) => (
+                            <tr key={idx} className="hover:bg-white/5">
+                              <td className="p-2.5 font-mono text-[11px] text-white/70">
+                                {v.sku || '(Tự động sinh)'}
+                              </td>
+                              <td className="p-2.5 font-bold font-mono">{v.size}</td>
+                              <td className="p-2.5 flex items-center gap-1.5">
+                                {v.colorHex && (
+                                  <span
+                                    className="w-3.5 h-3.5 rounded-full border border-white/20"
+                                    style={{ backgroundColor: v.colorHex }}
+                                  />
+                                )}
+                                <span>{v.colorName}</span>
+                              </td>
+                              <td className="p-2.5 font-mono">{v.price.toLocaleString('vi-VN')}₫</td>
+                              <td className="p-2.5 font-mono text-white/40">
+                                {v.compareAtPrice ? `${v.compareAtPrice.toLocaleString('vi-VN')}₫` : '—'}
+                              </td>
+                              <td className="p-2.5 font-mono">{v.stockQuantity ?? 0}</td>
+                              <td className="p-2.5">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-2xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                  ACTIVE
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCreateVariants(createVariants.filter((_, i) => i !== idx));
+                                    setIsDirty(true);
+                                  }}
+                                  className="text-red-400 hover:text-red-300 text-xs cursor-pointer"
+                                  title="Xóa biến thể"
+                                >
+                                  ✕
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )
+                      ) : (
+                        loadedProduct?.variants.map((v) => (
+                          <tr key={v.id} className="hover:bg-white/5">
+                            <td className="p-2.5 font-mono text-[11px] text-[#C7AD83]">
+                              {v.sku}
+                            </td>
+                            <td className="p-2.5 font-bold font-mono">{v.size}</td>
+                            <td className="p-2.5 flex items-center gap-1.5">
+                              {v.colorHex && (
+                                <span
+                                  className="w-3.5 h-3.5 rounded-full border border-white/20"
+                                  style={{ backgroundColor: v.colorHex }}
+                                />
+                              )}
+                              <span>{v.colorName}</span>
+                            </td>
+                            <td className="p-2.5 font-mono">{v.price.toLocaleString('vi-VN')}₫</td>
+                            <td className="p-2.5 font-mono text-white/40">
+                              {v.compareAtPrice ? `${v.compareAtPrice.toLocaleString('vi-VN')}₫` : '—'}
+                            </td>
+                            <td className="p-2.5 font-mono">{v.stockQuantity}</td>
+                            <td className="p-2.5">
+                              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-2xs border ${
+                                v.status === 'ACTIVE'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-white/10 text-white/40 border-white/20'
+                              }`}>
+                                {v.status}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setEditingVariant(v)}
+                                className="text-xs font-mono text-[#C7AD83] hover:underline cursor-pointer"
+                              >
+                                Sửa
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                <div className="text-[11px] text-white/50">
+                  {isCreateMode
+                    ? `Tổng số biến thể: ${createVariants.length}`
+                    : `Tổng số biến thể: ${loadedProduct?.variants.length || 0}`}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSafeClose}
+                    disabled={isSaving}
+                    className="px-4 py-2 text-xs text-white/70 hover:text-white border border-white/20 rounded-2xs cursor-pointer"
+                  >
+                    HỦY
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-5 py-2 text-xs font-mono font-bold bg-[#C7AD83] text-black hover:bg-[#b5996f] disabled:opacity-50 rounded-2xs cursor-pointer"
+                  >
+                    {isSaving ? 'ĐANG LƯU...' : isCreateMode ? 'TẠO SẢN PHẨM' : 'LƯU THAY ĐỔI'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

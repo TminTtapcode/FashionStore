@@ -97,6 +97,11 @@ public class Product {
         variant.setProduct(this);
     }
 
+    public void removeVariant(ProductVariant variant) {
+        variants.remove(variant);
+        variant.setProduct(null);
+    }
+
     public void addImage(ProductImage image) {
         images.add(image);
         image.setProduct(this);
