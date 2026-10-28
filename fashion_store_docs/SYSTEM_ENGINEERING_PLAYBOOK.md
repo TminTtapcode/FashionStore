@@ -350,14 +350,33 @@ sequenceDiagram
 * **Bảo tồn Màu sắc**: Giữ nguyên tên màu UTF-8 tiếng Việt (ví dụ: "Đen Than", "Be Cát") hoặc mã màu Hex (`#FFFFFF`), không tự ý ép sang alias không dấu.
 * **Kiểm thử tự động Đơn vị**: Toàn bộ 11 test cases trong [`catalogUrl.test.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/catalogUrl.test.ts) được thực thi tự động qua Node 24 native test runner (`node --test`), đạt tỷ lệ vượt qua 100% với thời gian chạy dưới 150ms mà không cần cài đặt thêm bất kỳ thư viện bên thứ ba nào.
 
-### 6.3. Tối ưu Hóa Hiệu Năng Ô Tìm Kiếm với Kỹ thuật Debounce (350ms)
-* **Vấn đề**:
-  Nếu mỗi khi người dùng gõ một ký tự trong ô tìm kiếm ta đều cập nhật ngay state toàn cục và lọc lại danh sách 50+ sản phẩm (kèm gọi API backend), giao diện sẽ bị lag giật (input delay), tạo cảm giác gián đoạn khó chịu.
-* **Giải pháp Kỹ thuật**:
-  - Tách biệt `searchTerm` thành một **Local Controlled State** bên trong [`CategoryFilterBar.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/components/CategoryFilterBar.tsx). Khi người dùng gõ, ô input phản hồi ngay tức thì (0ms latency).
-  - Sử dụng một `useEffect` kèm bộ đếm thời gian `setTimeout(..., 350)`. Chỉ khi người dùng ngưng gõ phím đủ **350ms**, hàm callback `onFilterChange({ search: searchTerm.trim() || undefined })` mới được kích hoạt.
-  - Sử dụng hàm cleanup `clearTimeout(timer)` để tự động hủy bỏ timeout trước đó nếu người dùng gõ tiếp ký tự mới trước khi hết 350ms.
-  - Cung cấp nút xóa nhanh `✕` để người dùng có thể xóa ngay lập tức mà không cần chờ debounce.
+### 6.3. Tối ưu Hóa Hiệu Năng Ô Tìm Kiếm Debounce & Bài học Xử lý Race Condition (Post-Mortem)
+* **Bối cảnh & Vấn đề**:
+  Khi tích hợp debounce tìm kiếm (350ms) vào một Single Page App có URL synchronization và nhiều bộ lọc tương tác (Category, Size, Color, Price Chip), nếu chỉ dùng closure thông thường của JavaScript trong `setTimeout`, hệ thống sẽ xuất hiện 3 lỗi đồng thời (race condition / state desync) cực kỳ hiểm hóc:
+  1. **Lỗi P1 — Back bị ghi đè**: Người dùng đang ở Danh mục A, gõ từ khóa tìm kiếm (timer 350ms đang chờ). Người dùng bấm nút **Back** của trình duyệt về Danh mục B. Vì từ khóa trước và sau khi Back đều giống nhau (`undefined`), dependency `[filters.search]` không đổi nên timer cũ không bị hủy. Khi 350ms trôi qua, callback timer nổ với state cũ và đưa người dùng quay ngược trở lại Danh mục A.
+  2. **Lỗi P2 — Chip giá tự hồi sinh (Price Resurrect)**: Người dùng đang lọc theo khoảng giá, sau đó gõ tìm kiếm. Trong lúc timer đang chờ, người dùng bấm nút `✕` xóa chip khoảng giá. Timer debounce cũ đã bắt giữ (capture) đối tượng `filters` chứa khoảng giá cũ từ closure. Khi timer nổ, nó ghi đè lại giá cũ, khiến chip giá vừa xóa tự động xuất hiện trở lại.
+  3. **Lỗi P2 — Ô tìm kiếm lệch pha kết quả (Input Out-of-Sync)**: Người dùng gõ từ khóa rồi lập tức nhấp chuyển danh mục. Timer bị hủy trước khi kịp áp dụng từ khóa, nhưng ô input vẫn giữ nguyên chữ vừa gõ dù catalog chỉ hiển thị danh mục mà không có từ khóa đó.
+
+* **Giải pháp Kỹ thuật Phòng thủ Đa tầng (Defense-in-Depth Architecture)**:
+  - **1. Pattern `filtersRef` (Anti-Stale Closure)**:
+    Duy trì một `filtersRef = useRef(filters)` được cập nhật qua `useEffect(() => { filtersRef.current = filters; }, [filters])`. Bất kỳ callback bất đồng bộ nào trong `setTimeout` đều đọc `filtersRef.current`, tuyệt đối không dùng biến `filters` từ closure render cũ.
+  - **2. Hủy timer toàn diện theo `[filters]`**:
+    `useEffect` hủy timer lắng nghe toàn bộ đối tượng `[filters]` thay vì chỉ `[filters.search]`. Bất kể thay đổi nào (Back/Forward `popstate`, đổi danh mục, đổi trang, xóa chip giá), timer đang chờ đều bị `clearTimeout` lập tức.
+  - **3. Điều chỉnh State ngay trong Render (Render State Adjustment)**:
+    Áp dụng pattern chính thức của React (*You Might Not Need an Effect*):
+    ```typescript
+    if (filters !== prevFilters) {
+      setPrevFilters(filters);
+      setSearchInput(filters.search || '');
+      setCustomMinPrice(filters.minPrice !== undefined ? filters.minPrice.toString() : '');
+      setCustomMaxPrice(filters.maxPrice !== undefined ? filters.maxPrice.toString() : '');
+      setPriceInputError(null);
+    }
+    ```
+    Khi `filters` thay đổi từ bất kỳ nguồn nào ngoài ô search (như Back, đổi danh mục), `searchInput` được đồng bộ ngược về `filters.search` ngay lập tức, triệt tiêu hoàn toàn hiện tượng lệch pha.
+  - **4. Bàn giao phím Enter**: Bổ sung `onKeyDown` cho ô input, cho phép người dùng nhấn `Enter` để flush tìm kiếm ngay lập tức mà không cần chờ hết 350ms.
+  - **5. Kiểm thử Tự động Chống Tái Diễn**:
+    Toàn bộ 3 kịch bản P1 và P2 được mô phỏng và kiểm chứng tự động trong [`frontend/src/utils/filterDebounceCoordination.test.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/filterDebounceCoordination.test.ts), đảm bảo 100% test pass và không bao giờ tái diễn.
 
 ### 6.4. Thanh Thẻ Lọc Đang Hoạt Động (Active Filter Chips)
 * **Trải nghiệm Người dùng (UX Pattern)**:
