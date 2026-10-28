@@ -190,10 +190,25 @@ function createComponentHarness(options: HarnessOptions = {}) {
       renderComponent();
     },
     clickButtonByText(text: string) {
-      const btn = findNode(tree, (n) => n?.type === 'button' && getNodeText(n.props?.children) === text);
+      const btn = findNode(tree, (n) => n?.type === 'button' && getNodeText(n.props?.children).trim() === text);
       assert.ok(btn, `Button with text "${text}" not found`);
       btn.props.onClick();
       renderComponent();
+    },
+    toggleFilterDrawer() {
+      const btn = findNode(tree, (n) => n?.type === 'button' && getNodeText(n.props?.children).includes('BỘ LỌC'));
+      assert.ok(btn, 'Filter drawer toggle button not found');
+      btn.props.onClick();
+      renderComponent();
+    },
+    selectSort(sortValue: string) {
+      const select = findNode(tree, (n) => n?.type === 'select');
+      assert.ok(select, 'Sort select element not found');
+      select.props.onChange({ target: { value: sortValue } });
+      renderComponent();
+    },
+    findChipByText(text: string) {
+      return findNode(tree, (n) => getNodeText(n).includes(text));
     },
     expirePendingTimers() {
       const callbacks = [...timers.values()];
@@ -374,5 +389,103 @@ describe('CategoryFilterBar Component Integration Tests (Actual Component Transp
     // Expire any timers: no trailing search callback
     harness.expirePendingTimers();
     assert.equal(harness.getSnapshot().filters.search, undefined, 'Search must remain undefined');
+  });
+
+  it('9. Price Presets: selecting preset applies bounds and clicking same preset toggles it off', () => {
+    const harness = createComponentHarness({ initialQuery: '' });
+
+    // Open filter drawer
+    harness.toggleFilterDrawer();
+
+    // Click "≤ 500k"
+    harness.clickButtonByText('≤ 500k');
+    let snapshot = harness.getSnapshot();
+    assert.equal(snapshot.filters.maxPrice, 500000);
+    assert.equal(snapshot.filters.minPrice, undefined);
+
+    // Click "500k – 1 triệu"
+    harness.clickButtonByText('500k – 1 triệu');
+    snapshot = harness.getSnapshot();
+    assert.equal(snapshot.filters.minPrice, 500000);
+    assert.equal(snapshot.filters.maxPrice, 1000000);
+
+    // Click "500k – 1 triệu" again -> toggles off!
+    harness.clickButtonByText('500k – 1 triệu');
+    snapshot = harness.getSnapshot();
+    assert.equal(snapshot.filters.minPrice, undefined);
+    assert.equal(snapshot.filters.maxPrice, undefined);
+  });
+
+  it('10. Active Filter Chips: Sort chip renders when sort is not newest and clicking remove resets to newest', () => {
+    const harness = createComponentHarness({ initialQuery: '?category=thoi-trang-nam' });
+
+    // Open filter drawer and change sort to price_asc
+    harness.toggleFilterDrawer();
+    harness.selectSort('price_asc');
+
+    // Assert: Sort is committed and Sort Chip exists
+    let snapshot = harness.getSnapshot();
+    assert.equal(snapshot.filters.sort, 'price_asc');
+    assert.ok(harness.findChipByText('Xếp: Giá: Tăng dần'), 'Sort chip must be displayed');
+
+    // Click '✕' on Sort Chip
+    harness.clickButtonByTitle('Bỏ sắp xếp tùy chỉnh');
+
+    // Assert: Sort reverted to 'newest' and Category filter was preserved intact!
+    snapshot = harness.getSnapshot();
+    assert.equal(snapshot.filters.sort, 'newest');
+    assert.equal(snapshot.filters.categorySlug, 'thoi-trang-nam', 'Category filter must be preserved');
+  });
+
+  it('11. Clear All Filters (XÓA TẤT CẢ): resets all filters, cancels pending debounce, and clears search input', () => {
+    const harness = createComponentHarness({
+      initialQuery: '?category=thoi-trang-nu&size=M&maxPrice=1000000&sort=price_desc',
+    });
+
+    // User types "dress"
+    harness.typeSearch('dress');
+    assert.equal(harness.getSnapshot().inputValue, 'dress');
+    assert.equal(harness.getSnapshot().pendingTimersCount, 1);
+
+    // User clicks "Xóa tất cả"
+    harness.clickButtonByText('Xóa tất cả');
+
+    // Assert: everything reset to defaults
+    const snapshot = harness.getSnapshot();
+    assert.equal(snapshot.pendingTimersCount, 0, 'Debounce timer must be cancelled');
+    assert.equal(snapshot.inputValue, '', 'Search input must be cleared');
+    assert.equal(snapshot.filters.categorySlug, undefined);
+    assert.equal(snapshot.filters.size, undefined);
+    assert.equal(snapshot.filters.maxPrice, undefined);
+    assert.equal(snapshot.filters.sort, 'newest');
+    assert.equal(snapshot.filters.page, 0);
+
+    // Expire any lingering timers: no search callback fired
+    harness.expirePendingTimers();
+    assert.equal(harness.getSnapshot().filters.search, undefined);
+  });
+
+  it('12. Search Version Guard: stale in-flight timer callback does NOT overwrite newer filter mutations', () => {
+    const harness = createComponentHarness({ initialQuery: '' });
+
+    // User types "linen"
+    harness.typeSearch('linen');
+    assert.equal(harness.getSnapshot().pendingTimersCount, 1);
+
+    // While timer is pending, user selects a category
+    harness.updateFiltersProp({
+      ...harness.getSnapshot().filters,
+      categorySlug: 'thoi-trang-nam',
+    });
+
+    // Assert: timer was cleared and version bumped
+    assert.equal(harness.getSnapshot().pendingTimersCount, 0);
+
+    // Force run any callbacks (even if a callback was somehow dispatched in macrotask queue)
+    harness.expirePendingTimers();
+
+    // Category remains thoi-trang-nam, search is NOT committed
+    assert.equal(harness.getSnapshot().filters.categorySlug, 'thoi-trang-nam');
+    assert.equal(harness.getSnapshot().filters.search, undefined);
   });
 });

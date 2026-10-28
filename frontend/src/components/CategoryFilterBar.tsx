@@ -27,10 +27,16 @@ interface PricePreset {
 
 const PRICE_PRESETS: PricePreset[] = [
   { label: '≤ 500k', max: 500000 },
-  { label: '500k - 1 triệu', min: 500000, max: 1000000 },
-  { label: '1 - 2 triệu', min: 1000000, max: 2000000 },
+  { label: '500k – 1 triệu', min: 500000, max: 1000000 },
+  { label: '1 – 2 triệu', min: 1000000, max: 2000000 },
   { label: '≥ 2 triệu', min: 2000000 },
 ];
+
+const SORT_LABELS: Record<string, string> = {
+  price_asc: 'Giá: Tăng dần',
+  price_desc: 'Giá: Giảm dần',
+  name_asc: 'Tên: A — Z',
+};
 
 function findCategoryName(categories: Category[], slug?: string): string | null {
   if (!slug) return null;
@@ -73,6 +79,7 @@ export default function CategoryFilterBar({
   );
   const [priceInputError, setPriceInputError] = useState<string | null>(null);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const searchVersionRef = useRef(0);
 
   // Compare semantic changes, not just reference equality, to protect legitimate typing drafts from referential re-renders
   const isCommittedSearchChanged = filters.search !== prevFilters.search;
@@ -99,6 +106,7 @@ export default function CategoryFilterBar({
 
   // Synchronize latest filtersRef and cancel any pending search debounce timer whenever filters prop changes from outside
   useEffect(() => {
+    searchVersionRef.current += 1;
     filtersRef.current = filters;
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
@@ -109,6 +117,7 @@ export default function CategoryFilterBar({
   // Clean up search timer on component unmount
   useEffect(() => {
     return () => {
+      searchVersionRef.current += 1;
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
         searchTimerRef.current = null;
@@ -117,8 +126,10 @@ export default function CategoryFilterBar({
   }, []);
 
   // Centralized synchronous filter dispatcher:
-  // Immediately cancels pending timer, updates filtersRef synchronously, and triggers callback
+  // Immediately cancels pending timer, bumps version to invalidate in-flight callbacks,
+  // updates filtersRef synchronously, and triggers callback
   const applyFilter = (next: ProductFilterParams, options?: { replace?: boolean }) => {
+    searchVersionRef.current += 1;
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
       searchTimerRef.current = null;
@@ -136,17 +147,24 @@ export default function CategoryFilterBar({
     (filters.size ? 1 : 0) +
     (filters.color ? 1 : 0) +
     (filters.minPrice !== undefined || filters.maxPrice !== undefined ? 1 : 0) +
-    (filters.inStockOnly ? 1 : 0);
+    (filters.inStockOnly ? 1 : 0) +
+    (filters.sort && filters.sort !== 'newest' ? 1 : 0);
 
-  // Debounced search handler: 350ms with replaceState using latest filtersRef
+  // Debounced search handler: 350ms with replaceState using latest filtersRef and version guard
   const handleSearchChange = (val: string) => {
     setSearchInput(val);
+    searchVersionRef.current += 1;
+    const currentVersion = searchVersionRef.current;
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
       searchTimerRef.current = null;
     }
     searchTimerRef.current = setTimeout(() => {
       searchTimerRef.current = null;
+      // Stale callback guard: discard if any filter action intervened
+      if (searchVersionRef.current !== currentVersion) {
+        return;
+      }
       applyFilter(
         {
           ...filtersRef.current,
@@ -261,7 +279,7 @@ export default function CategoryFilterBar({
     setPriceInputError(null);
     applyFilter({
       ...filtersRef.current,
-      minPrice: min !== undefined && min > 0 ? min : undefined,
+      minPrice: min !== undefined ? min : undefined,
       maxPrice: max !== undefined ? max : undefined,
       page: 0,
     });
@@ -498,6 +516,21 @@ export default function CategoryFilterBar({
             </span>
           )}
 
+          {/* Sort Chip */}
+          {filters.sort && filters.sort !== 'newest' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/10 text-white border border-white/20 rounded-xs">
+              <span>Xếp: {SORT_LABELS[filters.sort] || filters.sort}</span>
+              <button
+                type="button"
+                onClick={() => handleSortChange('newest')}
+                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                title="Bỏ sắp xếp tùy chỉnh"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+
           {/* Clear All Action */}
           <button
             type="button"
@@ -602,6 +635,9 @@ export default function CategoryFilterBar({
                   placeholder="Từ..."
                   value={customMinPrice}
                   onChange={(e) => setCustomMinPrice(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleApplyCustomPrice();
+                  }}
                   className="w-1/2 h-7 px-2 bg-white/5 border border-white/15 text-xs font-mono text-white placeholder:text-white/30 rounded-xs focus:border-[#C7AD83] focus:outline-none"
                 />
                 <span className="text-white/30 text-xs">-</span>
@@ -610,6 +646,9 @@ export default function CategoryFilterBar({
                   placeholder="Đến..."
                   value={customMaxPrice}
                   onChange={(e) => setCustomMaxPrice(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleApplyCustomPrice();
+                  }}
                   className="w-1/2 h-7 px-2 bg-white/5 border border-white/15 text-xs font-mono text-white placeholder:text-white/30 rounded-xs focus:border-[#C7AD83] focus:outline-none"
                 />
                 <button
