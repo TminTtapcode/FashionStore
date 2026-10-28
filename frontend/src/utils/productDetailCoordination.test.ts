@@ -775,6 +775,36 @@ describe('ProductDetailModal Component Integration Test Suite (Phase 5B & 5B.1 H
       /is disabled/,
       'Add to cart must be disabled when max 10 items already exist in cart'
     );
+
+    // Critical Warehouse Invariant (Phase 5C Audit Finding):
+    // When stockQuantity is 5, and customer already has 3 in cart,
+    // maxAddable must be min(10, 5) - 3 = 2 (NOT min(10 - 3, 5) = 5)!
+    const limitedStockProduct = {
+      ...MOCK_DRESS_PRODUCT,
+      variants: MOCK_DRESS_PRODUCT.variants.map((v) =>
+        v.id === 1 ? { ...v, stockQuantity: 5 } : v
+      ),
+    };
+    const cartWith3: Cart = {
+      ...existingCart,
+      totalItemCount: 3,
+      items: [{ ...existingCart.items[0], quantity: 3 }],
+    };
+    const harnessStockLimit = createModalTestHarness({
+      product: limitedStockProduct,
+      cart: cartWith3,
+    });
+    // Initial quantity is 1
+    assert.equal(harnessStockLimit.getSlots().quantity, 1);
+    // Can step to 2
+    harnessStockLimit.stepQuantity(1);
+    assert.equal(harnessStockLimit.getSlots().quantity, 2);
+    // Cannot step to 3 because 3 existing + 3 new = 6 > stock 5!
+    assert.throws(
+      () => harnessStockLimit.stepQuantity(1),
+      /is disabled/,
+      'Cannot exceed warehouse stock (stock 5 - cart 3 = max addable 2)'
+    );
   });
 
   it('8. P2 Product Gallery Fallback: Single representative image with warning indicator when no color or general images exist', () => {

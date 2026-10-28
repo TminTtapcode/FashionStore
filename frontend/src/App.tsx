@@ -10,16 +10,27 @@ import VirtualStylingStudio from './components/VirtualStylingStudio';
 import AtcShader from './components/ui/atc-shader';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderHistoryDrawer } from './components/OrderHistoryDrawer';
+import OwnerPortal from './components/owner/OwnerPortal';
 import { getCategoriesApi, getProductsApi } from './api/catalogApi';
 import { parseCatalogUrl, serializeCatalogUrl, DEFAULT_FILTERS } from './utils/catalogUrl';
 import type { Category, PageResponse, ProductFilterParams, ProductSummary } from './types/catalog';
 
-function StorefrontContent() {
+interface StorefrontContentProps {
+  onNavigateOwner: () => void;
+}
+
+function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
   const { user, isLoading: isAuthLoading, openAuthModal, logout } = useAuth();
   const { totalCount, openCart, closeCart } = useCart();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
+
+  const isOwner = Boolean(
+    user &&
+      Array.isArray(user.roles) &&
+      user.roles.some((r) => ['SHOP_OWNER', 'ROLE_SHOP_OWNER', 'ADMIN', 'ROLE_ADMIN'].includes(r))
+  );
 
   // Catalog State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -277,6 +288,20 @@ function StorefrontContent() {
               <span className="text-gray-400 animate-pulse text-[11px]">Đang kiểm tra...</span>
             ) : user ? (
               <div className="flex items-center gap-2 text-[11px]">
+                {isOwner && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onNavigateOwner}
+                      className="text-[#C7AD83] bg-[#C7AD83]/15 hover:bg-[#C7AD83]/25 border border-[#C7AD83]/40 px-2 py-0.5 rounded-2xs transition-all cursor-pointer uppercase tracking-wider text-[10px] font-mono font-bold flex items-center gap-1 shadow-xs"
+                      title="Vào Cổng Quản Trị Cửa Hàng (Owner Portal)"
+                    >
+                      <span>QUẢN TRỊ</span>
+                      <span className="text-[9px]">↗</span>
+                    </button>
+                    <span className="text-white/20">|</span>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsOrderHistoryOpen(true)}
@@ -565,10 +590,33 @@ function StorefrontContent() {
 }
 
 export default function App() {
+  const [currentPath, setCurrentPath] = useState(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path: string) => {
+    if (typeof window !== 'undefined' && window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
+    }
+  };
+
   return (
     <AuthProvider>
       <CartProvider>
-        <StorefrontContent />
+        {currentPath.startsWith('/owner') ? (
+          <OwnerPortal onNavigateStorefront={() => navigateTo('/')} />
+        ) : (
+          <StorefrontContent onNavigateOwner={() => navigateTo('/owner')} />
+        )}
       </CartProvider>
     </AuthProvider>
   );

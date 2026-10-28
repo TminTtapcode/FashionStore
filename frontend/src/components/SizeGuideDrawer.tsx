@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 
 interface SizeGuideRow {
   size: string;
@@ -23,6 +23,9 @@ export default function SizeGuideDrawer({
   categoryName = 'Thời trang',
   specificationsJson,
 }: SizeGuideDrawerProps) {
+  const drawerContainerRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
+
   // Parse customized size guide from specifications JSON if present
   const customGuide = useMemo<SizeGuideRow[] | null>(() => {
     if (!specificationsJson) return null;
@@ -41,6 +44,29 @@ export default function SizeGuideDrawer({
   const isPants = categoryName.toLowerCase().includes('quần');
   const isDress = categoryName.toLowerCase().includes('đầm') || categoryName.toLowerCase().includes('váy');
 
+  // Focus preservation and initial focus inside drawer
+  useEffect(() => {
+    if (isOpen) {
+      if (typeof document !== 'undefined') {
+        previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
+      }
+      const timer = setTimeout(() => {
+        if (drawerContainerRef.current) {
+          const closeBtn = drawerContainerRef.current.querySelector<HTMLElement>('button[aria-label="Đóng bảng size"]');
+          if (closeBtn) {
+            closeBtn.focus();
+          } else {
+            drawerContainerRef.current.focus();
+          }
+        }
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        previouslyFocusedElementRef.current?.focus?.();
+      };
+    }
+  }, [isOpen]);
+
   // Keyboard Escape listener to dismiss size guide drawer
   useEffect(() => {
     if (!isOpen) return;
@@ -57,11 +83,39 @@ export default function SizeGuideDrawer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Focus trap: containment for Tab and Shift+Tab inside drawer
+  const handleKeyDownTrap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !drawerContainerRef.current) return;
+
+    const focusableElements = drawerContainerRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      }
+    } else {
+      if (document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end"
+      ref={drawerContainerRef}
+      onKeyDown={handleKeyDownTrap}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex justify-end focus:outline-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="size-guide-modal-title"

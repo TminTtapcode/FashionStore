@@ -256,8 +256,8 @@ export default function ProductDetailModal({
     if (!currentVariant || !currentVariant.inStock || currentVariant.stockQuantity <= 0) {
       return 0;
     }
-    const remainingByPolicy = Math.max(0, MAX_PER_LINE - existingCartQuantity);
-    return Math.min(remainingByPolicy, currentVariant.stockQuantity);
+    const maxTotalAllowed = Math.min(MAX_PER_LINE, currentVariant.stockQuantity);
+    return Math.max(0, maxTotalAllowed - existingCartQuantity);
   }, [currentVariant, existingCartQuantity]);
 
   // Derived effective quantity clamped to valid bounds
