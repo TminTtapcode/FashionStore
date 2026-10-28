@@ -47,6 +47,9 @@ export default function SizeGuideDrawer({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+          e.stopImmediatePropagation();
+        }
         onClose();
       }
     };
@@ -57,7 +60,12 @@ export default function SizeGuideDrawer({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="size-guide-modal-title"
+    >
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
@@ -76,7 +84,7 @@ export default function SizeGuideDrawer({
               <span>✦</span>
               <span>BẢNG QUY ĐỔI KÍCH CỠ CHUẨN</span>
             </span>
-            <h2 className="font-editorial text-xl tracking-tight font-medium mt-1 text-white">
+            <h2 id="size-guide-modal-title" className="font-editorial text-xl tracking-tight font-medium mt-1 text-white">
               Size Guide — {categoryName}
             </h2>
           </div>

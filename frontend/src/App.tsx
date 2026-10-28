@@ -110,18 +110,39 @@ function StorefrontContent() {
       const params = new URLSearchParams(window.location.search);
       params.set('product', slug);
       const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
-      window.history.pushState({ ...window.history.state, product: slug }, '', newUrl);
+      window.history.pushState(
+        { ...window.history.state, isProductModalPushed: true, product: slug },
+        '',
+        newUrl
+      );
     }
   };
 
   const handleCloseProductModal = () => {
-    setSelectedProductSlug(null);
     if (typeof window !== 'undefined') {
+      const isModalPushed = window.history.state?.isProductModalPushed;
+      if (isModalPushed) {
+        // Modal was opened in-app via pushState: calling window.history.back() unwinds the history
+        // entry cleanly so browser Back will not resurrect the modal.
+        setSelectedProductSlug(null);
+        window.history.back();
+        return;
+      }
+
+      // Direct deep-link or fresh load without an in-app pushState:
+      // Replace state to avoid navigating outside the website or creating forward/back loops
+      setSelectedProductSlug(null);
       const params = new URLSearchParams(window.location.search);
       params.delete('product');
       const qs = params.toString();
       const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
-      window.history.pushState({ ...window.history.state, product: null }, '', newUrl);
+      window.history.replaceState(
+        { ...window.history.state, isProductModalPushed: false, product: null },
+        '',
+        newUrl
+      );
+    } else {
+      setSelectedProductSlug(null);
     }
   };
 
