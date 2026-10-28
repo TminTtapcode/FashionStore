@@ -107,6 +107,30 @@ Deliverables:
   - Code Quality: `tsc -b && vite build` hoàn tất sạch sẽ trong 762ms (~100.34 kB gzip); 0 lỗi lint.
   - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (deep-linking, color switch, dynamic gallery, ghost variant prevention, size guide drawer, escape key).
 
+## Phase 5B.1 — Product Detail Reliability & UX Hardening [Hoàn tất]
+Deliverables:
+- **P1 — Bảo toàn Ý định Kích cỡ (Size Intent Preservation vs Ghost Variant Auto-resolution)**:
+  - Khi người dùng đổi màu, nếu kích cỡ hiện tại được sản xuất ở màu mới (dù `stock_quantity === 0`), giữ nguyên kích cỡ đã chọn và hiển thị trạng thái Hết hàng kèm vô hiệu hóa nút Mua.
+  - Chỉ tự động kích hoạt auto-resolve sang size đầu tiên còn hàng khi kích cỡ hiện tại là Biến thể ma thực sự (kích cỡ không hề được sản xuất cho màu mới).
+  - Loại trừ triệt để biến thể không hoạt động (`status !== 'ACTIVE'`) khỏi mọi luồng chọn và mua hàng.
+- **P1 — Xử lý Phím Escape Phân tầng (Dual-Layer Escape Handling)**:
+  - Đảm bảo tầng giao diện trên cùng (`SizeGuideDrawer`) tiêu thụ sự kiện Escape trước (`e.stopImmediatePropagation()`), không đóng đồng thời cả modal và drawer.
+  - `ProductDetailModal` sử dụng `isSizeGuideOpenRef` làm chốt chặn bảo vệ stale closure, bỏ qua Escape khi drawer đang hiển thị.
+- **P1 — Điều phối Lịch sử Modal (Modal History Coordination Contract)**:
+  - Phân định rõ mở modal trong ứng dụng (gọi `history.back()` khi đóng, tránh vòng lặp lịch sử `[Catalog, Modal, Catalog]`) và mở modal qua Deep-link (gọi `history.replaceState()` khi đóng, tránh văng ra khỏi website).
+- **P2 — Bảo vệ Bất biến Số lượng Giỏ hàng (Cart Quantity Invariant Enforcement)**:
+  - Đồng bộ giới hạn tối đa 10 sản phẩm/dòng hàng theo ADR-011 và DB constraint (`CHECK (quantity > 0 AND quantity <= 10)`).
+  - Modal kiểm tra số lượng hiện có trong giỏ (`existingCartQuantity`) để giới hạn `maxAddableQuantity = Math.min(10 - existingCartQuantity, stockQuantity)`. Vô hiệu hóa stepper và nút CTA khi đạt giới hạn.
+- **P2 — Cách ly Hình ảnh Biến thể & Fallback Minh bạch (Gallery Fallback)**:
+  - Khi màu đang chọn không có ảnh riêng, chỉ hiển thị ảnh chung (`!img.variantId`), tuyệt đối không rò rỉ ảnh của màu khác. Nếu không có cả ảnh chung, chỉ fallback về 1 ảnh đại diện kèm badge thông báo `"Ảnh minh họa kiểu dáng"`.
+- **P2 — Khả năng Tiếp cận (A11y Focus Containment)**:
+  - Triển khai Focus Trap cho phím `Tab` và `Shift+Tab` bên trong dialog, tự động focus nút đóng khi mở và khôi phục focus về element ban đầu khi đóng modal.
+- **Bằng chứng Nghiệm thu**:
+  - Test Suite: **33/33 tests tự động PASS (100%)** (11 URL tests + 12 filter debounce tests + 10 product detail lookbook hardening tests transpiled thực tế từ component source code).
+  - Backend Suite: **107/107 tests PASS (100%)** trên MySQL test profile.
+  - Code Quality: `tsc -b && vite build` hoàn tất sạch sẽ trong 824ms (~101.30 kB gzip); 0 lỗi lint mới.
+  - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (giữ size M hết hàng khi đổi màu, Escape drawer trước - modal sau, history back không lặp, stepper limit 10, clean console 0 JS error).
+
 ## Phase 5C — Shop owner operations (Layout Quản Trị Riêng)
 - Cổng quản trị riêng biệt cho Shop Owner/Admin (`/owner` hoặc portal tách khỏi storefront).
 - Product/variant CRUD and image management.

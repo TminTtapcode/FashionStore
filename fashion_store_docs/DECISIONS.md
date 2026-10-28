@@ -96,22 +96,41 @@ Ban đầu, `PROJECT_CONTEXT.md` dự kiến sử dụng React Router, TanStack 
 - *Tích cực:* Giữ nguyên 100% hiệu năng mượt mà của WebGL Living Shader; bundle production cực kỳ gọn nhẹ (<101 kB gzip); kiểm soát chi tiết từng lời gọi history mà không phụ thuộc package ngoài.
 - *Lưu ý:* Phải tự quản lý sự kiện `popstate` và dọn dẹp timer debounce khi điều hướng Back/Forward (đã được bao phủ và chứng minh qua bộ 32 tests tự động và Chrome DevTools MCP).
 
-## ADR-013 — Lookbook Detail Experience & Ghost Variant Prevention
+## ADR-013 — Lookbook Detail Experience, Ghost Variant Prevention & Modal Coordination Hardening
 **Status:** Accepted  
 **Date:** 2026-10-28  
 **Context:**  
 Trong ngành thời trang may mặc, sản phẩm có nhiều biến thể theo 2 chiều (Màu sắc và Kích cỡ). Một vấn đề thực tế rất phổ biến là tính bất đối xứng giữa các màu: một mẫu đầm màu Trắng có đủ size S, M, L; nhưng màu Xanh Rêu chỉ sản xuất size M, L; hoặc màu Đen chỉ còn size L. Nếu UI cho phép người dùng giữ nguyên size S khi chuyển từ màu Trắng sang màu Xanh Rêu, hệ thống sẽ rơi vào trạng thái "Biến thể ma" (Ghost Variant) — một tổ hợp (Xanh Rêu, S) không tồn tại trong database, dẫn đến hiển thị sai giá, sai tồn kho, hoặc lỗi 400 Bad Request khi bấm thêm vào giỏ.
+Tuy nhiên, trong quá trình hardening Phase 5B.1, các tình huống biên phức tạp hơn đã được nhận diện:
+1. **Bảo toàn Ý định Kích cỡ (Size Intent Preservation vs Ghost Variant):** Nếu khách hàng chọn size M màu Trắng và chuyển sang màu Xanh Rêu (màu này có sản xuất size M nhưng tạm thời hết hàng tồn kho = 0), việc tự động nhảy sang size S là vi phạm ý định người dùng (khách mặc size M bị âm thầm đổi sang size S dẫn tới mua nhầm kích cỡ).
+2. **Xung đột phím Escape giữa các tầng giao diện (Layered Escape Handling):** Khi mở Bảng quy đổi kích cỡ (`SizeGuideDrawer`) đè lên `ProductDetailModal`, phím Escape nhấn một lần có nguy cơ đóng cả hai tầng giao diện nếu listener bắt chung trên window không có cơ chế chặn tầng.
+3. **Vòng lặp History khi đóng Modal (Modal History Coordination):** Nếu mở modal từ catalog bằng `pushState`, việc đóng modal bằng `pushState` tạo ra lịch sử `[Catalog, Modal, Catalog]`, khiến nút Back của trình duyệt mở lại modal vừa đóng.
+4. **Bảo vệ Bất biến Số lượng Giỏ hàng (ADR-011 Invariant):** Database giới hạn `CHECK (quantity > 0 AND quantity <= 10)` cho mỗi dòng hàng. Nếu giỏ đã có sẵn 8 sản phẩm của variant này, modal không được cho phép chọn quá 2 sản phẩm.
+5. **Cách ly Hình ảnh Biến thể (Gallery Isolation & Honest Fallback):** Khi màu đang chọn không có ảnh riêng, tuyệt đối không hiển thị tràn ảnh của màu sắc khác gây nhầm lẫn thị giác cho khách hàng.
 
 **Decision:**  
-1. **Lookbook Modal Presentation:** Chi tiết sản phẩm được hiển thị dưới dạng Lookbook Modal lớp phủ cao cấp kết hợp URL search param `?product=<slug>`, đồng bộ 2 chiều với history và hỗ trợ phím `Escape`.
-2. **Dynamic Gallery Synchronization:** Gallery ảnh tự động ưu tiên các ảnh gắn với biến thể màu đang chọn (`img.variantId === variant.id`), kết hợp ảnh chung của sản phẩm (`!img.variantId`), và fallback về toàn bộ gallery nếu chưa có ảnh riêng.
-3. **Ghost Variant Prevention (Auto-resolution):** Khi người dùng đổi Color Swatch:
-   - Nếu size hiện tại cũng tồn tại ở màu mới: Giữ nguyên size.
-   - Nếu size hiện tại KHÔNG tồn tại ở màu mới: UI tự động chuyển sang size đầu tiên còn hàng (`stock_quantity > 0`) của màu mới. Nếu tất cả size của màu mới đều hết hàng, chuyển sang size đầu tiên được sản xuất.
-4. **4-State Size Selector:** Nút chọn kích cỡ phản ánh chính xác 4 trạng thái: Active/Selected, In-Stock, Out-of-Stock (gạch ngang mờ + disable), Not-Offered (làm mờ sâu + disable).
-5. **Dynamic Size Guide Specs:** Bảng số đo ưu tiên đọc cấu hình đo 3 vòng tùy biến từ `product.specifications` JSON; tự động fallback về bảng đo chuẩn theo nhóm danh mục thời trang (Đầm, Áo, Quần) nếu sản phẩm không có cấu hình riêng.
+1. **Lookbook Modal Presentation & Deep-Linking:** Chi tiết sản phẩm hiển thị dạng Lookbook Modal kết hợp URL search param `?product=<slug>`, đồng bộ 2 chiều với history và hỗ trợ phím `Escape`.
+2. **Size Intent Preservation vs Ghost Variant Auto-resolution:**
+   - Khi đổi màu, nếu kích cỡ hiện tại **được sản xuất** ở màu mới (dù `stock_quantity === 0`), **bảo toàn kích cỡ hiện tại**, hiển thị trạng thái Hết hàng và vô hiệu hóa nút Mua.
+   - Chỉ kích hoạt cơ chế **Auto-resolve** sang size đầu tiên còn hàng khi kích cỡ hiện tại là **Biến thể ma thực sự** (kích cỡ đó không hề được sản xuất cho màu mới).
+   - Biến thể không hoạt động (`status !== 'ACTIVE'`) bị loại trừ hoàn toàn khỏi danh sách biến thể khả dụng và không bao giờ được auto-resolve tới.
+3. **Dual-Layer Escape Handling (Topmost Consumption):**
+   - Tầng giao diện trên cùng (`SizeGuideDrawer`) tiêu thụ sự kiện Escape trước bằng `e.stopImmediatePropagation()` và `e.stopPropagation()`.
+   - `ProductDetailModal` sử dụng `isSizeGuideOpenRef` làm chốt chặn bảo vệ (defense-in-depth); nếu drawer đang mở, modal lập tức bỏ qua sự kiện Escape.
+4. **Modal History Coordination Contract:**
+   - Mở modal từ trong ứng dụng (In-app navigation): Ghi nhận `{ isProductModalPushed: true, product: slug }` vào `history.state`. Khi đóng modal, gọi `window.history.back()` để pop state sạch sẽ, loại bỏ triệt để vòng lặp lịch sử.
+   - Mở modal qua Deep-link (`/?product=slug`): Không có state in-app trước đó (`isProductModalPushed: false`). Khi đóng modal, gọi `window.history.replaceState` gỡ bỏ param `product`, bảo đảm không làm người dùng bị văng ra khỏi website.
+5. **Cart Quantity Invariant Enforcement:**
+   - Modal truy vấn `useCart()` để lấy số lượng đã có của biến thể: `maxAddableQuantity = Math.min(Math.max(0, 10 - existingCartQuantity), variant.stockQuantity)`.
+   - Tính toán `effectiveQuantity` theo thời gian thực trong render, vô hiệu hóa nút tăng số lượng và nút Thêm vào giỏ khi `maxAddableQuantity <= 0`.
+6. **Gallery Visual Isolation & Honest Fallback Indicator:**
+   - Khi chọn màu, chỉ gom ảnh của biến thể màu đó (`img.variantId === variant.id`) và ảnh chung (`!img.variantId`).
+   - Nếu không có ảnh màu lẫn ảnh chung, chỉ fallback về 1 ảnh đại diện duy nhất của sản phẩm kèm badge thông báo minh bạch: `"Ảnh minh họa kiểu dáng (Chưa có ảnh riêng cho màu [Tên màu])"`.
+7. **Modal Focus Trap & Accessibility (A11y):**
+   - Modal áp dụng `role="dialog"`, `aria-modal="true"`.
+   - Bắt phím `Tab` và `Shift+Tab` để giữ focus tuần hoàn bên trong modal, tự động focus vào nút đóng khi mở và khôi phục focus về element kích hoạt ban đầu khi đóng.
 
 **Consequences:**  
-- *Tích cực:* Loại bỏ hoàn toàn lỗi chọn biến thể không tồn tại; người dùng luôn nhìn thấy đúng giá, đúng ảnh, đúng tồn kho tương ứng với màu/size đang xem; trải nghiệm mua sắm mượt mà chuẩn lookbook cao cấp.
-- *Lưu ý:* Cần kiểm thử toàn diện cả các trường hợp sản phẩm chỉ có 1 màu, sản phẩm hết hàng toàn bộ, và sản phẩm có giá khác nhau giữa các biến thể.
+- *Tích cực:* Loại bỏ hoàn toàn lỗi chọn biến thể không tồn tại, tôn trọng ý định kích cỡ của người mua thời trang, triệt tiêu 100% bug lặp history và xung đột escape 2 tầng; dữ liệu giỏ hàng luôn tuân thủ nghiêm ngặt ràng buộc cơ sở dữ liệu.
+- *Lưu ý:* Cần duy trì bộ test tích hợp Node VM và browser verification cho mọi thay đổi liên quan đến history và dialog layers.
 

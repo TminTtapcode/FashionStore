@@ -44,13 +44,24 @@ Fashion storefront cần có cảm giác editorial/lookbook, hình ảnh sản p
        2. `In-Stock`: Viền mảnh `#262626`, hover chuyển viền `#C7AD83`, text `#D4D4D4`, sẵn sàng chọn.
        3. `Out-of-Stock`: Viền mờ `#1F1F1F`, text gạch ngang mờ `#525252`, vô hiệu hóa click kèm tooltip "Tạm hết hàng".
        4. `Not Offered`: Làm mờ sâu (`opacity-25`), viền đứt đoạn hoặc mờ, không thể click.
-   - **Cơ chế Phòng chống Biến thể Ma (Ghost Variant Prevention)**:
-     - Khi chuyển màu sắc mà kích cỡ hiện tại không tồn tại ở màu mới (do đặc thù may mặc không sản xuất đủ size ở mọi màu), UI tự động chuyển sang size đầu tiên còn hàng của màu mới.
-     - Triệt tiêu hoàn toàn trường hợp người dùng chọn phải biến thể không có thật hoặc biến thể không hợp lệ.
+   - **Quy tắc Giải quyết Kích cỡ & Bảo toàn Ý định Khách hàng (Size Intent Preservation vs Ghost Variant)**:
+     - Khi khách hàng đổi màu sắc (`selectedColor`), nếu kích cỡ hiện tại (`selectedSize`) vẫn **được sản xuất** ở màu mới (dù tạm hết hàng `stock === 0`), UI **giữ nguyên kích cỡ**, hiển thị nhãn cảnh báo *"Biến thể [Màu] / [Size] tạm thời hết hàng"* và đổi nút CTA thành *"HẾT HÀNG"* (disabled).
+     - Chỉ kích hoạt cơ chế **Auto-resolve** sang kích cỡ khả dụng đầu tiên còn hàng khi kích cỡ hiện tại là **Biến thể ma thực sự** (màu mới hoàn toàn không sản xuất kích cỡ đó).
+     - Biến thể không hoạt động (`status !== 'ACTIVE'`) bị loại trừ tuyệt đối.
    - **Bảng tra cứu số đo (Size Guide Drawer)**:
      - Mở slide-over drawer từ cạnh phải hiển thị bảng số đo (ngực, eo, mông, dài trang phục) theo cm kèm hướng dẫn cách đo vòng đo cơ thể.
      - Ưu tiên đọc thông số từ `product.specifications` JSON; tự động fallback theo loại danh mục (Đầm/Váy, Áo sơ mi/Áo thun, Quần/Chân váy).
-     - Phím `Escape` đóng drawer trước mà không làm tắt modal chi tiết bên dưới.
+     - Phím `Escape` đóng drawer trước mà không làm tắt modal chi tiết bên dưới nhờ cơ chế `e.stopImmediatePropagation()` và `isSizeGuideOpenRef`.
+   - **Bảo vệ Hạn mức Số lượng Giỏ hàng (Cart Quantity Limits)**:
+     - Đồng bộ với ràng buộc cơ sở dữ liệu và ADR-011: Mỗi dòng hàng tối đa 10 sản phẩm (`MAX_PER_LINE = 10`).
+     - Modal tự động đối chiếu số lượng đã có trong giỏ hàng của biến thể (`existingCartQuantity`), tính toán `maxAddableQuantity = Math.min(10 - existingCartQuantity, stockQuantity)`.
+     - Bộ tăng giảm số lượng (stepper) và nút CTA tự động vô hiệu hóa khi người dùng đã đạt hạn mức tối đa trong giỏ.
+   - **Cách ly Hình ảnh Biến thể & Fallback Minh bạch (Honest Gallery Fallback)**:
+     - Khi chọn màu, chỉ hiển thị ảnh của biến thể màu đó kết hợp ảnh chung của sản phẩm (`!img.variantId`), tuyệt đối không hiển thị tràn ảnh của màu khác.
+     - Nếu không có cả ảnh màu lẫn ảnh chung, chỉ fallback về 1 ảnh đại diện kèm badge nhãn rõ ràng: *"Ảnh minh họa kiểu dáng (Chưa có ảnh riêng cho màu [Tên màu])"*.
+   - **Khả năng Tiếp cận & Focus Trap (A11y)**:
+     - Modal áp dụng đầy đủ `role="dialog"`, `aria-modal="true"`, `aria-labelledby`.
+     - Khi mở modal, tự động focus vào nút đóng; phím `Tab` và `Shift+Tab` bị bẫy tuần hoàn bên trong các phần tử tương tác của modal; khi đóng modal, tiêu điểm được khôi phục chính xác về phần tử đã kích hoạt ban đầu.
    - **Khối thông tin chi tiết**: Chất liệu vải (`material`), Form dáng (`fit_style`), Hướng dẫn giặt ủi (`care_instructions`) và thông số chi tiết từ `specifications` JSON.
    - **Phản hồi Thêm vào giỏ hàng (Add to Cart Feedback)**:
      - Khách vãng lai: Kích hoạt modal Đăng nhập/Đăng ký tinh tế kèm thông báo giải thích.

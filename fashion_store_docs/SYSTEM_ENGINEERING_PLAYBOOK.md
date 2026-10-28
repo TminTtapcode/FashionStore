@@ -21,7 +21,7 @@
    - 6.2. Phân tích Nguyên nhân Gốc rễ 3 Lỗi Điều phối (P1 & P2 Post-Mortem)
    - 6.3. Giải pháp Kiến trúc Điều phối Tập trung
    - 6.4. Active Filter Chips, Price Presets & Search Version Guard
-7. [TRẢI NGHIỆM CHI TIẾT SẢN PHẨM LOOKBOOK & PHÂN TÍCH KỸ THUẬT PHÒNG THỦ (PHASE 5B)](#7-trải-nghiệm-chi-tiết-sản-phẩm-lookbook--phân-tích-kỹ-thuật-phòng-thủ-phase-5b)
+7. [TRẢI NGHIỆM CHI TIẾT SẢN PHẨM LOOKBOOK & PHÂN TÍCH KỸ THUẬT PHÒNG THỦ (PHASE 5B & 5B.1)](#7-trải-nghiệm-chi-tiết-sản-phẩm-lookbook--phân-tích-kỹ-thuật-phòng-thủ-phase-5b)
    - 7.1. Sơ đồ Thực thể Biến thể Thời trang & Sequence Diagram
    - 7.2. Phòng chống Biến thể Ma (Ghost Variant Prevention Pattern)
    - 7.3. Thiết kế Bộ chọn Kích cỡ 4 Trạng thái (4-State Size Selector Matrix)
@@ -29,6 +29,12 @@
    - 7.5. Post-Mortem 2: Bản chất Kỹ thuật của Search Version Guard
    - 7.6. Post-Mortem 3: Phòng chống Cuộc đua Microtask Mạng (`controller.signal.aborted`)
    - 7.7. Post-Mortem 4: Bản chất Remount Canvas WebGL (Cây Component vs Routing)
+   - 7.8. Phase 5B.1 Hardening Post-Mortems:
+     - 7.8.1. Post-Mortem 5: Bảo toàn Ý định Kích cỡ vs Giải quyết Biến thể Ma
+     - 7.8.2. Post-Mortem 6: Lan truyền Sự kiện DOM trên Nhiều Window Listeners (`stopImmediatePropagation`)
+     - 7.8.3. Post-Mortem 7: Chống Vòng lặp Web History Stack (`history.back()` vs `replaceState()`)
+     - 7.8.4. Post-Mortem 8: Bảo vệ Bất biến Giới hạn Dòng hàng Giỏ hàng (ADR-011 Invariant)
+     - 7.8.5. Post-Mortem 9: Cách ly Hình ảnh Biến thể & Fallback Minh bạch
 
 ---
 
@@ -713,6 +719,84 @@ getProductsApi(currentFilters, controller.signal)
   1. *Độ phức tạp kiến trúc*: Việc đưa React Router vào đòi hỏi tái cấu trúc toàn bộ cây layout, đóng gói lại routing context và thêm dependency ngoài (~40KB).
   2. *Trải nghiệm Lookbook*: Trong thời trang cao cấp, khi khách bấm xem chi tiết váy/áo, họ muốn xem tức thì dưới dạng overlay lookbook, giữ nguyên 100% vị trí cuộn trang của danh mục phía sau.
   3. *Hiệu năng*: Việc kết hợp Modal với URL parameter vừa đạt được deep-linking hoàn hảo, vừa giữ WebGL Canvas thở liên tục trong suốt phiên mua sắm mà không tốn một dòng cấu hình route phức tạp.
+
+---
+
+### 7.8. Phase 5B.1 Hardening Post-Mortems
+
+#### 7.8.1. Post-Mortem 5: Bảo toàn Ý định Kích cỡ vs Tự động Giải quyết Biến thể Ma (Size Intent Preservation vs Ghost Variant Auto-resolution)
+* **Vấn đề Phát hiện (Review Finding P1):**
+  * Trong thiết kế ban đầu của Phase 5B, khi người dùng đổi màu (`selectedColor`), nếu biến thể của màu mới ở kích cỡ hiện tại có `stockQuantity === 0`, mã nguồn tự động kích hoạt `find(v => v.stockQuantity > 0)` và ép người dùng sang kích cỡ khác.
+  * *Hậu quả nghiệp vụ thời trang:* Khách hàng mặc size M đang xem màu Trắng; khi click xem màu Xanh Rêu (màu này có sản xuất size M nhưng đang tạm hết hàng), hệ thống tự động đổi size đã chọn thành size S. Nếu khách hàng không chú ý mà tiếp tục mua hàng khi hàng về hoặc nhầm lẫn, họ sẽ nhận phải một bộ trang phục sai kích cỡ cơ thể.
+* **Nguyên nhân Gốc rễ:**
+  * Đồng nhất sai lầm giữa khái niệm *"Biến thể ma"* (Ghost Variant — cặp Màu-Size hoàn toàn không tồn tại trong danh mục sản xuất) và *"Biến thể hết hàng"* (Out-of-Stock Variant — cặp Màu-Size có sản xuất hợp lệ nhưng số lượng tồn kho bằng 0).
+* **Giải pháp Khắc phục Triệt để:**
+  * Tách biệt rạch ròi 2 trường hợp:
+    1. **Kích cỡ hiện tại có tồn tại ở màu mới (`isOffered === true`):** Bảo toàn 100% kích cỡ đã chọn của khách hàng (`selectedSize`), hiển thị thông báo rõ ràng *"Biến thể [Màu] / [Size] tạm thời hết hàng"* và vô hiệu hóa nút CTA với nhãn *"HẾT HÀNG"*.
+    2. **Kích cỡ hiện tại KHÔNG tồn tại ở màu mới (`isOffered === false` - Biến thể ma thực sự):** Mới kích hoạt auto-resolve sang kích cỡ khả dụng đầu tiên còn hàng (`v.stockQuantity > 0`) của màu mới, hoặc kích cỡ đầu tiên được sản xuất nếu tất cả đều hết hàng.
+  * Đồng thời, mọi biến thể không hoạt động (`status !== 'ACTIVE'`) bị loại trừ nghiêm ngặt khỏi danh sách `activeVariantsOfColor`, không bao giờ được phép resolve tới.
+
+#### 7.8.2. Post-Mortem 6: Lan truyền Sự kiện DOM trên Nhiều Window Listeners (`stopImmediatePropagation` & Ref Guard)
+* **Vấn đề Phát hiện (Review Finding P1):**
+  * Khi mở Bảng quy đổi kích cỡ (`SizeGuideDrawer`) trượt ra đè lên `ProductDetailModal`, người dùng nhấn phím `Escape` với mong muốn chỉ đóng bảng quy đổi size. Tuy nhiên, cả `SizeGuideDrawer` và `ProductDetailModal` đều bị đóng cùng một lúc, làm mất luôn cả cửa sổ chi tiết sản phẩm.
+* **Nguyên nhân Gốc rễ:**
+  * Cả hai component đều đăng ký event listener cho sự kiện `'keydown'` trực tiếp trên đối tượng `window`.
+  * Theo chuẩn W3C DOM Events, phương thức thông thường `e.stopPropagation()` chỉ ngăn chặn sự kiện nổi bọt (bubble) lên các phần tử cha trên cây DOM, chứ **không ngăn chặn** các event listener khác được đăng ký trên **cùng một đối tượng DOM** (`window`).
+  * Do đó, listener của `SizeGuideDrawer` chạy xong thì listener của `ProductDetailModal` trên `window` vẫn tiếp tục được gọi trong cùng một tick sự kiện.
+* **Giải pháp Phòng thủ Đa tầng (Defense-in-Depth):**
+  1. *Tầng Drawer:* Trong `SizeGuideDrawer.tsx`, gọi cả `e.stopImmediatePropagation()` lẫn `e.stopPropagation()`. `stopImmediatePropagation()` sẽ ngay lập tức hủy chuỗi gọi các listener tiếp theo đã đăng ký trên cùng `window`.
+  2. *Tầng Modal (Ref Guard):* Trong `ProductDetailModal.tsx`, duy trì một ref `isSizeGuideOpenRef` đồng bộ với trạng thái `isSizeGuideOpen`. Khi listener của Modal nhận sự kiện Escape, nó kiểm tra ngay:
+     ```typescript
+     if (isSizeGuideOpenRef.current) {
+       return; // Bỏ qua sự kiện vì tầng trên đang mở
+     }
+     ```
+  * Sự kết hợp này triệt tiêu hoàn toàn khả năng đóng đúp cả hai tầng giao diện, kể cả khi thứ tự đăng ký listener bị xáo trộn.
+
+#### 7.8.3. Post-Mortem 7: Chống Vòng lặp Web History Stack (`history.back()` vs `replaceState()`)
+* **Vấn đề Phát hiện (Review Finding P1):**
+  * Khi người dùng mở modal chi tiết sản phẩm từ danh mục, URL chuyển thành `?product=slug` qua `pushState`. Khi bấm nút Đóng `(✕)` hoặc nhấn Escape, nếu mã nguồn tiếp tục gọi `pushState` để xóa param `product`, lịch sử trình duyệt sẽ trở thành:
+    `[Catalog (Trang chủ)] -> [Modal Sản phẩm] -> [Catalog (Trang chủ)]`.
+  * Khi người dùng nhấn nút Back của trình duyệt, thay vì quay lại trang trước đó họ từng duyệt, trình duyệt lại back về `[Modal Sản phẩm]` và mở lại modal vừa đóng!
+* **Nguyên nhân Gốc rễ:**
+  * Lạm dụng `pushState` cho cả thao tác đóng modal, làm nhân bản vô tận các bản ghi lịch sử tương đương trên Browser Session History.
+* **Giải pháp Khắc phục (Hợp đồng Điều phối Lịch sử - History Coordination Contract):**
+  * Phân biệt rạch ròi 2 ngữ cảnh mở modal:
+    1. **Mở từ Storefront (In-app navigation):** Khi click card, `pushState` đính kèm metadata: `{ ...window.history.state, isProductModalPushed: true, product: slug }`. Khi người dùng đóng modal (bằng nút ✕ hoặc phím Escape), hàm đóng kiểm tra `window.history.state?.isProductModalPushed`. Nếu là `true`, gọi `window.history.back()`! Thao tác này pop bản ghi modal ra khỏi stack, đưa trình duyệt quay về đúng trang danh mục trước đó mà không tạo thêm bất kỳ bản ghi thừa nào.
+    2. **Mở qua Deep-link (`/?product=slug` trực tiếp):** Không có bản ghi mở modal trong stack ứng dụng (`isProductModalPushed` là `false` hoặc `undefined`). Khi đóng, nếu gọi `history.back()`, người dùng sẽ bị đẩy ra khỏi website (quay về Google Search hoặc tab trống). Do đó, trong trường hợp này, hệ thống gọi `window.history.replaceState` để thay thế URL hiện tại mà không làm thay đổi độ sâu lịch sử.
+
+#### 7.8.4. Post-Mortem 8: Bảo vệ Bất biến Giới hạn Dòng hàng Giỏ hàng (ADR-011 Invariant Defense)
+* **Vấn đề Phát hiện (Review Finding P2):**
+  * Database áp đặt ràng buộc `CHECK (quantity > 0 AND quantity <= 10)` trên bảng `cart_items` (ADR-011).
+  * Nếu trong giỏ hàng khách hàng đã có 9 sản phẩm của biến thể này, nhưng modal chi tiết vẫn cho phép người dùng chọn số lượng là 2 và bấm "THÊM VÀO GIỎ HÀNG", backend sẽ từ chối với lỗi 400 Bad Request (`Quantity exceeds maximum allowed per item: 10`).
+* **Nguyên nhân Gốc rễ:**
+  * Component chi tiết sản phẩm chỉ kiểm tra cận trên dựa trên tồn kho của biến thể (`stockQuantity`), bỏ quên việc đối chiếu số lượng đã tồn tại trong giỏ hàng của chính người dùng (`existingCartQuantity`).
+* **Giải pháp Khắc phục:**
+  * Kết nối `ProductDetailModal` với `useCart()`, trích xuất số lượng đã có của biến thể tương ứng:
+    ```typescript
+    const MAX_PER_LINE = 10;
+    const remainingByPolicy = Math.max(0, MAX_PER_LINE - existingCartQuantity);
+    const maxAddableQuantity = Math.min(remainingByPolicy, currentVariant.stockQuantity);
+    ```
+  * Derived state `effectiveQuantity` được tính toán trực tiếp trong quá trình render:
+    ```typescript
+    const effectiveQuantity = maxAddableQuantity > 0 ? Math.min(Math.max(1, quantity), maxAddableQuantity) : 1;
+    ```
+  * Vô hiệu hóa nút `+` khi `effectiveQuantity >= maxAddableQuantity` và vô hiệu hóa nút CTA Thêm vào giỏ khi `maxAddableQuantity <= 0`, hiển thị lý do rõ ràng cho người dùng.
+
+#### 7.8.5. Post-Mortem 9: Cách ly Hình ảnh Biến thể & Fallback Minh bạch
+* **Vấn đề Phát hiện (Review Finding P2):**
+  * Khi một biến thể màu chưa có ảnh chụp riêng (ví dụ màu Xanh Rêu chưa kịp chụp lookbook), logic cũ tự động fallback về hiển thị toàn bộ ảnh của sản phẩm.
+  * Hậu quả: Khách hàng click xem màu Xanh Rêu nhưng lại nhìn thấy một loạt 4–5 ảnh người mẫu mặc đầm màu Trắng Ngọc Trai mà không có bất kỳ dấu hiệu phân biệt nào, gây hiểu lầm rằng họ đang xem ảnh của màu Xanh Rêu.
+* **Nguyên nhân Gốc rễ:**
+  * Fallback không kiểm soát rò rỉ hình ảnh giữa các biến thể màu khác nhau.
+* **Giải pháp Khắc phục:**
+  * Phân tách chặt chẽ danh sách ảnh theo 3 cấp độ:
+    1. `colorImages`: Các ảnh gắn trực tiếp với biến thể cùng màu (`img.variantId === variant.id`).
+    2. `generalImages`: Các ảnh chụp toàn cảnh/chất liệu chung của sản phẩm không gắn với variant cụ thể (`!img.variantId`).
+    3. `fallbackImages`: Nếu không có cả ảnh màu lẫn ảnh chung, chỉ lấy duy nhất **1 ảnh đại diện** của sản phẩm và hiển thị badge cảnh báo minh bạch trên góc ảnh:
+       *"Ảnh minh họa kiểu dáng (Chưa có ảnh riêng cho màu [Tên màu])"*.
+  * Tuyệt đối không để lộ danh sách ảnh chi tiết của màu khác, bảo vệ tính trung thực và cao cấp của thương hiệu thời trang.
 
 
 
