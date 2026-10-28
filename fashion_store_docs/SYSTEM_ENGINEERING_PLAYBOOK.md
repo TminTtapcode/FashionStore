@@ -280,7 +280,7 @@ Bảng ma trận chuyển trạng thái hợp lệ trong [`OrderLifecycleService
   | **Tương thích React 19** | Phải theo dõi breaking changes của các thư viện router bên ngoài với React 19 canary/stable. | Hoàn toàn độc lập với phiên bản React, tương thích tuyệt đối. |
   | **Kiểm soát URL** | Phụ thuộc vào lifecycle của thư viện bên thứ ba. | Kiểm soát chi tiết từng lời gọi `pushState` vs `replaceState`. |
 
-### 6.2. Cơ chế Đồng bộ Hai Chiều (Bi-directional URL Synchronization)
+### 6.2. Cơ chế Đồng bộ Hai Chiều (Bi-directional URL Synchronization) & Chống Race Condition
 
 ```mermaid
 sequenceDiagram
@@ -290,63 +290,65 @@ sequenceDiagram
     participant CatalogUrl as Module catalogUrl.ts
     participant App as App.tsx (Root State)
     participant FilterBar as CategoryFilterBar.tsx
-    participant ProductGrid as ProductGrid.tsx
+    participant Backend as Spring Boot API (/products)
 
-    Note over User,Browser: 1. Khởi động (Initial Load / Bookmark)
-    User->>Browser: Truy cập /?category=thoi-trang-nam&size=L&minPrice=500000
+    Note over User,Browser: 1. Khởi động (Initial Load / Bookmark / UTM Tracking)
+    User->>Browser: Truy cập /?utm_source=facebook&category=thoi-trang-nam&page=2
     Browser->>App: window.location.search
     App->>CatalogUrl: parseCatalogUrl(search)
-    CatalogUrl-->>App: CatalogFilters Object
-    App->>ProductGrid: Render danh sách đã lọc theo URL
+    CatalogUrl-->>App: CatalogFilters (page: 1, category: "thoi-trang-nam")
+    App->>CatalogUrl: serializeCatalogUrl(filters, currentSearch)
+    Note over App,Browser: Canonicalize URL bằng replaceState nếu URL bị bẩn
+    App->>Backend: getProductsApi(filters, abortController.signal)
+    Backend-->>App: Danh sách sản phẩm trang 2
 
-    Note over User,FilterBar: 2. Tương tác (User Interaction)
+    Note over User,FilterBar: 2. Tương tác (Search Debounce vs Filter Change)
     User->>FilterBar: Gõ từ khóa "Blazer"
-    FilterBar->>FilterBar: Debounce 350ms (giữ UI mượt mà)
-    FilterBar->>App: onFilterChange({ search: "Blazer" })
-    App->>CatalogUrl: serializeCatalogUrl(newFilters)
-    CatalogUrl-->>App: queryString "?category=thoi-trang-nam&size=L&q=Blazer"
-    App->>Browser: history.replaceState(..., queryString) (Không tạo rác lịch sử)
+    FilterBar->>FilterBar: Debounce 350ms (giữ UI phản hồi 0ms)
+    FilterBar->>App: onFilterChange(filters, { replace: true })
+    App->>CatalogUrl: serializeCatalogUrl(filters, currentSearch)
+    App->>Browser: history.replaceState (Không làm ô nhiễm lịch sử)
 
-    User->>FilterBar: Chọn Price Preset "Dưới 500k"
-    FilterBar->>App: onFilterChange({ minPrice: 0, maxPrice: 500000 })
-    App->>Browser: history.pushState(..., queryString) (Tạo mốc lịch sử mới)
+    User->>FilterBar: Chọn Giá "≤ 500k"
+    FilterBar->>App: onFilterChange(filters, { replace: false })
+    App->>CatalogUrl: serializeCatalogUrl(filters, currentSearch)
+    App->>Browser: history.pushState (Tạo mốc lịch sử mới, bảo lưu utm_source)
+    Note over App,Backend: AbortController hủy bỏ request "Blazer" cũ đang bay!
+    App->>Backend: getProductsApi(newFilters, newSignal)
 
     Note over User,Browser: 3. Điều hướng Trình duyệt (Back / Forward)
     User->>Browser: Nhấn nút Back trên Browser
     Browser->>App: Event 'popstate'
+    App->>FilterBar: Hủy timer debounce 350ms đang chờ (clearTimeout)
     App->>CatalogUrl: parseCatalogUrl(window.location.search)
-    App->>FilterBar: Cập nhật lại UI Input & Chips
-    App->>ProductGrid: Re-filter lại danh sách sản phẩm trước đó
+    App->>FilterBar: Khôi phục ô search text & Active Chips
+    App->>Backend: Nạp lại sản phẩm tương ứng với URL Back
 ```
 
-1. **Khởi tạo trạng thái từ URL (Initial URL Deserialization)**:
-   * Hàm `parseCatalogUrl(searchString)` tại [`frontend/src/utils/catalogUrl.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/catalogUrl.ts) bóc tách chuỗi truy vấn chuẩn hóa:
-     - `category`: Chuỗi slug danh mục.
-     - `size` & `color`: Chuỗi size/màu.
-     - `minPrice` & `maxPrice`: Chuyển đổi an toàn từ chuỗi sang số nguyên (loại bỏ NaN).
-     - `q`: Từ khóa tìm kiếm (tự động mapping sang `search` trong state backend).
-     - `inStock`: Chuyển đổi boolean (`"true"` $\rightarrow$ `true`).
-     - `sort`: Các kiểu sắp xếp hợp lệ (`price-asc`, `price-desc`, `newest`, `popular`).
-     - `page`: Chuyển đổi từ số trang 1-based trên URL sang 0-based của Spring Data Pageable.
+#### Quy tắc Điều phối Lịch sử Trình duyệt (`pushState` vs `replaceState`):
+1. **Dùng `pushState`**:
+   - Khi chuyển trang phân trang (`page 1 -> 2`, giải quyết trọn vẹn User Story 2 để người dùng ấn Back quay lại trang 1).
+   - Khi đổi danh mục, chọn size, màu, kiểu sắp xếp (sort), chọn khoảng giá, xóa từng chip hoặc bấm "XÓA TẤT CẢ".
+   - *Quy tắc chống rác*: Nếu chuỗi query tuần tự hóa mới trùng hoàn toàn với query hiện tại trên trình duyệt (`currentQuery === newQuery`), tuyệt đối không gọi `pushState` để tránh tạo duplicate history entries.
+2. **Dùng `replaceState`**:
+   - Khi cập nhật từ khóa tìm kiếm sau khi hết 350ms debounce (để người dùng không phải ấn Back 15 lần cho 15 ký tự vừa gõ).
+   - Khi chuẩn hóa URL ban đầu (canonicalization) lúc component vừa mount nếu phát hiện URL trên bookmark bị sai lệch (ví dụ `minPrice > maxPrice` hoặc `page=0`).
 
-2. **Cập nhật URL theo hành vi người dùng (State-to-URL Serialization)**:
-   * Khi người dùng thay đổi bộ lọc, hàm `serializeCatalogUrl(filters)` chỉ tuần tự hóa những thuộc tính khác mặc định, giữ cho URL luôn ngắn gọn và thẩm mỹ:
-     - Các giá trị rỗng, `undefined`, số 0 đối với minPrice, hoặc `false` đối với inStock đều bị lược bỏ khỏi URL.
-     - Phân loại rõ ràng giữa `history.replaceState` (dành cho tìm kiếm text theo thời gian thực để tránh người dùng phải ấn Back 20 lần cho 20 ký tự gõ) và `history.pushState` (dành cho click danh mục, phân trang, đổi preset).
+#### Kỹ thuật Chống Stale Response / Race Condition bằng `AbortController`:
+* **Vấn đề**: Khi mạng chập chờn hoặc người dùng click liên tiếp giữa các danh mục, request cũ bay đi có thể trả về sau request mới, dẫn đến kết quả cũ ghi đè lên giao diện mới.
+* **Giải pháp Kỹ thuật**:
+  - `getProductsApi` trong [`catalogApi.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/api/catalogApi.ts) nhận thêm tham số tùy chọn `signal?: AbortSignal`.
+  - Trong `App.tsx`, mỗi khi `filters` thay đổi, một `AbortController` mới được khởi tạo và truyền `signal` vào API.
+  - Hàm cleanup của `useEffect` tự động gọi `controller.abort()`, lập tức hủy kết nối mạng của request cũ.
+  - Khối `.catch()` nhận diện lỗi `AbortError` (`err.name === 'AbortError'`) và bỏ qua hoàn toàn: không hiển thị thông báo lỗi mạng cho người dùng, và không tắt cờ `isCatalogLoading` của request mới đang xử lý.
 
-3. **Lắng nghe sự kiện điều hướng ngược/xuôi (`popstate`)**:
-   * Khi người dùng nhấn nút Back hoặc Forward trên thanh công cụ của trình duyệt, sự kiện `popstate` được kích hoạt.
-   * `App.tsx` đăng ký listener `useEffect` để đồng bộ lại `filters` state từ `window.location.search`:
-     ```typescript
-     useEffect(() => {
-       const handlePopState = () => {
-         const parsed = parseCatalogUrl(window.location.search);
-         setFilters(parsed);
-       };
-       window.addEventListener('popstate', handlePopState);
-       return () => window.removeEventListener('popstate', handlePopState);
-     }, []);
-     ```
+#### Quy tắc Kiểm tra & Làm sạch URL (Strict URL Validation & Sanitization):
+* **Trang (`page`)**: Bắt buộc là số nguyên dương $\ge 1$ và $\le 10000$ (`Number.isInteger(p) && p >= 1`). Nếu là số âm, số thập phân (`page=1.5`), `NaN`, hoặc `Infinity` $\rightarrow$ tự động fallback về trang 1 (`page: 0` trong backend state).
+* **Khoảng giá (`minPrice`, `maxPrice`)**: Phải là số hữu hạn không âm $\ge 0$ (`Number.isFinite && p >= 0`). Nếu trên URL xuất hiện `minPrice > maxPrice`, parser tự động **loại bỏ cả hai cận**. Trên giao diện drawer, nếu người dùng nhập sai sẽ hiển thị thông báo lỗi màu đỏ và không áp dụng bộ lọc sai.
+* **Bảo toàn tham số ngoại lai**: Khi serialize URL, hệ thống chỉ sửa đổi các key thuộc catalog (`category`, `size`, `color`, `minPrice`, `maxPrice`, `q`, `inStock`, `sort`, `page`). Giữ nguyên 100% `pathname`, `hash`, và các tham số tiếp thị như `utm_source`, `utm_campaign`, `ref`, `fbclid`.
+* **Cận giá bao gồm (Inclusive Price Boundaries)**: Backend SQL sử dụng `>=` và `<=`. Do đó, nhãn hiển thị và chip thể hiện chuẩn toán học: `≤ 500k`, `500k - 1 triệu`, `1 - 2 triệu`, `≥ 2 triệu`.
+* **Bảo tồn Màu sắc**: Giữ nguyên tên màu UTF-8 tiếng Việt (ví dụ: "Đen Than", "Be Cát") hoặc mã màu Hex (`#FFFFFF`), không tự ý ép sang alias không dấu.
+* **Kiểm thử tự động Đơn vị**: Toàn bộ 11 test cases trong [`catalogUrl.test.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/catalogUrl.test.ts) được thực thi tự động qua Node 24 native test runner (`node --test`), đạt tỷ lệ vượt qua 100% với thời gian chạy dưới 150ms mà không cần cài đặt thêm bất kỳ thư viện bên thứ ba nào.
 
 ### 6.3. Tối ưu Hóa Hiệu Năng Ô Tìm Kiếm với Kỹ thuật Debounce (350ms)
 * **Vấn đề**:

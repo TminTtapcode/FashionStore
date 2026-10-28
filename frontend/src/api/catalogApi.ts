@@ -17,22 +17,36 @@ export async function getCategoriesApi(): Promise<Category[]> {
   return body.data;
 }
 
-export async function getProductsApi(params: ProductFilterParams = {}): Promise<PageResponse<ProductSummary>> {
+export async function getProductsApi(
+  params: ProductFilterParams = {},
+  signal?: AbortSignal
+): Promise<PageResponse<ProductSummary>> {
   const query = new URLSearchParams();
 
   if (params.categorySlug) query.append('categorySlug', params.categorySlug);
-  if (params.categoryId) query.append('categoryId', params.categoryId.toString());
+  if (params.categoryId !== undefined && params.categoryId !== null) {
+    query.append('categoryId', params.categoryId.toString());
+  }
   if (params.size) query.append('size', params.size);
   if (params.color) query.append('color', params.color);
-  if (params.minPrice) query.append('minPrice', params.minPrice.toString());
-  if (params.maxPrice) query.append('maxPrice', params.maxPrice.toString());
+  if (params.minPrice !== undefined && params.minPrice !== null) {
+    query.append('minPrice', params.minPrice.toString());
+  }
+  if (params.maxPrice !== undefined && params.maxPrice !== null) {
+    query.append('maxPrice', params.maxPrice.toString());
+  }
   if (params.inStockOnly) query.append('inStockOnly', 'true');
   if (params.search) query.append('search', params.search);
   if (params.sort) query.append('sort', params.sort);
-  if (params.page !== undefined) query.append('page', params.page.toString());
-  if (params.limit !== undefined) query.append('limit', params.limit.toString());
+  if (params.page !== undefined && params.page !== null) {
+    query.append('page', params.page.toString());
+  }
+  if (params.limit !== undefined && params.limit !== null) {
+    query.append('limit', params.limit.toString());
+  }
 
   const response = await fetch(`${BASE_URL}/products?${query.toString()}`, {
+    signal,
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
   });

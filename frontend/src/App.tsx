@@ -38,8 +38,17 @@ function StorefrontContent() {
   const [isStylingStudioOpen, setIsStylingStudioOpen] = useState(false);
   const [isRunwayActive, setIsRunwayActive] = useState(true);
 
-  // Listen for browser Back/Forward (popstate) navigation
+  // Canonicalize initial URL and listen for browser Back/Forward (popstate) navigation
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const initialFilters = parseCatalogUrl(window.location.search);
+      const canonicalQuery = serializeCatalogUrl(initialFilters, window.location.search);
+      if (window.location.search !== canonicalQuery) {
+        const canonicalUrl = `${window.location.pathname}${canonicalQuery}${window.location.hash}`;
+        window.history.replaceState({ filters: initialFilters }, '', canonicalUrl);
+      }
+    }
+
     const handlePopState = () => {
       const urlFilters = parseCatalogUrl(window.location.search);
       setFilters(urlFilters);
@@ -58,33 +67,47 @@ function StorefrontContent() {
       .catch((err) => console.error('Lỗi tải danh mục:', err));
   }, []);
 
-  // Load Products whenever filters change
+  // Load Products whenever filters change, protected by AbortController
   useEffect(() => {
+    const controller = new AbortController();
     setIsCatalogLoading(true);
     setCatalogError(null);
 
-    getProductsApi(filters)
-      .then((data) => setProductsData(data))
-      .catch((err) => setCatalogError(err.message || 'Lỗi tải danh sách sản phẩm'))
-      .finally(() => setIsCatalogLoading(false));
+    getProductsApi(filters, controller.signal)
+      .then((data) => {
+        setProductsData(data);
+        setIsCatalogLoading(false);
+      })
+      .catch((err: unknown) => {
+        // Silently ignore aborted requests from newer filter changes
+        if (
+          (err instanceof DOMException && err.name === 'AbortError') ||
+          (err && typeof err === 'object' && 'name' in err && err.name === 'AbortError')
+        ) {
+          return;
+        }
+        setCatalogError(err instanceof Error ? err.message : 'Lỗi tải danh sách sản phẩm');
+        setIsCatalogLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [filters]);
 
-  const handleFilterChange = (newFilters: ProductFilterParams) => {
+  const handleFilterChange = (
+    newFilters: ProductFilterParams,
+    options?: { replace?: boolean }
+  ) => {
     setFilters(newFilters);
     if (typeof window !== 'undefined') {
-      const newQuery = serializeCatalogUrl(newFilters);
+      const currentSearch = window.location.search;
+      const newQuery = serializeCatalogUrl(newFilters, currentSearch);
       const newUrl = `${window.location.pathname}${newQuery}${window.location.hash}`;
-      if (window.location.search !== newQuery) {
-        // If only page or search keyword changed, use replaceState; else pushState for distinct history
-        const isMinorUpdate =
-          newFilters.categorySlug === filters.categorySlug &&
-          newFilters.size === filters.size &&
-          newFilters.color === filters.color &&
-          newFilters.minPrice === filters.minPrice &&
-          newFilters.maxPrice === filters.maxPrice &&
-          newFilters.sort === filters.sort;
 
-        if (isMinorUpdate) {
+      // Avoid creating duplicate history entries if the query string did not change
+      if (currentSearch !== newQuery) {
+        if (options?.replace) {
           window.history.replaceState({ filters: newFilters }, '', newUrl);
         } else {
           window.history.pushState({ filters: newFilters }, '', newUrl);

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Category, ProductFilterParams } from '../types/catalog';
+import { DEFAULT_FILTERS } from '../utils/catalogUrl';
 
 interface CategoryFilterBarProps {
   categories: Category[];
   filters: ProductFilterParams;
-  onFilterChange: (newFilters: ProductFilterParams) => void;
+  onFilterChange: (newFilters: ProductFilterParams, options?: { replace?: boolean }) => void;
   totalProducts?: number;
 }
 
@@ -25,10 +26,10 @@ interface PricePreset {
 }
 
 const PRICE_PRESETS: PricePreset[] = [
-  { label: 'Dưới 500k', max: 500000 },
+  { label: '≤ 500k', max: 500000 },
   { label: '500k - 1 triệu', min: 500000, max: 1000000 },
   { label: '1 - 2 triệu', min: 1000000, max: 2000000 },
-  { label: 'Trên 2 triệu', min: 2000000 },
+  { label: '≥ 2 triệu', min: 2000000 },
 ];
 
 function findCategoryName(categories: Category[], slug?: string): string | null {
@@ -58,21 +59,51 @@ export default function CategoryFilterBar({
   totalProducts = 0,
 }: CategoryFilterBarProps) {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [prevSearch, setPrevSearch] = useState(filters.search);
   const [searchInput, setSearchInput] = useState(filters.search || '');
-  const [customMinPrice, setCustomMinPrice] = useState(filters.minPrice ? filters.minPrice.toString() : '');
-  const [customMaxPrice, setCustomMaxPrice] = useState(filters.maxPrice ? filters.maxPrice.toString() : '');
+
+  const [prevMinPrice, setPrevMinPrice] = useState(filters.minPrice);
+  const [prevMaxPrice, setPrevMaxPrice] = useState(filters.maxPrice);
+  const [customMinPrice, setCustomMinPrice] = useState(
+    filters.minPrice !== undefined ? filters.minPrice.toString() : ''
+  );
+  const [customMaxPrice, setCustomMaxPrice] = useState(
+    filters.maxPrice !== undefined ? filters.maxPrice.toString() : ''
+  );
+
+  const [priceInputError, setPriceInputError] = useState<string | null>(null);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync internal search input state whenever filters.search updates from URL/external
-  useEffect(() => {
+  // Adjust state during render when props change (Official React Pattern: You Might Not Need an Effect)
+  if (filters.search !== prevSearch) {
+    setPrevSearch(filters.search);
     setSearchInput(filters.search || '');
+  }
+
+  if (filters.minPrice !== prevMinPrice || filters.maxPrice !== prevMaxPrice) {
+    setPrevMinPrice(filters.minPrice);
+    setPrevMaxPrice(filters.maxPrice);
+    setCustomMinPrice(filters.minPrice !== undefined ? filters.minPrice.toString() : '');
+    setCustomMaxPrice(filters.maxPrice !== undefined ? filters.maxPrice.toString() : '');
+    setPriceInputError(null);
+  }
+
+  // Cancel search timer when external search prop updates (e.g. popstate back/forward)
+  useEffect(() => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
   }, [filters.search]);
 
-  // Sync custom price inputs
+  // Clean up search timer on component unmount
   useEffect(() => {
-    setCustomMinPrice(filters.minPrice ? filters.minPrice.toString() : '');
-    setCustomMaxPrice(filters.maxPrice ? filters.maxPrice.toString() : '');
-  }, [filters.minPrice, filters.maxPrice]);
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeCategorySlug = filters.categorySlug || '';
   const activeCategoryName = findCategoryName(categories, activeCategorySlug);
@@ -82,21 +113,24 @@ export default function CategoryFilterBar({
     (filters.search ? 1 : 0) +
     (filters.size ? 1 : 0) +
     (filters.color ? 1 : 0) +
-    (filters.minPrice || filters.maxPrice ? 1 : 0) +
+    (filters.minPrice !== undefined || filters.maxPrice !== undefined ? 1 : 0) +
     (filters.inStockOnly ? 1 : 0);
 
-  // Debounced search handler: 350ms
+  // Debounced search handler: 350ms with replaceState
   const handleSearchChange = (val: string) => {
     setSearchInput(val);
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
     }
     searchTimerRef.current = setTimeout(() => {
-      onFilterChange({
-        ...filters,
-        search: val.trim() || undefined,
-        page: 0,
-      });
+      onFilterChange(
+        {
+          ...filters,
+          search: val.trim() || undefined,
+          page: 0,
+        },
+        { replace: true }
+      );
     }, 350);
   };
 
@@ -104,6 +138,7 @@ export default function CategoryFilterBar({
     setSearchInput('');
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
     }
     onFilterChange({
       ...filters,
@@ -113,6 +148,10 @@ export default function CategoryFilterBar({
   };
 
   const handleCategorySelect = (slug: string) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onFilterChange({
       ...filters,
       categorySlug: slug || undefined,
@@ -121,6 +160,10 @@ export default function CategoryFilterBar({
   };
 
   const handleSizeSelect = (size: string) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onFilterChange({
       ...filters,
       size: filters.size === size ? undefined : size,
@@ -129,6 +172,10 @@ export default function CategoryFilterBar({
   };
 
   const handleColorSelect = (colorName: string) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onFilterChange({
       ...filters,
       color: filters.color === colorName ? undefined : colorName,
@@ -137,6 +184,11 @@ export default function CategoryFilterBar({
   };
 
   const handlePricePresetSelect = (preset: PricePreset) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    setPriceInputError(null);
     const isCurrent = filters.minPrice === preset.min && filters.maxPrice === preset.max;
     if (isCurrent) {
       onFilterChange({
@@ -156,17 +208,43 @@ export default function CategoryFilterBar({
   };
 
   const handleApplyCustomPrice = () => {
-    const min = customMinPrice ? parseFloat(customMinPrice) : undefined;
-    const max = customMaxPrice ? parseFloat(customMaxPrice) : undefined;
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    const minStr = customMinPrice.trim();
+    const maxStr = customMaxPrice.trim();
+
+    const min = minStr !== '' ? Number(minStr) : undefined;
+    const max = maxStr !== '' ? Number(maxStr) : undefined;
+
+    if (min !== undefined && (!Number.isFinite(min) || min < 0)) {
+      setPriceInputError('Giá tối thiểu không hợp lệ (phải ≥ 0)');
+      return;
+    }
+    if (max !== undefined && (!Number.isFinite(max) || max < 0)) {
+      setPriceInputError('Giá tối đa không hợp lệ (phải ≥ 0)');
+      return;
+    }
+    if (min !== undefined && max !== undefined && min > max) {
+      setPriceInputError('Giá tối thiểu không được lớn hơn giá tối đa');
+      return;
+    }
+
+    setPriceInputError(null);
     onFilterChange({
       ...filters,
-      minPrice: min && min > 0 ? min : undefined,
-      maxPrice: max && max > 0 ? max : undefined,
+      minPrice: min !== undefined && min > 0 ? min : undefined,
+      maxPrice: max !== undefined ? max : undefined,
       page: 0,
     });
   };
 
   const handleSortChange = (sort: string) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onFilterChange({
       ...filters,
       sort,
@@ -175,6 +253,10 @@ export default function CategoryFilterBar({
   };
 
   const handleInStockToggle = () => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onFilterChange({
       ...filters,
       inStockOnly: !filters.inStockOnly,
@@ -183,14 +265,15 @@ export default function CategoryFilterBar({
   };
 
   const handleClearAllFilters = () => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     setSearchInput('');
     setCustomMinPrice('');
     setCustomMaxPrice('');
-    onFilterChange({
-      sort: 'newest',
-      page: 0,
-      limit: filters.limit || 12,
-    });
+    setPriceInputError(null);
+    onFilterChange(DEFAULT_FILTERS);
   };
 
   return (
@@ -367,11 +450,11 @@ export default function CategoryFilterBar({
           {(filters.minPrice !== undefined || filters.maxPrice !== undefined) && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/10 text-white border border-white/20 rounded-xs">
               <span>
-                Giá: {filters.minPrice && filters.maxPrice
+                Giá: {filters.minPrice !== undefined && filters.maxPrice !== undefined
                   ? `${formatPriceCompact(filters.minPrice)} - ${formatPriceCompact(filters.maxPrice)}`
-                  : filters.minPrice
-                  ? `Từ ${formatPriceCompact(filters.minPrice)}`
-                  : `< ${formatPriceCompact(filters.maxPrice!)}`}
+                  : filters.minPrice !== undefined
+                  ? `≥ ${formatPriceCompact(filters.minPrice)}`
+                  : `≤ ${formatPriceCompact(filters.maxPrice!)}`}
               </span>
               <button
                 type="button"
@@ -516,11 +599,14 @@ export default function CategoryFilterBar({
                 <button
                   type="button"
                   onClick={handleApplyCustomPrice}
-                  className="h-7 px-2 border border-[#C7AD83] text-[#C7AD83] hover:bg-[#C7AD83] hover:text-[#151518] text-[11px] font-mono uppercase cursor-pointer rounded-xs font-bold"
+                  className="h-7 px-2 border border-[#C7AD83] text-[#C7AD83] hover:bg-[#C7AD83] hover:text-[#151518] text-[11px] font-mono uppercase cursor-pointer rounded-xs font-bold shrink-0"
                 >
                   Lọc
                 </button>
               </div>
+              {priceInputError && (
+                <p className="text-[10px] font-mono text-red-400 pt-1 leading-tight">{priceInputError}</p>
+              )}
             </div>
 
             {/* 4. Sort Options & Actions */}
