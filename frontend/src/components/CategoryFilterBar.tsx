@@ -74,16 +74,30 @@ export default function CategoryFilterBar({
   const [priceInputError, setPriceInputError] = useState<string | null>(null);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Adjust local inputs during render when filters prop changes (e.g. popstate Back/Forward, chip removal, or external sync)
+  // Compare semantic changes, not just reference equality, to protect legitimate typing drafts from referential re-renders
+  const isCommittedSearchChanged = filters.search !== prevFilters.search;
+  const isContextFilterChanged =
+    filters.categorySlug !== prevFilters.categorySlug ||
+    filters.size !== prevFilters.size ||
+    filters.color !== prevFilters.color ||
+    filters.minPrice !== prevFilters.minPrice ||
+    filters.maxPrice !== prevFilters.maxPrice ||
+    filters.sort !== prevFilters.sort ||
+    filters.page !== prevFilters.page ||
+    filters.inStockOnly !== prevFilters.inStockOnly;
+
+  // Adjust local inputs during render when semantic filters prop changes (e.g. popstate Back/Forward, chip removal, or external sync)
   if (filters !== prevFilters) {
     setPrevFilters(filters);
-    setSearchInput(filters.search || '');
+    if (isCommittedSearchChanged || isContextFilterChanged) {
+      setSearchInput(filters.search || '');
+    }
     setCustomMinPrice(filters.minPrice !== undefined ? filters.minPrice.toString() : '');
     setCustomMaxPrice(filters.maxPrice !== undefined ? filters.maxPrice.toString() : '');
     setPriceInputError(null);
   }
 
-  // Synchronize latest filtersRef and cancel any pending search debounce timer whenever filters prop changes
+  // Synchronize latest filtersRef and cancel any pending search debounce timer whenever filters prop changes from outside
   useEffect(() => {
     filtersRef.current = filters;
     if (searchTimerRef.current) {
@@ -101,6 +115,17 @@ export default function CategoryFilterBar({
       }
     };
   }, []);
+
+  // Centralized synchronous filter dispatcher:
+  // Immediately cancels pending timer, updates filtersRef synchronously, and triggers callback
+  const applyFilter = (next: ProductFilterParams, options?: { replace?: boolean }) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    filtersRef.current = next;
+    onFilterChange(next, options);
+  };
 
   const activeCategorySlug = filters.categorySlug || '';
   const activeCategoryName = findCategoryName(categories, activeCategorySlug);
@@ -122,7 +147,7 @@ export default function CategoryFilterBar({
     }
     searchTimerRef.current = setTimeout(() => {
       searchTimerRef.current = null;
-      onFilterChange(
+      applyFilter(
         {
           ...filtersRef.current,
           search: val.trim() || undefined,
@@ -137,11 +162,7 @@ export default function CategoryFilterBar({
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-        searchTimerRef.current = null;
-      }
-      onFilterChange(
+      applyFilter(
         {
           ...filtersRef.current,
           search: searchInput.trim() || undefined,
@@ -153,12 +174,8 @@ export default function CategoryFilterBar({
   };
 
   const handleClearSearch = () => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
     setSearchInput('');
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       search: undefined,
       page: 0,
@@ -166,11 +183,7 @@ export default function CategoryFilterBar({
   };
 
   const handleCategorySelect = (slug: string) => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       categorySlug: slug || undefined,
       page: 0,
@@ -178,11 +191,7 @@ export default function CategoryFilterBar({
   };
 
   const handleSizeSelect = (size: string) => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       size: filters.size === size ? undefined : size,
       page: 0,
@@ -190,11 +199,7 @@ export default function CategoryFilterBar({
   };
 
   const handleColorSelect = (colorName: string) => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       color: filters.color === colorName ? undefined : colorName,
       page: 0,
@@ -202,21 +207,17 @@ export default function CategoryFilterBar({
   };
 
   const handlePricePresetSelect = (preset: PricePreset) => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
     setPriceInputError(null);
     const isCurrent = filters.minPrice === preset.min && filters.maxPrice === preset.max;
     if (isCurrent) {
-      onFilterChange({
+      applyFilter({
         ...filtersRef.current,
         minPrice: undefined,
         maxPrice: undefined,
         page: 0,
       });
     } else {
-      onFilterChange({
+      applyFilter({
         ...filtersRef.current,
         minPrice: preset.min,
         maxPrice: preset.max,
@@ -226,14 +227,10 @@ export default function CategoryFilterBar({
   };
 
   const handleClearPrice = () => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
     setCustomMinPrice('');
     setCustomMaxPrice('');
     setPriceInputError(null);
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       minPrice: undefined,
       maxPrice: undefined,
@@ -242,10 +239,6 @@ export default function CategoryFilterBar({
   };
 
   const handleApplyCustomPrice = () => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
     const minStr = customMinPrice.trim();
     const maxStr = customMaxPrice.trim();
 
@@ -266,7 +259,7 @@ export default function CategoryFilterBar({
     }
 
     setPriceInputError(null);
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       minPrice: min !== undefined && min > 0 ? min : undefined,
       maxPrice: max !== undefined ? max : undefined,
@@ -275,11 +268,7 @@ export default function CategoryFilterBar({
   };
 
   const handleSortChange = (sort: string) => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       sort,
       page: 0,
@@ -287,11 +276,7 @@ export default function CategoryFilterBar({
   };
 
   const handleInStockToggle = () => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-    onFilterChange({
+    applyFilter({
       ...filtersRef.current,
       inStockOnly: !filters.inStockOnly,
       page: 0,
@@ -299,15 +284,11 @@ export default function CategoryFilterBar({
   };
 
   const handleClearAllFilters = () => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
     setSearchInput('');
     setCustomMinPrice('');
     setCustomMaxPrice('');
     setPriceInputError(null);
-    onFilterChange(DEFAULT_FILTERS);
+    applyFilter(DEFAULT_FILTERS);
   };
 
   return (
