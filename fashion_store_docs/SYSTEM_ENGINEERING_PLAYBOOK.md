@@ -403,17 +403,52 @@ sequenceDiagram
   - **6. Kiểm chứng Thực tế trên Trình duyệt Live (Chrome DevTools MCP)**:
     Đã thực thi chuỗi hành động trên Chrome thật tại `http://localhost:5173`: click chọn danh mục, xóa chip giá, nhập tìm kiếm "Blazer", xác minh debounce 350ms tự động nổ trên URL thật, và gọi `window.history.back()` để kiểm chứng input tự xóa rỗng và chip giá phục hồi. Không có lỗi console.
 
-### 6.4. Thanh Thẻ Lọc Đang Hoạt Động (Active Filter Chips)
-* **Trải nghiệm Người dùng (UX Pattern)**:
-  - Khi áp dụng nhiều bộ lọc cùng lúc (ví dụ: Danh mục "Thời trang nam", Size "L", Khoảng giá "500k - 1tr"), người dùng rất dễ quên mình đang áp dụng những điều kiện gì.
-  - Hệ thống tự động trích xuất các điều kiện đang áp dụng thành các thanh thẻ (Chips) trực quan ngay dưới thanh công cụ:
-    - `Danh mục: Thời trang nam ✕`
-    - `Tìm kiếm: "Blazer" ✕`
-    - `Giá: 500.000₫ - 1.000.000₫ ✕`
-    - `Size: L ✕`
-    - `Màu: Đen ✕`
-    - `Chỉ hàng có sẵn ✕`
-  - Nhấp vào nút `✕` của từng thẻ sẽ xóa riêng lẻ bộ lọc đó và cập nhật lại URL ngay lập tức.
-  - Nút **"XÓA TẤT CẢ"** cho phép reset toàn bộ catalog về trạng thái ban đầu (`/`) với 1 click duy nhất.
+### 6.4. Thanh Thẻ Lọc Đang Hoạt Động (Active Filter Chips), Price Presets & Cơ chế Bảo vệ Thế hệ (Search Version Guard)
+
+#### A. Trải nghiệm Người dùng & Tương tác Thẻ Lọc (UX Pattern):
+- Khi áp dụng nhiều bộ lọc cùng lúc (ví dụ: Danh mục "Thời trang nam", Size "L", Khoảng giá "500k - 1tr", Sắp xếp "Giá: Tăng dần"), hệ thống trích xuất các điều kiện đang áp dụng thành các thanh thẻ (Chips) trực quan ngay dưới thanh công cụ:
+  - `Danh mục: Thời trang nam ✕`
+  - `Tìm kiếm: "Blazer" ✕`
+  - `Giá: 500.000₫ - 1.000.000₫ ✕`
+  - `Size: L ✕`
+  - `Màu: Đen ✕`
+  - `Chỉ hàng có sẵn ✕`
+  - `Xếp: Giá: Tăng dần ✕` (Bổ sung trong Phase 5A.2: cho phép người dùng nhìn thấy và click xóa riêng lẻ để trở về sắp xếp mặc định `newest`).
+- Nhấp vào nút `✕` của từng thẻ sẽ xóa riêng lẻ bộ lọc đó và cập nhật lại URL ngay lập tức thông qua `pushState`.
+- Nút **"XÓA TẤT CẢ"**: Reset toàn bộ bộ lọc catalog về trạng thái ban đầu (`/`), xóa ô input tìm kiếm, hủy timer debounce đang chờ và dọn sạch các thẻ lọc, đồng thời giữ nguyên 100% các query parameters ngoại lai (như `utm_source`, `ref`).
+
+#### B. Khoảng Giá Định Sẵn (Price Presets) & Nhập Giá Tùy Chỉnh:
+- **4 Presets Chuẩn**:
+  1. `Dưới 500k` (`maxPrice: 500000`, nhãn `≤ 500k`)
+  2. `500k – 1 triệu` (`minPrice: 500000, maxPrice: 1000000`)
+  3. `1 – 2 triệu` (`minPrice: 1000000, maxPrice: 2000000`)
+  4. `Trên 2 triệu` (`minPrice: 2000000`, nhãn `≥ 2 triệu`)
+- **Khả năng Toggle-off**: Nhấp lại vào preset đang active sẽ hủy bộ lọc giá đó ngay lập tức mà không cần mở drawer để xóa.
+- **Input Tùy chỉnh & Phím Enter**: Hỗ trợ nhập `minPrice` và `maxPrice` độc lập (chỉ min, chỉ max, hoặc cả hai). Bổ sung sự kiện `onKeyDown` (Enter) giúp người dùng áp dụng giá tức thì.
+- **Bảo tồn giá trị 0**: Sửa chữa triệt để lỗi ép kiểu lỏng lẻo (`min > 0`) bằng cách sử dụng `min !== undefined ? min : undefined`, cho phép lọc sản phẩm có giá từ 0₫ trở lên.
+
+#### C. Cơ chế Bảo vệ Thế hệ (Search Version Guard Pattern):
+- **Vấn đề lý thuyết & thực tế**: Trong một số báo cáo trước, có giả định rằng "useEffect luôn chạy trước callback setTimeout đang chờ trong Event Loop". Tuy nhiên, theo đặc tả chính thức của React, `useEffect` chạy bất đồng bộ sau khi paint, và thứ tự thực thi thực tế phụ thuộc vào microtask, macrotask của browser engine và scheduler. Việc chỉ dựa vào `useEffect` cleanup có thể tiềm ẩn rủi ro race condition nếu một tác vụ bất đồng bộ khác chen ngang.
+- **Giải pháp Phòng thủ Bất khả xâm phạm (Generation Guard)**:
+  - Khởi tạo `searchVersionRef = useRef(0)`.
+  - Trong hàm `handleSearchChange`, mỗi khi lên lịch một debounce timer mới, ta ghi nhận thế hệ hiện tại:
+    ```typescript
+    searchVersionRef.current += 1;
+    const currentVersion = searchVersionRef.current;
+    searchTimerRef.current = setTimeout(() => {
+      // Version Guard: Nếu thế hệ đã bị tăng do bất kỳ thao tác nào khác, hủy callback ngay lập tức
+      if (searchVersionRef.current !== currentVersion) {
+        return;
+      }
+      applyFilter({ ...filtersRef.current, search: trimmed || undefined, page: 0 }, { replace: true });
+    }, 350);
+    ```
+  - Trong `applyFilter` và trong `useEffect([filters])`, ta chủ động tăng `searchVersionRef.current += 1`.
+  - Bằng cách này, bất kể browser hay React lập lịch callback thế nào, bất kỳ timer nào được lên lịch trước một hành động thay đổi bộ lọc đều bị vô hiệu hóa 100% một cách nguyên tử mà không cần phụ thuộc vào sự may rủi của Event Loop.
+
+#### D. Bằng chứng Kiểm thử & Nghiệm thu:
+- **Kiểm thử tự động**: 23/23 tests tự động PASS (11 tests cho `catalogUrl.test.ts` và 12 tests cho `filterDebounceCoordination.test.ts`), bao phủ toàn diện 12 kịch bản điều phối component, debounce, preset toggle-off, sort chip và version guard.
+- **Kiểm thử Live Browser (Chrome DevTools MCP)**: Xác minh trực tiếp trên Chrome thật tại `http://localhost:5173`: thao tác bấm "XÓA TẤT CẢ", chọn preset `500k - 1 triệu`, toggle-off preset, chọn Sort "GIÁ: TĂNG DẦN" và click nút `✕` trên thẻ sort chip để khôi phục `newest`. Toàn bộ hành vi URL và UI hoàn toàn chính xác.
+
 
 

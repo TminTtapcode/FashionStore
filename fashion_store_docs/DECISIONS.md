@@ -76,3 +76,21 @@ Khi thiết kế giỏ hàng (Cart), cần chốt nguyên tắc: liệu có tr�
 - *Tích cực*: Ngăn chặn triệt để tình trạng đầu cơ găm hàng ảo (inventory hoarding); giá giỏ hàng luôn cập nhật chính xác theo catalog; dữ liệu an toàn trước race condition.
 - *Lưu ý*: Khách hàng cần được cảnh báo tồn kho có thể thay đổi và hết hàng trước khi checkout. Việc trừ kho nguyên tử được dồn toàn bộ vào transaction của Phase 4 (Checkout).
 
+## ADR-012 — Lightweight Single Page Application Architecture (Native Web APIs over Router/Query Libraries)
+**Status:** Accepted  
+**Date:** 2026-10-28  
+**Context:**  
+Ban đầu, `PROJECT_CONTEXT.md` dự kiến sử dụng React Router, TanStack Query, React Hook Form và Zod. Tuy nhiên, giao diện storefront mang phong cách Minimalist Editorial Lookbook có tích hợp Living Runway Shader (WebGL Canvas 3D). Việc cài đặt router và thư viện quản lý query bên thứ ba mang lại các rủi ro:
+1. Gia tăng kích thước bundle từ 15KB - 40KB gzipped (hiện tại bundle production chỉ ~99KB gzipped).
+2. `<RouterProvider>` remount lại DOM tree khi chuyển route, dễ gây gián đoạn WebGL animation loop, chớp nháy màn hình (flicker) và rò rỉ bộ nhớ GPU context.
+3. Độ phức tạp phụ thuộc vào chu kỳ phát hành của thư viện bên thứ ba với React 19 stable.
+
+**Decision:**  
+1. **Lightweight SPA Baseline:** Giữ nguyên kiến trúc SPA nhẹ dựa trên React 19 native hooks (`useState`, `useRef`, `useContext`), API client tách biệt (`fetch` chuẩn với credentials `include`), và React Context (`AuthContext`, `CartContext`).
+2. **Bi-directional URL Sync via Web APIs:** Sử dụng `URLSearchParams` kết hợp `window.history.pushState` (cho các thay đổi bộ lọc, phân trang, chip) và `window.history.replaceState` (cho debounce search và chuẩn hóa URL).
+3. **Defense-in-Depth Coordination & Version Guard:** Kiểm soát hủy debounce timer, phòng chống stale closure qua `filtersRef`, và ngăn chặn timer rò rỉ bằng bộ đếm thế hệ `searchVersionRef`.
+
+**Consequences:**  
+- *Tích cực:* Giữ nguyên 100% hiệu năng mượt mà của WebGL Living Shader; bundle production cực kỳ gọn nhẹ (<100 kB gzip); kiểm soát chi tiết từng lời gọi history.
+- *Lưu ý:* Phải tự quản lý sự kiện `popstate` và dọn dẹp timer debounce khi điều hướng Back/Forward (đã được bao phủ và chứng minh qua bộ 23 tests tự động và Chrome DevTools MCP).
+

@@ -50,7 +50,7 @@ Khởi động MySQL 8.x bằng Docker Compose:
 ```bash
 docker compose up -d
 ```
-> Kiểm tra MySQL: `docker compose ps` (container `fashion_store_mysql` ở trạng thái Healthy trên port 3306).
+> Kiểm tra MySQL: `docker compose ps` (container `fashion_store_mysql` ở trạng thái Healthy trên port 3307).
 
 ---
 

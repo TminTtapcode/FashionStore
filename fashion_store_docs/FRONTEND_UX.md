@@ -20,7 +20,12 @@ Fashion storefront cần có cảm giác editorial/lookbook, hình ảnh sản p
 2. Listing / Catalog:
    - Breadcrumb phân cấp rõ ràng (Trang chủ > Thời trang Nữ > Đầm & Váy).
    - Thanh lọc (Filter bar/drawer): Lọc theo Size may mặc (S, M, L, XL...), Lọc theo Màu sắc (bảng swatch màu trực quan), Lọc theo khoảng giá, Lọc chỉ hiện sản phẩm còn hàng.
-   - Sắp xếp (Sort dropdown): Mới nhất, Giá tăng dần, Giá giảm dần, Tên A-Z.
+   - Khoảng giá định sẵn (Price Presets): 4 mức giá chuẩn (`≤ 500k`, `500k – 1 triệu`, `1 – 2 triệu`, `≥ 2 triệu`), hỗ trợ click chọn hoặc click lại để bỏ chọn (toggle-off).
+   - Khoảng giá tùy chỉnh (Custom Price): Nhập giá tối thiểu/tối đa, hỗ trợ phím Enter để áp dụng ngay, kiểm tra validation chặt chẽ (không âm, không NaN/Infinity, min <= max, giữ nguyên giá trị 0).
+   - Sắp xếp (Sort dropdown): Mới nhất (`newest`), Giá tăng dần (`price_asc`), Giá giảm dần (`price_desc`), Tên A-Z (`name_asc`).
+   - Thanh Active Filter Chips: Hiển thị đầy đủ chip cho các tiêu chí đang áp dụng (Danh mục, Kích cỡ, Màu sắc, Khoảng giá, Sắp xếp không mặc định, Chỉ còn hàng, Từ khóa tìm kiếm). Mỗi chip có nút `✕` để xóa độc lập. Xóa chip Sort sẽ hoàn về `newest`.
+   - Nút "XÓA TẤT CẢ": Reset toàn bộ bộ lọc catalog về mặc định, xóa draft ô tìm kiếm, hủy timer debounce đang chờ, bảo tồn query param ngoại lai (`utm_source`...).
+   - Cơ chế bảo vệ Search Debounce (Version Guard): Sử dụng `searchVersionRef` thế hệ tăng dần để triệt tiêu race condition giữa `setTimeout` và render cycle, đảm bảo callback cũ bị hủy hoàn toàn khi bộ lọc thay đổi.
    - Phân trang chuẩn với metadata rõ ràng.
 3. Product Detail (Trang chi tiết trang phục):
    - Gallery ảnh: Gallery xếp chồng (stacked) trên desktop hoặc swipe slider mượt mà trên mobile; có thể phóng to xem chi tiết thớ vải.

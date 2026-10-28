@@ -74,10 +74,13 @@ Acceptance: 66 backend tests passed; frontend build thành công (429ms); bảo 
   - Dispatcher tập trung `applyFilter` cập nhật ref đồng bộ, semantic equality check bảo vệ typing draft.
   - Bộ 19 tests tự động PASS (11 URL tests + 8 component integration tests transpiled thật trên Node VM).
   - Đã kiểm chứng trực tiếp trên trình duyệt thật qua Chrome DevTools MCP (5/5 actions verified).
-- **Phase 5A.2 — Price Presets, Filter Chips & Clear-All UX** [Tiếp theo]:
-  - Hoàn thiện bộ chọn preset giá (`≤500k`, `500k - 1tr`, `1tr - 2tr`, `≥2tr`) và input giá tùy chỉnh.
-  - Active filter chips cho Size, Màu sắc, Sắp xếp và nút "Xóa tất cả".
-  - Kiểm thử tích hợp UI và kiểm chứng hành vi trình duyệt.
+- **Phase 5A.2 — Price Presets, Filter Chips & Clear-All UX** [Hoàn tất]:
+  - Hoàn thiện 4 presets giá (`≤ 500k`, `500k – 1 triệu`, `1 – 2 triệu`, `≥ 2 triệu`) với cơ chế toggle-off và input tùy chỉnh kèm phím Enter, validation chặt chẽ bảo tồn giá trị `0`.
+  - Bổ sung Sort Chip trực quan trong thanh Active Filter Chips (`Xếp: ... ✕`), cho phép xóa riêng lẻ để khôi phục về sort mặc định `newest`.
+  - Nút "XÓA TẤT CẢ" dọn sạch toàn bộ filters, xóa draft ô tìm kiếm, hủy debounce đang chờ, bảo tồn query param ngoại lai (`utm_source`...).
+  - Thiết kế thế hệ bảo vệ Search Version Guard (`searchVersionRef`), loại trừ phụ thuộc vào giả định thứ tự giữa useEffect và setTimeout.
+  - Bộ 23 tests tích hợp tự động PASS (100%), build pass sạch sẽ, 0 lỗi lint mới.
+  - Đã kiểm chứng thực tế toàn diện trên trình duyệt thông qua Chrome DevTools MCP.
 
 ## Phase 5B — Product Detail Lookbook Experience
 - Trang/Modal chi tiết trang phục chuyên sâu, gallery ảnh đổi theo Color Swatch.
