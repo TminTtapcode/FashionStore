@@ -42,3 +42,4 @@ Mỗi lần kết thúc feature hoặc verify, Agent phải xác nhận:
 - [ ] File `fashion_store_docs/SYSTEM_ENGINEERING_PLAYBOOK.md` đã cập nhật kiến trúc, ERD, sequence diagram và phân tích lỗi liên quan.
 - [ ] File `analytics/DATA_ANALYTICS_REPORT.md` đã cập nhật phương pháp hoặc insight dữ liệu liên quan.
 - [ ] Người dùng hiểu rõ: **Làm cái gì — Tại sao dùng cách này — Rủi ro gì nếu làm cách khác — Tư duy giải quyết vấn đề**.
+

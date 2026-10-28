@@ -11,6 +11,7 @@ import AtcShader from './components/ui/atc-shader';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderHistoryDrawer } from './components/OrderHistoryDrawer';
 import { getCategoriesApi, getProductsApi } from './api/catalogApi';
+import { parseCatalogUrl, serializeCatalogUrl, DEFAULT_FILTERS } from './utils/catalogUrl';
 import type { Category, PageResponse, ProductFilterParams, ProductSummary } from './types/catalog';
 
 function StorefrontContent() {
@@ -26,15 +27,29 @@ function StorefrontContent() {
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const [filters, setFilters] = useState<ProductFilterParams>({
-    sort: 'newest',
-    page: 0,
-    limit: 12,
+  const [filters, setFilters] = useState<ProductFilterParams>(() => {
+    if (typeof window !== 'undefined') {
+      return parseCatalogUrl(window.location.search);
+    }
+    return DEFAULT_FILTERS;
   });
 
   const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(null);
   const [isStylingStudioOpen, setIsStylingStudioOpen] = useState(false);
   const [isRunwayActive, setIsRunwayActive] = useState(true);
+
+  // Listen for browser Back/Forward (popstate) navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlFilters = parseCatalogUrl(window.location.search);
+      setFilters(urlFilters);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   // Load Categories on mount
   useEffect(() => {
@@ -56,6 +71,26 @@ function StorefrontContent() {
 
   const handleFilterChange = (newFilters: ProductFilterParams) => {
     setFilters(newFilters);
+    if (typeof window !== 'undefined') {
+      const newQuery = serializeCatalogUrl(newFilters);
+      const newUrl = `${window.location.pathname}${newQuery}${window.location.hash}`;
+      if (window.location.search !== newQuery) {
+        // If only page or search keyword changed, use replaceState; else pushState for distinct history
+        const isMinorUpdate =
+          newFilters.categorySlug === filters.categorySlug &&
+          newFilters.size === filters.size &&
+          newFilters.color === filters.color &&
+          newFilters.minPrice === filters.minPrice &&
+          newFilters.maxPrice === filters.maxPrice &&
+          newFilters.sort === filters.sort;
+
+        if (isMinorUpdate) {
+          window.history.replaceState({ filters: newFilters }, '', newUrl);
+        } else {
+          window.history.pushState({ filters: newFilters }, '', newUrl);
+        }
+      }
+    }
   };
 
   return (
@@ -357,7 +392,7 @@ function StorefrontContent() {
               </p>
               <button
                 type="button"
-                onClick={() => handleFilterChange({ sort: 'newest', page: 0 })}
+                onClick={() => handleFilterChange(DEFAULT_FILTERS)}
                 className="border border-white text-white px-5 py-2 font-mono text-xs uppercase tracking-widest hover:bg-white hover:text-black transition-colors cursor-pointer rounded-xs"
               >
                 Xem tất cả sản phẩm

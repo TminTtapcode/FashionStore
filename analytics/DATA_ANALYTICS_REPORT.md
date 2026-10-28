@@ -217,3 +217,4 @@ Hoặc chạy script tự động hóa:
 python analytics/scripts/run_pipeline.py
 ```
 Toàn bộ kết quả bảng phân cụm sẽ được xuất tự động ra `analytics/data/processed/customer_rfm_clusters.csv` và `analytics/data/processed/association_rules.csv`.
+

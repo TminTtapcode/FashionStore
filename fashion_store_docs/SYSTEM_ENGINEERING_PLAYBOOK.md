@@ -260,3 +260,114 @@ Bảng ma trận chuyển trạng thái hợp lệ trong [`OrderLifecycleService
    * Trừ kho $\rightarrow$ Tạo đơn $\rightarrow$ Chụp snapshot $\rightarrow$ Ghi coupon $\rightarrow$ Xóa giỏ hàng: Toàn bộ nằm trong **một Transaction duy nhất**. Bất kỳ lỗi nào phát sinh ở giữa (ví dụ voucher hết hạn hay không đủ kho) đều rollback 100% dữ liệu, không để lại dữ liệu rác.
 3. **Mã lỗi nghiệp vụ có cấu trúc (Standardized API Error Envelope)**:
    * Mọi ngoại lệ trả về đều có mã lỗi máy đọc được (`IDEMPOTENCY_CONFLICT`, `ORDER_CANNOT_BE_CANCELLED`, `RETURN_CONFIRMATION_REQUIRED`, `INVALID_TRANSITION`) kèm thông điệp tiếng Việt thân thiện cho người dùng.
+
+---
+
+## 6. KIẾN TRÚC FRONTEND CATALOG VÀ ĐỒNG BỘ URL HAI CHIỀU (PHASE 5A)
+
+### 6.1. Bài toán và Đánh giá Giải pháp (Architecture Trade-offs)
+* **Bối cảnh**:
+  Website thời trang **Ivre** sở hữu giao diện Runway / Lookbook sang trọng với Living Shader chuyển động nền (WebGL / Three.js). Khi người dùng tìm kiếm sản phẩm, lọc theo danh mục, chọn size/màu sắc, hoặc điều chỉnh khoảng giá, trạng thái lọc cần được phản ánh trực tiếp trên URL để người dùng có thể:
+  1. Sao chép và chia sẻ liên kết sản phẩm (Shareable URL).
+  2. Lưu bookmark trang tìm kiếm yêu thích.
+  3. Nhấn nút Back / Forward trên trình duyệt mà không làm mất bộ lọc và không bị reload toàn trang.
+
+* **So sánh hai trường phái kỹ thuật**:
+  | Tiêu chí | Cài đặt Thư viện Router Ngoài (React Router / TanStack) | Chuẩn Web API Tối Giản (Native Web APIs - Được chọn) |
+  | :--- | :--- | :--- |
+  | **Kích thước Bundle** | Tăng thêm từ 15KB - 40KB gzipped cho router và state query. | **0 KB bổ sung**, tận dụng 100% Web APIs có sẵn trong trình duyệt. |
+  | **Rủi ro với Living Shader** | Thường yêu cầu bọc toàn bộ App trong `<RouterProvider>`, có nguy cơ remount lại Canvas WebGL khiến hiệu ứng shader bị chớp nháy (flash) hoặc rò rỉ bộ nhớ GPU context. | **Giữ nguyên 100% Canvas Shader**, không can thiệp vào lifecycle của WebGL render loop. |
+  | **Tương thích React 19** | Phải theo dõi breaking changes của các thư viện router bên ngoài với React 19 canary/stable. | Hoàn toàn độc lập với phiên bản React, tương thích tuyệt đối. |
+  | **Kiểm soát URL** | Phụ thuộc vào lifecycle của thư viện bên thứ ba. | Kiểm soát chi tiết từng lời gọi `pushState` vs `replaceState`. |
+
+### 6.2. Cơ chế Đồng bộ Hai Chiều (Bi-directional URL Synchronization)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Khách hàng
+    participant Browser as Trình duyệt (Window URL)
+    participant CatalogUrl as Module catalogUrl.ts
+    participant App as App.tsx (Root State)
+    participant FilterBar as CategoryFilterBar.tsx
+    participant ProductGrid as ProductGrid.tsx
+
+    Note over User,Browser: 1. Khởi động (Initial Load / Bookmark)
+    User->>Browser: Truy cập /?category=thoi-trang-nam&size=L&minPrice=500000
+    Browser->>App: window.location.search
+    App->>CatalogUrl: parseCatalogUrl(search)
+    CatalogUrl-->>App: CatalogFilters Object
+    App->>ProductGrid: Render danh sách đã lọc theo URL
+
+    Note over User,FilterBar: 2. Tương tác (User Interaction)
+    User->>FilterBar: Gõ từ khóa "Blazer"
+    FilterBar->>FilterBar: Debounce 350ms (giữ UI mượt mà)
+    FilterBar->>App: onFilterChange({ search: "Blazer" })
+    App->>CatalogUrl: serializeCatalogUrl(newFilters)
+    CatalogUrl-->>App: queryString "?category=thoi-trang-nam&size=L&q=Blazer"
+    App->>Browser: history.replaceState(..., queryString) (Không tạo rác lịch sử)
+
+    User->>FilterBar: Chọn Price Preset "Dưới 500k"
+    FilterBar->>App: onFilterChange({ minPrice: 0, maxPrice: 500000 })
+    App->>Browser: history.pushState(..., queryString) (Tạo mốc lịch sử mới)
+
+    Note over User,Browser: 3. Điều hướng Trình duyệt (Back / Forward)
+    User->>Browser: Nhấn nút Back trên Browser
+    Browser->>App: Event 'popstate'
+    App->>CatalogUrl: parseCatalogUrl(window.location.search)
+    App->>FilterBar: Cập nhật lại UI Input & Chips
+    App->>ProductGrid: Re-filter lại danh sách sản phẩm trước đó
+```
+
+1. **Khởi tạo trạng thái từ URL (Initial URL Deserialization)**:
+   * Hàm `parseCatalogUrl(searchString)` tại [`frontend/src/utils/catalogUrl.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/utils/catalogUrl.ts) bóc tách chuỗi truy vấn chuẩn hóa:
+     - `category`: Chuỗi slug danh mục.
+     - `size` & `color`: Chuỗi size/màu.
+     - `minPrice` & `maxPrice`: Chuyển đổi an toàn từ chuỗi sang số nguyên (loại bỏ NaN).
+     - `q`: Từ khóa tìm kiếm (tự động mapping sang `search` trong state backend).
+     - `inStock`: Chuyển đổi boolean (`"true"` $\rightarrow$ `true`).
+     - `sort`: Các kiểu sắp xếp hợp lệ (`price-asc`, `price-desc`, `newest`, `popular`).
+     - `page`: Chuyển đổi từ số trang 1-based trên URL sang 0-based của Spring Data Pageable.
+
+2. **Cập nhật URL theo hành vi người dùng (State-to-URL Serialization)**:
+   * Khi người dùng thay đổi bộ lọc, hàm `serializeCatalogUrl(filters)` chỉ tuần tự hóa những thuộc tính khác mặc định, giữ cho URL luôn ngắn gọn và thẩm mỹ:
+     - Các giá trị rỗng, `undefined`, số 0 đối với minPrice, hoặc `false` đối với inStock đều bị lược bỏ khỏi URL.
+     - Phân loại rõ ràng giữa `history.replaceState` (dành cho tìm kiếm text theo thời gian thực để tránh người dùng phải ấn Back 20 lần cho 20 ký tự gõ) và `history.pushState` (dành cho click danh mục, phân trang, đổi preset).
+
+3. **Lắng nghe sự kiện điều hướng ngược/xuôi (`popstate`)**:
+   * Khi người dùng nhấn nút Back hoặc Forward trên thanh công cụ của trình duyệt, sự kiện `popstate` được kích hoạt.
+   * `App.tsx` đăng ký listener `useEffect` để đồng bộ lại `filters` state từ `window.location.search`:
+     ```typescript
+     useEffect(() => {
+       const handlePopState = () => {
+         const parsed = parseCatalogUrl(window.location.search);
+         setFilters(parsed);
+       };
+       window.addEventListener('popstate', handlePopState);
+       return () => window.removeEventListener('popstate', handlePopState);
+     }, []);
+     ```
+
+### 6.3. Tối ưu Hóa Hiệu Năng Ô Tìm Kiếm với Kỹ thuật Debounce (350ms)
+* **Vấn đề**:
+  Nếu mỗi khi người dùng gõ một ký tự trong ô tìm kiếm ta đều cập nhật ngay state toàn cục và lọc lại danh sách 50+ sản phẩm (kèm gọi API backend), giao diện sẽ bị lag giật (input delay), tạo cảm giác gián đoạn khó chịu.
+* **Giải pháp Kỹ thuật**:
+  - Tách biệt `searchTerm` thành một **Local Controlled State** bên trong [`CategoryFilterBar.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/components/CategoryFilterBar.tsx). Khi người dùng gõ, ô input phản hồi ngay tức thì (0ms latency).
+  - Sử dụng một `useEffect` kèm bộ đếm thời gian `setTimeout(..., 350)`. Chỉ khi người dùng ngưng gõ phím đủ **350ms**, hàm callback `onFilterChange({ search: searchTerm.trim() || undefined })` mới được kích hoạt.
+  - Sử dụng hàm cleanup `clearTimeout(timer)` để tự động hủy bỏ timeout trước đó nếu người dùng gõ tiếp ký tự mới trước khi hết 350ms.
+  - Cung cấp nút xóa nhanh `✕` để người dùng có thể xóa ngay lập tức mà không cần chờ debounce.
+
+### 6.4. Thanh Thẻ Lọc Đang Hoạt Động (Active Filter Chips)
+* **Trải nghiệm Người dùng (UX Pattern)**:
+  - Khi áp dụng nhiều bộ lọc cùng lúc (ví dụ: Danh mục "Thời trang nam", Size "L", Khoảng giá "500k - 1tr"), người dùng rất dễ quên mình đang áp dụng những điều kiện gì.
+  - Hệ thống tự động trích xuất các điều kiện đang áp dụng thành các thanh thẻ (Chips) trực quan ngay dưới thanh công cụ:
+    - `Danh mục: Thời trang nam ✕`
+    - `Tìm kiếm: "Blazer" ✕`
+    - `Giá: 500.000₫ - 1.000.000₫ ✕`
+    - `Size: L ✕`
+    - `Màu: Đen ✕`
+    - `Chỉ hàng có sẵn ✕`
+  - Nhấp vào nút `✕` của từng thẻ sẽ xóa riêng lẻ bộ lọc đó và cập nhật lại URL ngay lập tức.
+  - Nút **"XÓA TẤT CẢ"** cho phép reset toàn bộ catalog về trạng thái ban đầu (`/`) với 1 click duy nhất.
+
+
