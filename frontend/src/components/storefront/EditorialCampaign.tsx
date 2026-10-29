@@ -4,8 +4,9 @@ interface EditorialCampaignProps {
 
 export default function EditorialCampaign({ onFilterSilkAndLinen }: EditorialCampaignProps) {
   return (
-    <section id="collections" aria-label="Editorial Campaign" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="relative rounded-3xl overflow-hidden border border-[#333235] bg-[#111214] shadow-2xl">
+    <section id="collections" aria-label="Editorial Campaign" className="relative z-10 bg-[#0A0B0E] py-16 px-4 sm:px-6 lg:px-8 border-b border-[#333235]">
+      <div className="max-w-7xl mx-auto">
+        <div className="relative rounded-3xl overflow-hidden border border-[#333235] bg-[#111214] shadow-2xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[500px]">
           {/* Left Column: High-Fashion Editorial Photography (6 cols on desktop) */}
           <div className="lg:col-span-6 relative overflow-hidden min-h-[380px] sm:min-h-[460px] lg:min-h-full">
@@ -69,6 +70,7 @@ export default function EditorialCampaign({ onFilterSilkAndLinen }: EditorialCam
               </span>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </section>

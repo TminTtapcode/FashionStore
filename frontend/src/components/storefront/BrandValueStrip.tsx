@@ -23,7 +23,7 @@ export default function BrandValueStrip() {
   ];
 
   return (
-    <section aria-label="Brand Philosophy" className="border-b border-[#333235] bg-[#0E0F11]/60 py-8 px-4 sm:px-6 lg:px-8">
+    <section aria-label="Brand Philosophy" className="relative z-10 border-b border-[#333235] bg-[#0A0B0E] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {values.map((v, i) => (
           <div

@@ -1,6 +1,6 @@
 export default function StorefrontFooter() {
   return (
-    <footer id="about-manifesto" aria-label="Atelier Footer" className="border-t border-[#333235] bg-[#0E0F11]/95 text-xs text-[#AAA5A0] pt-16 pb-12 px-4 sm:px-6 lg:px-8">
+    <footer id="about-manifesto" aria-label="Atelier Footer" className="relative z-10 border-t border-[#333235] bg-[#08090B] text-xs text-[#AAA5A0] pt-16 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-12">
         {/* Top Footer: 4 Editorial Columns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">

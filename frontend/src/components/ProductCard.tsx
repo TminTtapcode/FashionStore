@@ -81,37 +81,37 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
       </div>
 
       {/* Card Information: Clean, Breathable Hierarchy based on Fashion Editorial Standards */}
-      <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+      <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between gap-3">
         <div className="space-y-1.5">
           {/* 1. Category & Brand Kicker */}
-          <div className="flex items-center justify-between text-[11px] font-mono tracking-widest uppercase">
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-mono tracking-widest uppercase">
             <span className="text-[#D6B27C] font-semibold">
               {product.categoryName || 'COUTURE'} · {product.brand || 'ATELIER'}
             </span>
           </div>
 
-          {/* 2. Full Product Name (2 Lines Max, No awkward truncations) */}
-          <h3 className="font-sans text-sm font-medium tracking-tight text-white line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#D6B27C] transition-colors">
+          {/* 2. Full Product Name (Editorial Serif, 2 Lines Max) */}
+          <h3 className="font-editorial text-base sm:text-lg font-normal tracking-tight text-[#F5F0E9] line-clamp-2 min-h-[2.8rem] leading-snug group-hover:text-[#D6B27C] transition-colors">
             {product.name}
           </h3>
 
           {/* 3. Material & Fit Microcopy */}
           {product.material && (
-            <p className="text-[11px] text-zinc-400 font-sans line-clamp-1">
+            <p className="text-xs text-[#AAA5A0] font-sans line-clamp-1">
               {product.material}
               {product.fitStyle ? ` · ${product.fitStyle}` : ''}
             </p>
           )}
         </div>
 
-        <div className="space-y-2.5 pt-1">
-          {/* 4. High-Contrast Pricing */}
-          <div className="flex items-baseline gap-2 font-mono">
-            <span className="text-base font-bold text-white tracking-tight">
+        <div className="space-y-3 pt-2 border-t border-white/10">
+          {/* 4. High-Contrast Editorial Pricing */}
+          <div className="flex items-baseline gap-2.5 font-mono">
+            <span className="text-lg sm:text-xl font-editorial font-medium text-white tracking-tight">
               {hasMultiplePrices ? `Từ ${formatVND(product.minPrice)}` : formatVND(product.minPrice)}
             </span>
             {isDiscounted && product.compareAtPrice && (
-              <span className="text-xs text-zinc-500 line-through">
+              <span className="text-xs sm:text-sm text-[#777574] line-through font-mono">
                 {formatVND(product.compareAtPrice)}
               </span>
             )}
@@ -122,7 +122,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
             {product.availableSizes.map((size) => (
               <span
                 key={size}
-                className="px-2 py-0.5 text-[10px] font-mono bg-white/[0.06] border border-white/10 rounded-2xs text-zinc-300"
+                className="px-2 py-0.5 text-[10px] font-mono bg-white/[0.08] border border-white/15 rounded-md text-[#AAA5A0]"
               >
                 {size}
               </span>
@@ -132,7 +132,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           {/* 6. Color Selection Swatches with Dynamic Color Indicator */}
           <div className="pt-2 border-t border-white/10 flex items-center justify-between">
             {/* Color Swatch Dots */}
-            <div className="flex items-center gap-1.5" title="Màu sắc sẵn có">
+            <div className="flex items-center gap-2" title="Màu sắc sẵn có">
               {product.availableColors.slice(0, 4).map((color, idx) => {
                 const isCurrent = activeColorHex === color.hex;
                 return (
@@ -142,8 +142,8 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
                       e.stopPropagation();
                       setActiveColorHex(color.hex);
                     }}
-                    className={`w-3.5 h-3.5 rounded-full border shadow-inner inline-block transition-transform ${
-                      isCurrent ? 'scale-125 ring-1 ring-[#D6B27C]' : 'border-white/25 hover:scale-110'
+                    className={`w-4 h-4 rounded-full border shadow-inner inline-block transition-transform ${
+                      isCurrent ? 'scale-125 ring-2 ring-[#D6B27C]' : 'border-white/30 hover:scale-110'
                     }`}
                     style={{ backgroundColor: color.hex || '#E0E0E0' }}
                     title={color.name}
@@ -151,14 +151,14 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
                 );
               })}
               {product.availableColors.length > 4 && (
-                <span className="text-[10px] font-mono text-zinc-500">
+                <span className="text-[10px] font-mono text-[#AAA5A0]">
                   +{product.availableColors.length - 4}
                 </span>
               )}
             </div>
 
             {/* Color Label or Prompt */}
-            <span className="text-[10px] font-mono text-zinc-400 tracking-wider">
+            <span className="text-[10px] font-mono text-[#AAA5A0] tracking-wider">
               {activeColor ? activeColor.name : 'Chọn màu'}
             </span>
           </div>

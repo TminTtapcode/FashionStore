@@ -4,8 +4,9 @@ interface StylingStudioTeaserProps {
 
 export default function StylingStudioTeaser({ onOpenStylingStudio }: StylingStudioTeaserProps) {
   return (
-    <section aria-label="Virtual Styling Studio Teaser" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="rounded-3xl border border-[#D6B27C]/40 bg-gradient-to-br from-[#191A1D] via-[#111214] to-[#0A0B0E] p-8 sm:p-12 lg:p-14 relative overflow-hidden shadow-2xl">
+    <section aria-label="Virtual Styling Studio Teaser" className="relative z-10 bg-[#0A0B0E] py-16 px-4 sm:px-6 lg:px-8 border-b border-[#333235]">
+      <div className="max-w-7xl mx-auto">
+        <div className="rounded-3xl border border-[#D6B27C]/40 bg-gradient-to-br from-[#191A1D] via-[#111214] to-[#0A0B0E] p-8 sm:p-12 lg:p-14 relative overflow-hidden shadow-2xl">
         {/* Subtle decorative gold light glow in background */}
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#D6B27C]/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -68,6 +69,7 @@ export default function StylingStudioTeaser({ onOpenStylingStudio }: StylingStud
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </section>

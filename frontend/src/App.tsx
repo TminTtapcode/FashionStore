@@ -288,7 +288,7 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
       <EditorialCampaign onFilterSilkAndLinen={handleFilterSilkAndLinen} />
 
       {/* 6. Section 4 & 6: Active Catalog & New Arrivals Showcase */}
-      <section id="catalog-section" className="relative z-10 bg-transparent border-t border-[#333235]">
+      <section id="catalog-section" className="relative z-10 bg-[#0A0B0E] border-b border-[#333235]">
         <main id="catalog" className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 w-full space-y-8">
           {/* Active Collection Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#333235] pb-4">
@@ -354,13 +354,23 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3.5 sm:gap-6">
+            <div
+              className={
+                productsData.items.length <= 2
+                  ? "flex flex-wrap justify-center gap-6 sm:gap-8 max-w-4xl mx-auto"
+                  : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3.5 sm:gap-6"
+              }
+            >
               {productsData.items.map((product) => (
-                <ProductCard
+                <div
                   key={product.id}
-                  product={product}
-                  onSelect={handleSelectProduct}
-                />
+                  className={productsData.items.length <= 2 ? "w-full max-w-[340px] sm:max-w-[380px]" : "w-full"}
+                >
+                  <ProductCard
+                    product={product}
+                    onSelect={handleSelectProduct}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -406,6 +416,7 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
         slug={selectedProductSlug}
         isOpen={Boolean(selectedProductSlug)}
         onClose={handleCloseProductModal}
+        onSelectProduct={handleSelectProduct}
       />
       <MiniCartDrawer
         onProceedToCheckout={() => {

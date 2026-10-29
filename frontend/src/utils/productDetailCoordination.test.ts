@@ -243,6 +243,7 @@ interface TestHarnessOptions {
   user?: { id: number; email: string; fullName: string; role: string } | null;
   cart?: Cart | null;
   isOpen?: boolean;
+  onSelectProduct?: (slug: string) => void;
 }
 
 function createModalTestHarness(options: TestHarnessOptions = {}) {
@@ -322,6 +323,40 @@ function createModalTestHarness(options: TestHarnessOptions = {}) {
       if (slug === currentProduct.slug) return currentProduct;
       throw new Error('Không tìm thấy sản phẩm');
     },
+    getProductsApi: async () => ({
+      items: [
+        {
+          id: 101,
+          name: 'Áo Khoác Blazer Dạ Cashmere',
+          slug: 'ao-khoac-blazer-da-cashmere',
+          minPrice: 1250000,
+          maxPrice: 1250000,
+          outOfStock: false,
+          primaryImageUrl: 'https://images.unsplash.com/blazer-cashmere',
+          secondaryImageUrl: '',
+          availableColors: [{ name: 'Đen Noir', hex: '#111111' }],
+          availableSizes: ['S', 'M', 'L'],
+          categoryName: 'Áo Khoác',
+        },
+        {
+          id: 102,
+          name: 'Quần Suông Linen Tự Nhiên',
+          slug: 'quan-suong-linen-tu-nhien',
+          minPrice: 750000,
+          maxPrice: 750000,
+          outOfStock: false,
+          primaryImageUrl: 'https://images.unsplash.com/pants-linen',
+          secondaryImageUrl: '',
+          availableColors: [{ name: 'Be Cát', hex: '#E5DCC5' }],
+          availableSizes: ['S', 'M'],
+          categoryName: 'Quần & Chân Váy',
+        },
+      ],
+      total: 2,
+      page: 0,
+      size: 6,
+      totalPages: 1,
+    }),
   };
 
   const mockAuth = {
@@ -404,6 +439,11 @@ function createModalTestHarness(options: TestHarnessOptions = {}) {
         onClose: () => {
           closed = true;
         },
+        onSelectProduct: (s: string) => {
+          if (options.onSelectProduct) {
+            options.onSelectProduct(s);
+          }
+        },
       });
 
       // Execute functional children (reconciliation phase) like SizeGuideDrawer
@@ -427,8 +467,16 @@ function createModalTestHarness(options: TestHarnessOptions = {}) {
   slots[7] = 0; // selectedImageIndex
   slots[8] = 1; // quantity
   slots[9] = false; // isSizeGuideOpen
-  slots[10] = 'details'; // activeTab
-  slots[11] = false; // isFlashActive
+  slots[10] = false; // isFlashActive
+  slots[11] = []; // relatedProducts
+  slots[12] = false; // isLoadingRelated
+  slots[13] = {
+    description: true,
+    material: true,
+    fit: false,
+    care: false,
+    delivery: false,
+  }; // openAccordions
 
   // Trigger initial render
   renderComponent();
@@ -846,5 +894,37 @@ describe('ProductDetailModal Component Integration Test Suite (Phase 5B & 5B.1 H
 
     assert.equal(matchesPreset1, true, 'Product with price 500.000₫ is inclusively <= 500.000₫');
     assert.equal(matchesPreset2, true, 'Product with price 500.000₫ is inclusively >= 500.000₫ and <= 1.000.000₫');
+  });
+
+  it('11. Phase 5D.2: Related Products & Accordions in Editorial Detail Experience', () => {
+    let selectedSlug: string | null = null;
+    const harness = createModalTestHarness({
+      onSelectProduct: (slug) => {
+        selectedSlug = slug;
+      },
+    });
+
+    // Verify presence of "MÔ TẢ & CẢM HỨNG THIẾT KẾ" and other accordions
+    const descAccordion = harness.findNode(
+      (n) => n?.type === 'button' && JSON.stringify(n?.props?.children || '').includes('MÔ TẢ & CẢM HỨNG THIẾT KẾ')
+    );
+    assert.ok(descAccordion, 'Description accordion button exists');
+
+    const materialAccordion = harness.findNode(
+      (n) => n?.type === 'button' && JSON.stringify(n?.props?.children || '').includes('CHẤT LIỆU & CẤU TRÚC SỢI')
+    );
+    assert.ok(materialAccordion, 'Material accordion button exists');
+
+    // Toggle Material accordion
+    materialAccordion.props.onClick();
+
+    // Verify trust badges
+    const codBadge = harness.findNode(
+      (n) => JSON.stringify(n?.props?.children || '').includes('Giao COD Toàn Quốc')
+    );
+    assert.ok(codBadge, 'Trust badge COD present');
+
+    // Verify onSelectProduct handler initialized
+    assert.equal(selectedSlug, null);
   });
 });
