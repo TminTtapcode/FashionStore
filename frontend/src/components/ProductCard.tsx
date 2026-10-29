@@ -21,21 +21,23 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
     : 0;
 
   // Determine current image: use secondary image on hover if present
+  const fallbackImage = 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&q=80';
   const currentImage = (isHovered && product.secondaryImageUrl)
     ? product.secondaryImageUrl
-    : product.primaryImageUrl;
+    : (product.primaryImageUrl || fallbackImage);
 
   const activeColor = product.availableColors.find((c) => c.hex === activeColorHex);
 
   return (
     <article
+      data-product-card="true"
       onClick={() => onSelect(product.slug)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
         setActiveColorHex(null);
       }}
-      className="group cursor-pointer flex flex-col bg-[#111216]/85 backdrop-blur-md border border-white/10 hover:border-[#C7AD83]/70 transition-all duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.65)] hover:-translate-y-1 rounded-xs overflow-hidden"
+      className="group cursor-pointer flex flex-col bg-[#111216]/85 backdrop-blur-md border border-white/10 hover:border-[#D6B27C]/70 transition-all duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.65)] hover:-translate-y-1 rounded-xs overflow-hidden"
     >
       {/* 3:4 Aspect Ratio Image Container */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#18191E]">
@@ -57,7 +59,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
               -{discountPercent}%
             </span>
           ) : (
-            <span className="bg-black/75 backdrop-blur-xs text-[#C7AD83] text-[10px] font-mono uppercase px-2 py-0.5 tracking-widest font-medium border border-[#C7AD83]/40 rounded-2xs">
+            <span className="bg-black/75 backdrop-blur-xs text-[#D6B27C] text-[10px] font-mono uppercase px-2 py-0.5 tracking-widest font-medium border border-[#D6B27C]/40 rounded-2xs">
               ATELIER DROP
             </span>
           )}
@@ -65,14 +67,14 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
 
         {/* Studio Flash Quick Indicator on Card Hover */}
         <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <span className="w-6 h-6 rounded-full bg-black/70 backdrop-blur-xs flex items-center justify-center text-[10px] text-[#C7AD83] shadow-xs border border-white/15">
+          <span className="w-6 h-6 rounded-full bg-black/70 backdrop-blur-xs flex items-center justify-center text-[10px] text-[#D6B27C] shadow-xs border border-white/15">
             ✦
           </span>
         </div>
 
         {/* Sleek Quick View Pill on Desktop Hover */}
         <div className="absolute inset-x-3 bottom-3 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hidden sm:flex justify-center z-10">
-          <span className="w-full text-center py-2 bg-[#C7AD83] hover:bg-white text-[#151518] text-xs font-mono uppercase tracking-[0.2em] shadow-sm backdrop-blur-xs transition-colors rounded-2xs font-bold">
+          <span className="w-full text-center py-2 bg-[#D6B27C] hover:bg-white text-[#151518] text-xs font-mono uppercase tracking-[0.2em] shadow-sm backdrop-blur-xs transition-colors rounded-2xs font-bold">
             XEM CHI TIẾT
           </span>
         </div>
@@ -83,13 +85,13 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
         <div className="space-y-1.5">
           {/* 1. Category & Brand Kicker */}
           <div className="flex items-center justify-between text-[11px] font-mono tracking-widest uppercase">
-            <span className="text-[#C7AD83] font-semibold">
+            <span className="text-[#D6B27C] font-semibold">
               {product.categoryName || 'COUTURE'} · {product.brand || 'ATELIER'}
             </span>
           </div>
 
           {/* 2. Full Product Name (2 Lines Max, No awkward truncations) */}
-          <h3 className="font-sans text-sm font-medium tracking-tight text-white line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#C7AD83] transition-colors">
+          <h3 className="font-sans text-sm font-medium tracking-tight text-white line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#D6B27C] transition-colors">
             {product.name}
           </h3>
 
@@ -141,7 +143,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
                       setActiveColorHex(color.hex);
                     }}
                     className={`w-3.5 h-3.5 rounded-full border shadow-inner inline-block transition-transform ${
-                      isCurrent ? 'scale-125 ring-1 ring-[#C7AD83]' : 'border-white/25 hover:scale-110'
+                      isCurrent ? 'scale-125 ring-1 ring-[#D6B27C]' : 'border-white/25 hover:scale-110'
                     }`}
                     style={{ backgroundColor: color.hex || '#E0E0E0' }}
                     title={color.name}

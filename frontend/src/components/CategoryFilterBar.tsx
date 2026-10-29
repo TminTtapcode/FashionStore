@@ -320,7 +320,7 @@ export default function CategoryFilterBar({
             onClick={() => handleCategorySelect('')}
             className={`py-3 px-3.5 text-xs font-mono uppercase tracking-[0.2em] whitespace-nowrap border-b-2 transition-all cursor-pointer ${
               activeCategorySlug === ''
-                ? 'border-[#C7AD83] font-bold text-[#C7AD83]'
+                ? 'border-[#D6B27C] font-bold text-[#D6B27C]'
                 : 'border-transparent text-white/60 hover:text-white'
             }`}
           >
@@ -334,7 +334,7 @@ export default function CategoryFilterBar({
                 onClick={() => handleCategorySelect(cat.slug)}
                 className={`py-3 px-3.5 text-xs font-mono uppercase tracking-[0.2em] whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                   activeCategorySlug === cat.slug
-                    ? 'border-[#C7AD83] font-bold text-[#C7AD83]'
+                    ? 'border-[#D6B27C] font-bold text-[#D6B27C]'
                     : 'border-transparent text-white/60 hover:text-white'
                 }`}
               >
@@ -355,7 +355,7 @@ export default function CategoryFilterBar({
               onChange={(e) => handleSearchChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder="Tìm kiếm trang phục, chất liệu..."
-              className="w-48 sm:w-64 h-8 pl-8 pr-7 text-xs font-mono bg-white/5 border border-white/15 focus:border-[#C7AD83] focus:bg-black/60 focus:outline-none text-white placeholder:text-white/40 rounded-xs transition-all"
+              className="w-48 sm:w-64 h-8 pl-8 pr-7 text-xs font-mono bg-white/5 border border-white/15 focus:border-[#D6B27C] focus:bg-black/60 focus:outline-none text-white placeholder:text-white/40 rounded-xs transition-all"
             />
             {searchInput && (
               <button
@@ -378,14 +378,14 @@ export default function CategoryFilterBar({
             onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
             className={`px-3.5 py-1.5 border text-xs font-mono uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer rounded-xs ${
               isFilterDrawerOpen || activeFiltersCount > 0
-                ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold shadow-xs'
+                ? 'border-[#D6B27C] bg-[#D6B27C] text-[#151518] font-bold shadow-xs'
                 : 'border-white/20 bg-white/5 text-white hover:border-white/50'
             }`}
           >
             <span className="text-[10px]">⚙</span>
             <span>BỘ LỌC</span>
             {activeFiltersCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-[#151518] text-[#C7AD83] text-[10px] flex items-center justify-center font-bold">
+              <span className="w-4 h-4 rounded-full bg-[#151518] text-[#D6B27C] text-[10px] flex items-center justify-center font-bold">
                 {activeFiltersCount}
               </span>
             )}
@@ -398,13 +398,13 @@ export default function CategoryFilterBar({
         if (cat.slug === activeCategorySlug && cat.children && cat.children.length > 0) {
           return (
             <div key={cat.id} className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
-              <span className="text-[#C7AD83] uppercase tracking-wider text-[11px]">DÒNG HÀNG:</span>
+              <span className="text-[#D6B27C] uppercase tracking-wider text-[11px]">DÒNG HÀNG:</span>
               {cat.children.map((sub) => (
                 <button
                   key={sub.id}
                   type="button"
                   onClick={() => handleCategorySelect(sub.slug)}
-                  className="px-3 py-1 bg-white/10 hover:bg-[#C7AD83] hover:text-[#151518] text-white transition-colors cursor-pointer text-[11px] uppercase tracking-wider rounded-xs border border-white/10"
+                  className="px-3 py-1 bg-white/10 hover:bg-[#D6B27C] hover:text-[#151518] text-white transition-colors cursor-pointer text-[11px] uppercase tracking-wider rounded-xs border border-white/10"
                 >
                   {sub.name}
                 </button>
@@ -422,7 +422,7 @@ export default function CategoryFilterBar({
 
           {/* Category Chip */}
           {activeCategoryName && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#C7AD83]/15 text-[#C7AD83] border border-[#C7AD83]/40 rounded-xs">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#D6B27C]/15 text-[#D6B27C] border border-[#D6B27C]/40 rounded-xs">
               <span>Danh mục: {activeCategoryName}</span>
               <button
                 type="button"
@@ -442,7 +442,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                className="hover:text-[#D6B27C] cursor-pointer ml-0.5"
                 title="Xóa từ khóa tìm kiếm"
               >
                 ✕
@@ -457,7 +457,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={() => handleSizeSelect(filters.size!)}
-                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                className="hover:text-[#D6B27C] cursor-pointer ml-0.5"
                 title="Bỏ chọn size"
               >
                 ✕
@@ -472,7 +472,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={() => handleColorSelect(filters.color!)}
-                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                className="hover:text-[#D6B27C] cursor-pointer ml-0.5"
                 title="Bỏ chọn màu"
               >
                 ✕
@@ -493,7 +493,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={handleClearPrice}
-                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                className="hover:text-[#D6B27C] cursor-pointer ml-0.5"
                 title="Bỏ lọc khoảng giá"
               >
                 ✕
@@ -508,7 +508,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={handleInStockToggle}
-                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                className="hover:text-[#D6B27C] cursor-pointer ml-0.5"
                 title="Bỏ lọc chỉ còn hàng"
               >
                 ✕
@@ -523,7 +523,7 @@ export default function CategoryFilterBar({
               <button
                 type="button"
                 onClick={() => handleSortChange('newest')}
-                className="hover:text-[#C7AD83] cursor-pointer ml-0.5"
+                className="hover:text-[#D6B27C] cursor-pointer ml-0.5"
                 title="Bỏ sắp xếp tùy chỉnh"
               >
                 ✕
@@ -535,7 +535,7 @@ export default function CategoryFilterBar({
           <button
             type="button"
             onClick={handleClearAllFilters}
-            className="text-[#C7AD83] hover:underline text-[11px] tracking-wider uppercase cursor-pointer ml-2 font-bold"
+            className="text-[#D6B27C] hover:underline text-[11px] tracking-wider uppercase cursor-pointer ml-2 font-bold"
           >
             Xóa tất cả
           </button>
@@ -548,7 +548,7 @@ export default function CategoryFilterBar({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* 1. Filter by Size */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#D6B27C]">
                 KÍCH CỠ (SIZE)
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -561,7 +561,7 @@ export default function CategoryFilterBar({
                       onClick={() => handleSizeSelect(size)}
                       className={`h-8 px-2.5 border text-xs font-mono transition-all cursor-pointer rounded-xs ${
                         isSelected
-                          ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold'
+                          ? 'border-[#D6B27C] bg-[#D6B27C] text-[#151518] font-bold'
                           : 'border-white/15 bg-white/5 text-gray-300 hover:border-white/40'
                       }`}
                     >
@@ -574,7 +574,7 @@ export default function CategoryFilterBar({
 
             {/* 2. Filter by Color */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#D6B27C]">
                 MÀU SẮC (SWATCH)
               </span>
               <div className="flex flex-wrap gap-2">
@@ -588,7 +588,7 @@ export default function CategoryFilterBar({
                       title={col.name}
                       className={`flex items-center gap-1.5 px-2.5 py-1 border text-xs font-mono cursor-pointer transition-all rounded-xs ${
                         isSelected
-                          ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold'
+                          ? 'border-[#D6B27C] bg-[#D6B27C] text-[#151518] font-bold'
                           : 'border-white/15 bg-white/5 text-gray-300 hover:border-white/40'
                       }`}
                     >
@@ -605,7 +605,7 @@ export default function CategoryFilterBar({
 
             {/* 3. Filter by Price Range */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#D6B27C]">
                 KHOẢNG GIÁ (VND)
               </span>
               <div className="grid grid-cols-2 gap-1.5">
@@ -618,7 +618,7 @@ export default function CategoryFilterBar({
                       onClick={() => handlePricePresetSelect(preset)}
                       className={`h-8 px-2 border text-[11px] font-mono transition-all cursor-pointer rounded-xs text-center truncate ${
                         isSelected
-                          ? 'border-[#C7AD83] bg-[#C7AD83] text-[#151518] font-bold'
+                          ? 'border-[#D6B27C] bg-[#D6B27C] text-[#151518] font-bold'
                           : 'border-white/15 bg-white/5 text-gray-300 hover:border-white/40'
                       }`}
                     >
@@ -638,7 +638,7 @@ export default function CategoryFilterBar({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleApplyCustomPrice();
                   }}
-                  className="w-1/2 h-7 px-2 bg-white/5 border border-white/15 text-xs font-mono text-white placeholder:text-white/30 rounded-xs focus:border-[#C7AD83] focus:outline-none"
+                  className="w-1/2 h-7 px-2 bg-white/5 border border-white/15 text-xs font-mono text-white placeholder:text-white/30 rounded-xs focus:border-[#D6B27C] focus:outline-none"
                 />
                 <span className="text-white/30 text-xs">-</span>
                 <input
@@ -649,12 +649,12 @@ export default function CategoryFilterBar({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleApplyCustomPrice();
                   }}
-                  className="w-1/2 h-7 px-2 bg-white/5 border border-white/15 text-xs font-mono text-white placeholder:text-white/30 rounded-xs focus:border-[#C7AD83] focus:outline-none"
+                  className="w-1/2 h-7 px-2 bg-white/5 border border-white/15 text-xs font-mono text-white placeholder:text-white/30 rounded-xs focus:border-[#D6B27C] focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleApplyCustomPrice}
-                  className="h-7 px-2 border border-[#C7AD83] text-[#C7AD83] hover:bg-[#C7AD83] hover:text-[#151518] text-[11px] font-mono uppercase cursor-pointer rounded-xs font-bold shrink-0"
+                  className="h-7 px-2 border border-[#D6B27C] text-[#D6B27C] hover:bg-[#D6B27C] hover:text-[#151518] text-[11px] font-mono uppercase cursor-pointer rounded-xs font-bold shrink-0"
                 >
                   Lọc
                 </button>
@@ -666,13 +666,13 @@ export default function CategoryFilterBar({
 
             {/* 4. Sort Options & Actions */}
             <div className="space-y-2.5">
-              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#C7AD83]">
+              <span className="font-mono text-xs uppercase tracking-wider font-bold block text-[#D6B27C]">
                 SẮP XẾP THEO
               </span>
               <select
                 value={filters.sort || 'newest'}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="w-full h-8 border border-white/15 bg-[#18191D] text-white px-2.5 font-mono text-xs uppercase tracking-wider cursor-pointer focus:border-[#C7AD83] focus:outline-none rounded-xs"
+                className="w-full h-8 border border-white/15 bg-[#18191D] text-white px-2.5 font-mono text-xs uppercase tracking-wider cursor-pointer focus:border-[#D6B27C] focus:outline-none rounded-xs"
               >
                 <option value="newest" className="bg-[#18191D] text-white">MỚI NHẤT (NEW ARRIVALS)</option>
                 <option value="price_asc" className="bg-[#18191D] text-white">GIÁ: TĂNG DẦN</option>
@@ -686,7 +686,7 @@ export default function CategoryFilterBar({
                   type="checkbox"
                   checked={filters.inStockOnly || false}
                   onChange={handleInStockToggle}
-                  className="rounded border-white/20 bg-white/10 text-[#C7AD83] focus:ring-0 cursor-pointer"
+                  className="rounded border-white/20 bg-white/10 text-[#D6B27C] focus:ring-0 cursor-pointer"
                 />
                 <span>Chỉ hiển thị còn hàng</span>
               </label>
@@ -705,7 +705,7 @@ export default function CategoryFilterBar({
                 <button
                   type="button"
                   onClick={() => setIsFilterDrawerOpen(false)}
-                  className="w-full h-8 bg-[#C7AD83] text-[#151518] text-[11px] font-mono uppercase tracking-wider hover:bg-white transition-colors cursor-pointer rounded-xs font-bold"
+                  className="w-full h-8 bg-[#D6B27C] text-[#151518] text-[11px] font-mono uppercase tracking-wider hover:bg-white transition-colors cursor-pointer rounded-xs font-bold"
                 >
                   ÁP DỤNG & ĐÓNG
                 </button>
