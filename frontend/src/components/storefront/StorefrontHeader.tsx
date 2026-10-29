@@ -75,7 +75,7 @@ export default function StorefrontHeader({
           >
             <span>STYLING STUDIO</span>
             <span className="bg-[#D6B27C] text-[#111214] text-[9px] px-1.5 py-0.5 rounded-xs font-mono font-bold tracking-normal">
-              ✦ 2.5D
+              ✦ ATELIER
             </span>
           </button>
         </nav>
@@ -254,7 +254,7 @@ export default function StorefrontHeader({
           >
             <span>STYLING STUDIO</span>
             <span className="bg-[#D6B27C] text-[#111214] text-[9px] px-1.5 py-0.5 rounded-xs font-mono font-bold tracking-normal">
-              ✦ 2.5D
+              ✦ ATELIER
             </span>
           </button>
 
