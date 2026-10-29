@@ -149,14 +149,15 @@ export default function ProductDetailModal({
       return;
     }
 
+    const controller = new AbortController();
     let isMounted = true;
     setIsLoading(true);
     setError(null);
     setSubmitError(null);
 
-    getProductDetailApi(slug)
+    getProductDetailApi(slug, controller.signal)
       .then((data) => {
-        if (!isMounted) return;
+        if (!isMounted || controller.signal.aborted) return;
         setProduct(data);
 
         // Auto-select initial color and valid matching size
@@ -183,17 +184,18 @@ export default function ProductDetailModal({
         setQuantity(1);
       })
       .catch((err) => {
-        if (!isMounted) return;
+        if (!isMounted || controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : 'Không thể tải thông tin sản phẩm');
       })
       .finally(() => {
-        if (isMounted) {
+        if (isMounted && !controller.signal.aborted) {
           setIsLoading(false);
         }
       });
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [isOpen, slug]);
 
@@ -204,39 +206,41 @@ export default function ProductDetailModal({
       return;
     }
 
+    const controller = new AbortController();
     let isMounted = true;
     setIsLoadingRelated(true);
 
-    getProductsApi({ categoryId: product.categoryId, limit: 6 })
+    getProductsApi({ categoryId: product.categoryId, limit: 6 }, controller.signal)
       .then((res) => {
-        if (!isMounted) return;
+        if (!isMounted || controller.signal.aborted) return;
         const filtered = (res.items || []).filter((item) => item.slug !== product.slug).slice(0, 4);
         if (filtered.length >= 2) {
           setRelatedProducts(filtered);
         } else {
           // Fallback: fetch general products if category has fewer than 2 companion pieces
-          getProductsApi({ limit: 6 })
+          getProductsApi({ limit: 6 }, controller.signal)
             .then((allRes) => {
-              if (!isMounted) return;
+              if (!isMounted || controller.signal.aborted) return;
               const generalFiltered = (allRes.items || [])
                 .filter((item) => item.slug !== product.slug)
                 .slice(0, 4);
               setRelatedProducts(generalFiltered);
             })
             .catch(() => {
-              if (isMounted) setRelatedProducts(filtered);
+              if (isMounted && !controller.signal.aborted) setRelatedProducts(filtered);
             });
         }
       })
       .catch(() => {
-        if (isMounted) setRelatedProducts([]);
+        if (isMounted && !controller.signal.aborted) setRelatedProducts([]);
       })
       .finally(() => {
-        if (isMounted) setIsLoadingRelated(false);
+        if (isMounted && !controller.signal.aborted) setIsLoadingRelated(false);
       });
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [isOpen, product?.id, product?.slug, product?.categoryId]);
 
@@ -824,21 +828,21 @@ export default function ProductDetailModal({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 17a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4zM3 9h11v8H3zM14 9h4l3 3v5h-7z" />
                         </svg>
                         <span className="text-[11px] font-mono text-white font-medium">Giao COD Toàn Quốc</span>
-                        <span className="text-[10px] text-white/40">Thanh toán khi nhận</span>
+                        <span className="text-[10px] text-white/40">Đồng kiểm khi nhận hàng</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <svg className="w-4 h-4 text-[#D6B27C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        <span className="text-[11px] font-mono text-white font-medium">Đổi Size 7 Ngày</span>
-                        <span className="text-[10px] text-white/40">Hỗ trợ thử & đổi size</span>
+                        <span className="text-[11px] font-mono text-white font-medium">Hỗ Trợ Đổi Size</span>
+                        <span className="text-[10px] text-white/40">Boutique Concierge 7 ngày</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <svg className="w-4 h-4 text-[#D6B27C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span className="text-[11px] font-mono text-white font-medium">100% Chính Hãng</span>
-                        <span className="text-[10px] text-white/40">Kiểm tra trước khi nhận</span>
+                        <span className="text-[11px] font-mono text-white font-medium">100% IVRE Atelier</span>
+                        <span className="text-[10px] text-white/40">Chế tác thủ công chuẩn mực</span>
                       </div>
                     </div>
 
@@ -943,14 +947,15 @@ export default function ProductDetailModal({
                           onClick={() => toggleAccordion('delivery')}
                           className="w-full py-3.5 flex items-center justify-between text-left font-mono uppercase tracking-wider text-white hover:text-[#D6B27C] transition-colors cursor-pointer"
                         >
-                          <span className="font-semibold">CHÍNH SÁCH GIAO NHẬN & ĐỔI TRẢ</span>
+                          <span className="font-semibold">CHÍNH SÁCH VẬN CHUYỂN & HỖ TRỢ ĐỔI SIZE</span>
                           <span className="text-[#D6B27C] text-sm">{openAccordions.delivery ? '−' : '+'}</span>
                         </button>
                         {openAccordions.delivery && (
                           <div className="pb-4 text-white/70 font-sans leading-relaxed space-y-1.5 text-xs">
-                            <p>• <strong>Giao hàng:</strong> 1-2 ngày đối với nội thành Hà Nội & TP.HCM; 2-4 ngày đối với các tỉnh thành khác.</p>
-                            <p>• <strong>Thanh toán COD:</strong> Quý khách được đồng kiểm hàng trước khi thanh toán tiền mặt cho nhân viên giao hàng.</p>
-                            <p>• <strong>Đổi hàng:</strong> Đổi size/màu miễn phí trong 7 ngày đối với sản phẩm còn nguyên tem mác và chưa qua sử dụng.</p>
+                            <p>• <strong>Thanh toán COD:</strong> Áp dụng thanh toán tiền mặt trực tiếp khi nhận hàng trên toàn quốc.</p>
+                            <p>• <strong>Đồng kiểm ngoại quan:</strong> Quý khách được mở kiểm tra số lượng, màu sắc và tem mác cùng bưu tá trước khi thanh toán (không hỗ trợ mặc thử tại chỗ theo quy chuẩn vận chuyển).</p>
+                            <p>• <strong>Hỗ trợ đổi size 7 ngày:</strong> Sau khi nhận hàng, nếu cần đổi size hoặc màu, quý khách vui lòng liên hệ Boutique Concierge qua hotline trong vòng 7 ngày. Sản phẩm cần giữ nguyên tem mác, hóa đơn và chưa qua sử dụng.</p>
+                            <p>• <strong>Thời gian giao hàng:</strong> 1-2 ngày làm việc (Hà Nội, TP.HCM); 2-4 ngày đối với các tỉnh thành khác.</p>
                           </div>
                         )}
                       </div>
@@ -1036,7 +1041,9 @@ export default function ProductDetailModal({
               ) : null}
 
               {/* Mobile Sticky Bottom Action Bar with Safe-area padding */}
-              <div className="lg:hidden fixed bottom-0 inset-x-0 bg-[#0D0E12]/95 backdrop-blur-md p-3 sm:p-4 border-t border-white/15 z-30 flex items-center gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.8)]">
+              <div className={`lg:hidden fixed bottom-0 inset-x-0 bg-[#0D0E12]/95 backdrop-blur-md p-3 sm:p-4 border-t border-white/15 z-30 flex items-center gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.8)] ${
+                isSizeGuideOpen ? 'hidden pointer-events-none' : ''
+              }`}>
                 <div className="flex flex-col">
                   <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">TỔNG CỘNG</span>
                   <span className="font-mono text-base font-bold text-[#D6B27C]">

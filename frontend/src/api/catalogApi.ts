@@ -59,8 +59,12 @@ export async function getProductsApi(
   return body.data;
 }
 
-export async function getProductDetailApi(slug: string): Promise<ProductDetail> {
+export async function getProductDetailApi(
+  slug: string,
+  signal?: AbortSignal
+): Promise<ProductDetail> {
   const response = await fetch(`${BASE_URL}/products/${encodeURIComponent(slug)}`, {
+    signal,
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
   });

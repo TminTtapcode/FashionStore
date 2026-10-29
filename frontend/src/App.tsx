@@ -122,8 +122,26 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
       const params = new URLSearchParams(window.location.search);
       params.set('product', slug);
       const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+
+      const previousState = window.history.state || {};
+      const isAlreadyInModal = Boolean(selectedProductSlug);
+      const isDeepLinkOrigin = Boolean(
+        previousState.isDeepLinkOrigin ||
+        (!previousState.isProductModalPushed && isAlreadyInModal)
+      );
+      const currentDepth = typeof previousState.modalDepth === 'number'
+        ? previousState.modalDepth
+        : (previousState.isProductModalPushed ? 1 : 0);
+      const newDepth = isAlreadyInModal ? currentDepth + 1 : 1;
+
       window.history.pushState(
-        { ...window.history.state, isProductModalPushed: true, product: slug },
+        {
+          ...previousState,
+          isProductModalPushed: true,
+          modalDepth: newDepth,
+          isDeepLinkOrigin,
+          product: slug,
+        },
         '',
         newUrl
       );
@@ -132,24 +150,30 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
 
   const handleCloseProductModal = () => {
     if (typeof window !== 'undefined') {
-      const isModalPushed = window.history.state?.isProductModalPushed;
-      if (isModalPushed) {
-        // Modal was opened in-app via pushState: calling window.history.back() unwinds the history
-        // entry cleanly so browser Back will not resurrect the modal.
-        setSelectedProductSlug(null);
-        window.history.back();
+      const state = window.history.state || {};
+      const isModalPushed = state.isProductModalPushed;
+      const depth = typeof state.modalDepth === 'number'
+        ? state.modalDepth
+        : (isModalPushed ? 1 : 0);
+      const isDeepLinkOrigin = state.isDeepLinkOrigin;
+
+      setSelectedProductSlug(null);
+
+      if (isModalPushed && depth > 0 && !isDeepLinkOrigin) {
+        // Modal was opened in-app from the Catalog and may have had multiple in-modal hops (A -> B -> C).
+        // Unwind all modal entries in ONE step directly back to the Catalog history entry!
+        window.history.go(-depth);
         return;
       }
 
-      // Direct deep-link or fresh load without an in-app pushState:
-      // Replace state to avoid navigating outside the website or creating forward/back loops
-      setSelectedProductSlug(null);
+      // Direct deep-link origin (or fresh load without in-app Catalog preceding it):
+      // Replace state to avoid navigating outside the website or back into previous deep-linked modal
       const params = new URLSearchParams(window.location.search);
       params.delete('product');
       const qs = params.toString();
       const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
       window.history.replaceState(
-        { ...window.history.state, isProductModalPushed: false, product: null },
+        { ...state, isProductModalPushed: false, modalDepth: 0, isDeepLinkOrigin: false, product: null },
         '',
         newUrl
       );
