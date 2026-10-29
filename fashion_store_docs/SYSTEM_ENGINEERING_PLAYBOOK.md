@@ -1097,3 +1097,37 @@ $$\text{Physical On-Hand} = \text{ATS} + \text{Allocated (Đơn hàng PENDING, C
      - **Bước 3 (Truy vết Sổ cái)**: Rà soát từng dòng biến động trong ngăn kéo sổ cái đối chiếu với phiếu giao nhận bưu tá và biên bản nhập hàng xưởng.
      - **Bước 4 (Cân đối & Giải trình)**: Thực hiện thao tác "Điều chỉnh kiểm kê" (`POST /api/v1/owner/inventory/adjust`), ghi rõ mã biên bản kiểm kê, lý do chênh lệch (mất mát, hỏng khóa kéo, rách chỉ) và ID nhân viên kiểm đếm.
      - **Bước 5 (Mở bán lại)**: Chuyển lại trạng thái biến thể sang `ACTIVE` sau khi chỉ số đối soát đã trở về trạng thái Cân đối (Lệch 0).
+
+---
+
+## 11. KIẾN TRÚC STOREFRONT TẠP CHÍ THỜI TRANG CAO CẤP & CHỐNG HỒI QUY (PHASE 5D.1)
+
+### 11.1. Tách Biệt Mô-đun Kiến trúc Storefront (Modular Section Architecture)
+Nhằm tránh tình trạng phình to mã nguồn monolithic trong `App.tsx` (gần 700 dòng), toàn bộ 8 phân khu được tách thành các React component chuyên trách đặt trong `frontend/src/components/storefront/`:
+- `StorefrontHeader.tsx`: Điều hướng phân cấp, monogram thương hiệu, giỏ hàng động, liên kết nhanh `/owner`, và drawer menu cảm ứng.
+- `StorefrontHero.tsx`: Typography tạp chí phân cấp, slogan, CTA kép, nút toggle WebGL shader, và chân dung người mẫu 3:4.
+- `BrandValueStrip.tsx`: Dải 4 trụ cột thương hiệu gắn liền thực tế may đo.
+- `CategoryShowcase.tsx`: Lưới 4 card hình ảnh danh mục khổ lớn tỉ lệ 3:4 nối API `/api/v1/categories`.
+- `EditorialCampaign.tsx`: Khối biên tập câu chuyện chất liệu Lụa & Linen kèm CTA tìm kiếm nhanh.
+- `StylingStudioTeaser.tsx`: Cổng kết nối Studio thử đồ ma-nơ-canh 2.5D.
+- `StorefrontFooter.tsx`: Chân trang 4 cột chuyên nghiệp chuẩn atelier.
+
+### 11.2. Post-Mortem 20: Bảo Toàn Bất Biến Điều Phối & History Stack Khi Redesign Storefront
+* **Vấn đề Tiềm ẩn:**
+  * Khi tái thiết kế giao diện từ một trang listing đơn thuần sang nhiều section (Hero, Showcase, Campaign), các nút bấm khám phá danh mục hoặc chiến dịch dễ bị lập trình viên gán cứng `href="/category/..."` hoặc dùng `window.location.href`, dẫn đến tải lại toàn bộ trang (full reload), phá vỡ WebGL context và hủy trạng thái bộ lọc đang có.
+* **Giải pháp Kỹ thuật:**
+  1. Toàn bộ hành động chọn danh mục (`onSelectCategory`) và chiến dịch (`onFilterSilkAndLinen`) đều chuyển qua handler tập trung `handleFilterChange` trong `App.tsx`.
+  2. Handler này gọi hàm chuẩn hóa `serializeCatalogUrl(newFilters)` và `window.history.pushState({}, '', newUrl)`, bảo đảm URL cập nhật đồng bộ (`?category=thoi-trang-nu` hoặc `?q=Lụa`) mà không làm remount component tree.
+  3. Lắng nghe sự kiện `popstate` của trình duyệt: Khi người dùng bấm nút Back/Forward, hệ thống tự động đọc lại URL qua `parseCatalogUrl(window.location.search)` và khôi phục chính xác trạng thái hiển thị của catalog.
+  4. Cơ chế cuộn mượt mà: Sau khi áp dụng bộ lọc, hệ thống gọi `catalogElem.scrollIntoView({ behavior: 'smooth' })`, đưa người dùng đến đúng danh mục trang phục vừa chọn.
+
+### 11.3. Bất Biến Hiển Thị & Chống Tràn Ngang Đa Thiết Bị (Zero Horizontal Overflow)
+- Bắt buộc kiểm chứng tiêu chí bất biến hiển thị:
+  $$\text{scrollWidth} \le \text{clientWidth} \quad (\forall \text{viewport} \in \{320, 375, 390, 768, 1024, 1440, 1920\}\text{px})$$
+- Trên thiết bị di động ($320\text{px} - 767\text{px}$):
+  - Lưới sản phẩm duy trì mật độ cao với `grid-cols-2 gap-3.5 sm:gap-6`.
+  - Header thu gọn và mở Drawer Menu khi bấm icon Hamburger (`aria-label="Mở menu di động"`).
+  - Khối Hero tự động sắp xếp dọc (chữ phía trên, ảnh người mẫu phía dưới), các nút bấm CTA full-width dễ chạm.
+- Trên màn hình lớn ($\ge 1024\text{px}$):
+  - Hero chia 2 cột đối xứng tỉ lệ vàng (7 cột typography / 5 cột ảnh chân dung).
+  - Lưới sản phẩm mở rộng từ 4 đến 5 cột thoáng đãng.

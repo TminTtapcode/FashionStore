@@ -148,3 +148,56 @@ Owner Portal được thiết kế theo phong cách **IVRE Atelier — Dark Edit
 - **Minh bạch Dữ liệu Thời gian thực**:
   - Biểu đồ nhịp vận hành 7 ngày mang nhãn ghi chú minh bạch *"Dữ liệu minh họa nhịp vận hành"* tránh gây hiểu nhầm cho chủ shop trước khi module phân tích chuyên sâu được triển khai.
 
+---
+
+## 10. IVRE Atelier Luxury Fashion Editorial Storefront (Phase 5D.1)
+
+### 10.1. Triết lý Thiết kế: Luxury Editorial Runway × Interactive Shopping
+Storefront khách hàng được tái thiết toàn diện để biến IVRE thành một **Digital Haute Couture Atelier** thay vì một website thương mại điện tử đại trà:
+- **Ngôn ngữ Thẩm mỹ**: Typography Serif tráng lệ, nền bóng đêm sâu thẳm (`#0A0B0E`, `#111214`), ánh vàng Champagne (`#D6B27C`), và tương phản kiểm soát với WebGL Living Runway Shader.
+- **Sản phẩm là Nhân vật Chính**: Khắc phục tình trạng shader lấn át sản phẩm bằng cách giảm độ chói nền, tăng độ tương phản của card và đưa sản phẩm lên vị trí tiêu điểm.
+- **Nhịp điệu Biên tập (Editorial Rhythm)**: Homepage được tổ chức tuần tự:
+  $$\text{Hero Tráng lệ} \longrightarrow \text{Trụ cột Thương hiệu} \longrightarrow \text{Danh mục Thiết kế} \longrightarrow \text{Chiến dịch Lụa \& Linen} \longrightarrow \text{Catalog Sản phẩm Mới} \longrightarrow \text{Studio Phối đồ 2.5D} \longrightarrow \text{Chân trang Atelier}$$
+
+### 10.2. Chi tiết 8 Phân khu Kiến trúc Storefront
+1. **StorefrontHeader**:
+   - Monogram thương hiệu `Ivre.` với dấu chấm Champagne Gold, kèm sub-brand `DIGITAL COUTURE EST. 2026`.
+   - Menu điều hướng desktop font mono uppercase: BỘ SƯU TẬP, DANH MỤC, SẢN PHẨM MỚI, STYLING STUDIO (✦ 2.5D), VỀ ATELIER.
+   - Nút giỏ hàng nổi bật với badge số lượng động; cụm xác thực người dùng tích hợp phím tắt `QUẢN TRỊ ↗` cho Shop Owner.
+   - Mobile Hamburger Menu Drawer trượt mượt mà, thân thiện với thao tác chạm ngón cái trên màn hình di động.
+2. **StorefrontHero — The Urbanist Couture**:
+   - Khối chữ tiêu đề phân cấp: `The Urbanist` trong Warm Ivory (`#F5F0E9`), `Couture` trong Champagne Gold italic (`#D6B27C`).
+   - Breadcrumb chiến dịch: `CAMPAIGN 01 · DIGITAL RUNWAY DROP 2026` với chấm sáng animated pulse.
+   - Nút bật/tắt WebGL Shader (`✦ SHADER: BẬT/TẮT`) giúp khách hàng chủ động kiểm soát trải nghiệm hiển thị.
+   - Cặp CTA kép: *Khám phá bộ sưu tập* (nút vàng tràn viền) và *Thử phối đồ Lookbook* (nút kính mờ viền kim loại).
+   - Cột phải: Chân dung người mẫu thời trang 3:4 chuẩn tạp chí kèm bộ thanh trượt lookbook tối giản `01 | 02 | 03`.
+3. **BrandValueStrip**:
+   - 4 thẻ kính mờ (glassmorphism) trình bày 4 giá trị thực chất: *Chất liệu tự nhiên (100% lụa & linen)*, *Form dáng chuẩn mực Á Đông*, *Hướng dẫn bảo quản tỉ mỉ*, và *Độc bản biến thể theo mã SKU*.
+4. **CategoryShowcase (Khám Phá Theo Danh Mục)**:
+   - 4 thẻ ảnh thời trang khổ lớn tỉ lệ 3:4 gắn liền trực tiếp với danh mục cơ sở dữ liệu (`/api/v1/categories`).
+   - Khi nhấp chọn: Tự động cập nhật URL filter `?category=<slug>`, làm sáng viền vàng của danh mục đang chọn, và cuộn mượt đến lưới sản phẩm `#catalog-section`.
+5. **EditorialCampaign — The Silk & Linen Edit**:
+   - Câu chuyện chất liệu lụa tơ tằm & linen may đo, bố cục ảnh chụp lookbook ấm áp và nút CTA kích hoạt bộ lọc tìm kiếm trực tiếp `?q=Lụa`.
+6. **Active Catalog & New Arrivals**:
+   - Hiển thị danh mục sản phẩm đang mở bán (`ACTIVE`) lấy từ backend `/api/v1/products`.
+   - Tự động thích ứng: 2 cột trên Mobile ($320\text{px} - 767\text{px}$), 3 cột trên Tablet, và 4-5 cột trên Desktop rộng.
+   - Thẻ `ProductCard`: Tỉ lệ ảnh 3:4, nhãn phân cấp thương hiệu/chất liệu, giá niêm yết & giá giảm, hàng chấm swatch màu tương tác đổi ảnh, và pill xem nhanh khi hover trên desktop.
+7. **StylingStudioTeaser**:
+   - Không gian trải nghiệm phòng thử đồ ma-nơ-canh 2.5D, gợi ý tiết kiệm 10% khi phối trọn bộ trang phục, mở modal `VirtualStylingStudio`.
+8. **StorefrontFooter**:
+   - Chân trang 4 cột chuyên nghiệp: Tuyên ngôn thương hiệu, Liên kết danh mục, Chính sách khách hàng (Thanh toán COD, Bảng size guide, Đổi size 48h), và Thông tin Concierge Studio hỗ trợ tư vấn trang phục.
+
+### 10.3. Ma trận Đáp ứng Đa Thiết bị (Responsive Verification Matrix)
+Đã kiểm chứng thực tế bằng Chrome DevTools MCP trên toàn bộ 7 độ phân giải chuẩn mực:
+
+| Độ phân giải | Loại thiết bị | Layout Header | Hero Section | Lưới Sản phẩm | Tràn ngang (Overflow) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **320px** | Small Mobile (iPhone SE thế hệ cũ) | Compact + Hamburger Menu | Chữ dọc, CTA xếp chồng | 2 cột gọn gàng | `scrollWidth <= clientWidth` | **PASS** |
+| **375px** | iPhone SE / Compact Mobile | Compact + Hamburger Menu | Tiêu đề cân đối, nút lớn | 2 cột (gap 3.5) | `scrollWidth <= clientWidth` | **PASS** |
+| **390px** | iPhone 14/15/16 Chuẩn | Full Header Mobile + Cart badge | Tỉ lệ hoàn hảo, ảnh chân dung | 2 cột (gap 3.5) | `scrollWidth <= clientWidth` | **PASS** |
+| **768px** | iPad Mini / Tablet dọc | Header đầy đủ + Nav phụ | Bố cục 2 cột (7/5) | 3 cột | `scrollWidth <= clientWidth` | **PASS** |
+| **1024px** | iPad Pro / Small Laptop | Desktop Nav thanh lịch | Bố cục 2 cột (7/5) | 4 cột | `scrollWidth <= clientWidth` | **PASS** |
+| **1440px** | Desktop Màn hình rộng | Desktop Nav đầy đủ + Auth | Bố cục rộng 1280px | 4 cột | `scrollWidth <= clientWidth` | **PASS** |
+| **1920px** | Full HD / Ultra Wide | Căn giữa Max-width 7xl | Đầy đủ chi tiết runway | 4-5 cột | `scrollWidth <= clientWidth` | **PASS** |
+
+

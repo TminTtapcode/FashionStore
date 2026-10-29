@@ -238,7 +238,25 @@ Deliverables:
     - Backend: 9/9 integration tests mới tại `OwnerMediaControllerIntegrationTest`, nâng tổng bộ kiểm thử backend lên **143/143 tests PASS (100%)**.
     - Frontend: 10/10 tests mới tại `ownerMediaLogic.test.ts`, nâng tổng bộ kiểm thử frontend lên **82/82 tests PASS (100%)**.
     - Chrome DevTools MCP: Đạt kiểm chứng giao diện thực tế trên Desktop ($1440 \times 900$) và Mobile ($390 \times 844$, $320 \times 640$), 0 horizontal overflow.
-- **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
+- **Phase 5D.1 — IVRE Atelier Luxury Editorial Storefront Redesign** [Hoàn tất]:
+  - **Tái thiết Toàn diện Storefront Khách hàng theo Bản sắc Luxury Fashion Editorial**:
+    - Chuyển hóa giao diện khách hàng từ layout thương mại điện tử đại trà sang phong cách Tạp chí Thời trang Cao cấp (Luxury Fashion Editorial Runway) với 8 phân khu chuẩn mực.
+    - Bảo toàn toàn bộ các quy tắc nghiệp vụ bất biến từ Phase 5A đến Phase 5C (Catalog, Active Variants, Giỏ hàng, Cart Merge, Size Guide, Auth Modal, Mini Cart Drawer, URL sync với 350ms search debounce, popstate history).
+  - **8 Phân khu Kiến trúc Storefront**:
+    1. **StorefrontHeader**: Thanh điều hướng bán trong suốt (glassmorphism) với monogram `Ivre.`, phân tầng desktop nav, huy hiệu giỏ hàng động, cụm tài khoản người dùng, phím tắt `QUẢN TRỊ ↗` cho Shop Owner, và Mobile Menu Drawer cảm ứng.
+    2. **StorefrontHero — The Urbanist Couture**: Headline typography serif phân cấp (`The Urbanist` Warm Ivory, `Couture` Champagne Gold italic), trích dẫn tuyên ngôn thương hiệu, cụm CTA kép (*Khám phá bộ sưu tập* & *Thử phối đồ Lookbook*), nút gạt kiểm soát hiệu ứng WebGL (`✦ SHADER: BẬT/TẮT`), chân dung người mẫu thời trang 3:4 và bộ chỉ báo slider tối giản.
+    3. **BrandValueStrip**: Dải 4 trụ cột thương hiệu gắn liền thực tế may đo (*Chất liệu tự nhiên*, *Form dáng chuẩn mực*, *Hướng dẫn bảo quản*, *Độc bản biến thể*).
+    4. **CategoryShowcase**: Lưới 4 card hình ảnh danh mục lớn tỉ lệ 3:4 chuẩn thời trang kết nối trực tiếp cơ sở dữ liệu (`/api/v1/categories`), tương tác nhấp chuột lọc danh mục mượt mà và cuộn êm đến `#catalog-section`.
+    5. **EditorialCampaign — The Silk & Linen Edit**: Khối biên tập câu chuyện chất liệu Lụa Tơ Tằm & Linen, bố cục 2 cột với ảnh chụp lookbook ấm áp và CTA kích hoạt tìm kiếm tức thì.
+    6. **Active Catalog & New Arrivals**: Lưới sản phẩm tỉ lệ 3:4 responsive 2 cột trên mobile đến 4-5 cột trên desktop, hiển thị thông tin chất liệu/form dáng, giá phân tầng, thẻ Atelier Drop, và bộ chấm swatch màu tương tác.
+    7. **StylingStudioTeaser**: Cổng dẫn trực quan sang Phòng thử đồ Studio ma-nơ-canh 2.5D, mở modal `VirtualStylingStudio`.
+    8. **StorefrontFooter**: Chân trang 4 cột chuyên nghiệp với thông tin boutique, concierge studio hỗ trợ size, chính sách đổi trả minh bạch và credit kỹ thuật nền tảng.
+  - **Kiểm chứng Toàn diện & Quality Gates**:
+    - **Frontend tests**: 82/82 unit & component tests PASS (100%).
+    - **Backend tests**: 143/143 unit & integration tests PASS (100%).
+    - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
+    - **Chrome DevTools MCP Responsive Matrix**: PASS trên toàn bộ 7 độ phân giải chuẩn (320px, 375px, 390px, 768px, 1024px, 1440px, 1920px), triệt tiêu hoàn toàn horizontal overflow (`scrollWidth <= clientWidth`), không bị che nút hoặc tràn chữ.
+- **Phase 5D.2 — Immersive Product Detail Redesign (Trench Coat Editorial & Sticky Purchase Panel)** [Kế tiếp].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
 
 ## Phase 6 — Payment gateway
