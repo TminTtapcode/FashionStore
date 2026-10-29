@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import OwnerOrdersView from './OwnerOrdersView';
 import OwnerProductsView from './OwnerProductsView';
 import { OwnerInventoryView } from './OwnerInventoryView';
+import OwnerMediaView from './OwnerMediaView';
 
 interface OwnerPortalProps {
   onNavigateStorefront: () => void;
@@ -130,7 +131,11 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
                 ? 'Quản lý Đơn hàng'
                 : activeNav === 'products'
                 ? 'Sản phẩm & Biến thể'
-                : 'Tồn kho & Audit Trail'}
+                : activeNav === 'inventory'
+                ? 'Tồn kho & Audit Trail'
+                : activeNav === 'media'
+                ? 'Thư viện Ảnh Cloudinary'
+                : 'Cổng Quản Trị'}
             </span>
           </div>
         </div>
@@ -244,6 +249,24 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
                   </div>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${activeNav === 'inventory' ? 'bg-[#D6B27C]/20 text-[#D6B27C]' : 'bg-white/5 text-[#777574]'}`}>5C.3</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveNav('media')}
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer ${
+                    activeNav === 'media'
+                      ? 'bg-gradient-to-r from-[#D6B27C]/20 to-[#D6B27C]/05 text-[#D6B27C] font-bold border border-[#D6B27C]/30 shadow-xs'
+                      : 'text-[#AAA5A0] hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Thư viện Ảnh Cloudinary</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${activeNav === 'media' ? 'bg-[#D6B27C]/20 text-[#D6B27C]' : 'bg-white/5 text-[#777574]'}`}>5C.4</span>
+                </button>
               </nav>
             </div>
 
@@ -252,21 +275,6 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
                 SẮP TRIỂN KHAI
               </div>
               <nav className="space-y-1.5 text-xs font-medium">
-                <button
-                  type="button"
-                  disabled
-                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-[#777574]/50 cursor-not-allowed"
-                  title="Sẽ triển khai trong Phase 5C.4"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Thư viện Ảnh Cloudinary</span>
-                  </div>
-                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded-full text-[#777574]">5C.4</span>
-                </button>
-
                 <button
                   type="button"
                   disabled
@@ -300,6 +308,7 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
             {activeNav === 'orders' && <OwnerOrdersView />}
             {activeNav === 'products' && <OwnerProductsView />}
             {activeNav === 'inventory' && <OwnerInventoryView />}
+            {activeNav === 'media' && <OwnerMediaView />}
           </div>
         </main>
       </div>
@@ -309,7 +318,7 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
         <button
           type="button"
           onClick={() => setActiveNav('orders')}
-          className={`flex flex-col items-center justify-center gap-1 min-w-[64px] py-1 text-[10px] font-semibold transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[10px] font-semibold transition-colors ${
             activeNav === 'orders' ? 'text-[#D6B27C]' : 'text-[#777574] hover:text-[#AAA5A0]'
           }`}
         >
@@ -322,7 +331,7 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
         <button
           type="button"
           onClick={() => setActiveNav('products')}
-          className={`flex flex-col items-center justify-center gap-1 min-w-[64px] py-1 text-[10px] font-semibold transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[10px] font-semibold transition-colors ${
             activeNav === 'products' ? 'text-[#D6B27C]' : 'text-[#777574] hover:text-[#AAA5A0]'
           }`}
         >
@@ -335,7 +344,7 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
         <button
           type="button"
           onClick={() => setActiveNav('inventory')}
-          className={`flex flex-col items-center justify-center gap-1 min-w-[64px] py-1 text-[10px] font-semibold transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[10px] font-semibold transition-colors ${
             activeNav === 'inventory' ? 'text-[#D6B27C]' : 'text-[#777574] hover:text-[#AAA5A0]'
           }`}
         >
@@ -347,8 +356,21 @@ export default function OwnerPortal({ onNavigateStorefront }: OwnerPortalProps) 
 
         <button
           type="button"
+          onClick={() => setActiveNav('media')}
+          className={`flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[10px] font-semibold transition-colors ${
+            activeNav === 'media' ? 'text-[#D6B27C]' : 'text-[#777574] hover:text-[#AAA5A0]'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span>Media</span>
+        </button>
+
+        <button
+          type="button"
           onClick={onNavigateStorefront}
-          className="flex flex-col items-center justify-center gap-1 min-w-[64px] py-1 text-[10px] font-semibold text-[#777574] hover:text-[#D6B27C] transition-colors"
+          className="flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 text-[10px] font-semibold text-[#777574] hover:text-[#D6B27C] transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

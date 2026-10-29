@@ -37,6 +37,18 @@ public class ProductImage {
     @Column(name = "is_primary", nullable = false)
     private boolean isPrimary = false;
 
+    @Column(name = "file_size")
+    private Long fileSize;
+
+    @Column(name = "width")
+    private Integer width;
+
+    @Column(name = "height")
+    private Integer height;
+
+    @Column(name = "format", length = 20)
+    private String format;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -115,6 +127,38 @@ public class ProductImage {
 
     public void setPrimary(boolean primary) {
         isPrimary = primary;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public Integer getWidth() {
+        return width;
+    }
+
+    public void setWidth(Integer width) {
+        this.width = width;
+    }
+
+    public Integer getHeight() {
+        return height;
+    }
+
+    public void setHeight(Integer height) {
+        this.height = height;
+    }
+
+    public String getFormat() {
+        return format;
+    }
+
+    public void setFormat(String format) {
+        this.format = format;
     }
 
     public Instant getCreatedAt() {

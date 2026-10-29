@@ -481,9 +481,14 @@ public class OwnerProductService {
                         img.getId(),
                         img.getVariant() != null ? img.getVariant().getId() : null,
                         img.getImageUrl(),
+                        img.getStorageKey(),
                         img.getAltText(),
                         img.getSortOrder(),
-                        img.isPrimary()))
+                        img.isPrimary(),
+                        img.getFileSize(),
+                        img.getWidth(),
+                        img.getHeight(),
+                        img.getFormat()))
                 .toList();
 
         return new OwnerProductDetailDto(

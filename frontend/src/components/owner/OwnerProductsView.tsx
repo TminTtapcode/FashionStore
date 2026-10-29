@@ -10,6 +10,7 @@ import { getCategoriesApi } from '../../api/catalogApi';
 import type { Category } from '../../types/catalog';
 import OwnerProductDetailModal from './OwnerProductDetailModal';
 import OwnerProductStatusModal from './OwnerProductStatusModal';
+import OwnerMediaView from './OwnerMediaView';
 
 const STATUS_TABS: { label: string; value: ProductStatus | '' }[] = [
   { label: 'TẤT CẢ', value: '' },
@@ -37,6 +38,7 @@ export default function OwnerProductsView() {
   // Modal States
   const [modalProductId, setModalProductId] = useState<number | null | 'CREATE'>(null);
   const [statusModalProduct, setStatusModalProduct] = useState<{ id: number; name: string; status: ProductStatus } | null>(null);
+  const [mediaModalProductId, setMediaModalProductId] = useState<number | null>(null);
 
   // Load Categories on mount
   useEffect(() => {
@@ -337,6 +339,15 @@ export default function OwnerProductsView() {
 
                         <button
                           type="button"
+                          onClick={() => setMediaModalProductId(p.id)}
+                          className="px-2.5 py-1 text-[11px] font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] hover:border-[#D6B27C] text-[#D6B27C] rounded-xs cursor-pointer transition-colors"
+                          title="Quản lý thư viện ảnh Cloudinary"
+                        >
+                          Ảnh
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => setStatusModalProduct({ id: p.id, name: p.name, status: p.status })}
                           className="px-2.5 py-1 text-[11px] font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] rounded-xs cursor-pointer transition-colors"
                           title="Đổi trạng thái hiển thị (DRAFT, ACTIVE, HIDDEN, ARCHIVED)"
@@ -407,6 +418,13 @@ export default function OwnerProductsView() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setMediaModalProductId(p.id)}
+                      className="px-2.5 py-1.5 text-xs font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#D6B27C] rounded-xs cursor-pointer"
+                    >
+                      Ảnh
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setStatusModalProduct({ id: p.id, name: p.name, status: p.status })}
                       className="px-2.5 py-1.5 text-xs font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] rounded-xs cursor-pointer"
                     >
@@ -474,6 +492,26 @@ export default function OwnerProductsView() {
           onClose={() => setStatusModalProduct(null)}
           onConfirm={handleConfirmStatusChange}
         />
+      )}
+
+      {/* Cloudinary Media Library Modal */}
+      {mediaModalProductId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-6xl max-h-[92vh] bg-[#111214] border border-[#333235] rounded-2xl overflow-y-auto p-4 sm:p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => {
+                setMediaModalProductId(null);
+                setRefreshTrigger((prev) => prev + 1);
+              }}
+              className="absolute top-4 right-4 p-2 text-[#AAA5A0] hover:text-white rounded-lg hover:bg-white/5 cursor-pointer z-20 text-sm font-mono"
+              title="Đóng thư viện ảnh"
+            >
+              ✕
+            </button>
+            <OwnerMediaView initialProductId={mediaModalProductId} />
+          </div>
+        </div>
       )}
     </div>
   );

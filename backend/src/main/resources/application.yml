@@ -43,6 +43,11 @@ app:
     cookie-name: ${AUTH_COOKIE_NAME:fs_session}
     cookie-secure: ${AUTH_COOKIE_SECURE:false}
     cookie-same-site: ${AUTH_COOKIE_SAMESITE:Lax}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+    default-folder: ${CLOUDINARY_FOLDER:fashion_store/products}
 
 management:
   endpoints:

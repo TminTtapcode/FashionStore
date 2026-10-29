@@ -11,6 +11,7 @@ import {
 } from '../../api/ownerProductApi';
 import { getCategoriesApi } from '../../api/catalogApi';
 import type { Category } from '../../types/catalog';
+import OwnerMediaView from './OwnerMediaView';
 
 interface OwnerProductDetailModalProps {
   isOpen: boolean;
@@ -83,6 +84,7 @@ export default function OwnerProductDetailModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [showMediaModal, setShowMediaModal] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -336,14 +338,27 @@ export default function OwnerProductDetailModal({
               {isCreateMode ? (name || 'Sản phẩm mới') : loadedProduct?.name}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={handleSafeClose}
-            className="w-8 h-8 flex items-center justify-center text-[#AAA5A0] hover:text-[#F5F0E9] rounded-full hover:bg-[#212226] transition-colors cursor-pointer"
-            aria-label="Đóng"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {!isCreateMode && loadedProduct && (
+              <button
+                type="button"
+                onClick={() => setShowMediaModal(true)}
+                className="px-3 py-1.5 bg-[#212226] hover:bg-[#333235] border border-[#333235] hover:border-[#D6B27C] text-[#D6B27C] text-xs font-mono rounded-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                title="Quản lý thư viện ảnh Cloudinary cho sản phẩm này"
+              >
+                <span>📷</span>
+                <span>Thư viện ảnh ({loadedProduct.images?.length || 0})</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleSafeClose}
+              className="w-8 h-8 flex items-center justify-center text-[#AAA5A0] hover:text-[#F5F0E9] rounded-full hover:bg-[#212226] transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
@@ -959,6 +974,31 @@ export default function OwnerProductDetailModal({
           )}
         </div>
       </div>
+
+      {/* Cloudinary Media Modal */}
+      {showMediaModal && loadedProduct && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-6xl max-h-[92vh] bg-[#111214] border border-[#333235] rounded-2xl overflow-y-auto p-4 sm:p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => {
+                setShowMediaModal(false);
+                // Refresh loaded product to get updated image count & primary image
+                if (productId) {
+                  getOwnerProductDetailApi(productId)
+                    .then(setLoadedProduct)
+                    .catch((err) => console.error('Failed to reload product', err));
+                }
+              }}
+              className="absolute top-4 right-4 p-2 text-[#AAA5A0] hover:text-white rounded-lg hover:bg-white/5 cursor-pointer z-20 text-sm font-mono"
+              title="Đóng thư viện ảnh"
+            >
+              ✕
+            </button>
+            <OwnerMediaView initialProductId={loadedProduct.id} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
