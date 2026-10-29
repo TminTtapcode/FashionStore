@@ -116,25 +116,25 @@ export default function OwnerProductsView() {
     switch (st) {
       case 'ACTIVE':
         return (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-2xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-[#8BC9A8]/10 text-[#8BC9A8] border border-[#8BC9A8]/30">
             ACTIVE
           </span>
         );
       case 'DRAFT':
         return (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-2xs bg-amber-500/10 text-amber-300 border border-amber-500/30">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-[#E4BB78]/10 text-[#E4BB78] border border-[#E4BB78]/30">
             DRAFT
           </span>
         );
       case 'HIDDEN':
         return (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-2xs bg-white/10 text-white/60 border border-white/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-[#212226] text-[#AAA5A0] border border-[#333235]">
             HIDDEN
           </span>
         );
       case 'ARCHIVED':
         return (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-2xs bg-red-500/10 text-red-400 border border-red-500/30">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-[#DF8D84]/10 text-[#DF8D84] border border-[#DF8D84]/30">
             ARCHIVED
           </span>
         );
@@ -144,29 +144,32 @@ export default function OwnerProductsView() {
   return (
     <div className="space-y-6">
       {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#333235]/60">
         <div>
-          <h1 className="text-xl font-serif font-bold text-white tracking-wide">
-            QUẢN LÝ SẢN PHẨM & BIẾN THỂ
+          <span className="text-[10px] font-mono tracking-widest uppercase text-[#D6B27C] block mb-1">
+            CATALOG / PRODUCT STUDIO
+          </span>
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-[#F5F0E9]">
+            Quản lý Sản phẩm & Biến thể
           </h1>
-          <p className="text-xs text-white/50 font-mono mt-0.5">
-            Quản trị catalog, ma trận biến thể, bảng size guide và trạng thái hiển thị
+          <p className="text-xs text-[#AAA5A0] mt-1">
+            Quản trị catalog, ma trận biến thể, bảng size guide và trạng thái hiển thị trên Storefront.
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setModalProductId('CREATE')}
-          className="px-4 py-2 bg-[#C7AD83] text-black hover:bg-[#b5996f] font-mono font-bold text-xs uppercase tracking-wider rounded-2xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+          className="px-4 py-2.5 bg-[#D6B27C] text-[#0E0F11] hover:bg-[#E5C592] font-mono font-bold text-xs uppercase tracking-wider rounded-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-all shrink-0"
         >
           <span>+ THÊM SẢN PHẨM MỚI</span>
         </button>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="bg-[#181818] border border-white/10 rounded-xs p-4 space-y-4">
+      {/* Filter Tabs & Search Bar Container */}
+      <div className="bg-[#191A1D] border border-[#333235] rounded-xs p-4 space-y-4 shadow-sm">
         {/* Status Tabs */}
-        <div className="flex flex-wrap gap-1 border-b border-white/10 pb-3">
+        <div className="flex flex-wrap gap-1 border-b border-[#333235]/60 pb-3">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -175,10 +178,10 @@ export default function OwnerProductsView() {
                 setSelectedStatus(tab.value);
                 setPage(0);
               }}
-              className={`px-3 py-1.5 text-xs font-mono rounded-2xs transition-all cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-mono rounded-xs transition-all cursor-pointer ${
                 selectedStatus === tab.value
-                  ? 'bg-[#C7AD83] text-black font-bold shadow-xs'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#D6B27C] text-[#0E0F11] font-bold shadow-xs'
+                  : 'text-[#AAA5A0] hover:text-[#F5F0E9] hover:bg-[#212226]'
               }`}
             >
               {tab.label}
@@ -195,7 +198,7 @@ export default function OwnerProductsView() {
               setSelectedCategoryId(e.target.value ? Number(e.target.value) : undefined);
               setPage(0);
             }}
-            className="bg-[#141414] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+            className="bg-[#212226] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] focus:outline-hidden focus:border-[#D6B27C]"
           >
             <option value="">Tất cả danh mục</option>
             {categories.map((cat) => (
@@ -217,11 +220,11 @@ export default function OwnerProductsView() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Tìm theo tên sản phẩm, thương hiệu hoặc slug..."
-              className="flex-1 bg-[#141414] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+              className="flex-1 bg-[#212226] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
             />
             <button
               type="submit"
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-mono text-xs rounded-2xs cursor-pointer"
+              className="px-4 py-2 bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] font-mono text-xs rounded-xs cursor-pointer transition-colors"
             >
               Tìm
             </button>
@@ -231,19 +234,19 @@ export default function OwnerProductsView() {
 
       {/* Error Banner */}
       {error && (
-        <div className="p-3 bg-red-950/50 border border-red-500/40 text-red-200 text-xs rounded-2xs">
+        <div className="p-3 bg-[#DF8D84]/10 border border-[#DF8D84]/30 text-[#DF8D84] text-xs rounded-xs">
           {error}
         </div>
       )}
 
-      {/* Products Table */}
-      <div className="bg-[#181818] border border-white/10 rounded-xs overflow-hidden">
+      {/* Products Container */}
+      <div className="bg-[#191A1D] border border-[#333235] rounded-xs overflow-hidden shadow-sm">
         {isLoading ? (
-          <div className="py-20 text-center text-xs text-white/50 animate-pulse font-mono">
+          <div className="py-20 text-center text-xs text-[#AAA5A0] animate-pulse font-mono">
             Đang tải dữ liệu sản phẩm...
           </div>
         ) : products.length === 0 ? (
-          <div className="py-16 text-center text-xs text-white/40 space-y-2">
+          <div className="py-16 text-center text-xs text-[#AAA5A0] space-y-2">
             <p>Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</p>
             <button
               type="button"
@@ -253,120 +256,188 @@ export default function OwnerProductsView() {
                 setSearchQuery('');
                 setSearchInput('');
               }}
-              className="text-[#C7AD83] underline font-mono text-xs cursor-pointer"
+              className="text-[#D6B27C] underline font-mono text-xs cursor-pointer"
             >
               Xóa bộ lọc
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#141414] font-mono text-[10px] uppercase text-white/50 border-b border-white/10">
-                <tr>
-                  <th className="p-3">Sản phẩm</th>
-                  <th className="p-3">Danh mục</th>
-                  <th className="p-3">Số biến thể</th>
-                  <th className="p-3">Khoảng giá</th>
-                  <th className="p-3">Tổng tồn kho</th>
-                  <th className="p-3">Trạng thái</th>
-                  <th className="p-3">Cập nhật</th>
-                  <th className="p-3 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {products.map((p) => (
-                  <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        {p.primaryImageUrl ? (
-                          <img
-                            src={p.primaryImageUrl}
-                            alt={p.name}
-                            className="w-10 h-12 object-cover rounded-2xs border border-white/10 bg-white/5"
-                          />
-                        ) : (
-                          <div className="w-10 h-12 rounded-2xs border border-white/10 bg-white/5 flex items-center justify-center text-[10px] text-white/30">
-                            No img
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-semibold text-white line-clamp-1">{p.name}</div>
-                          <div className="font-mono text-[10px] text-white/40">{p.slug}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="p-3 text-white/80">{p.categoryName}</td>
-
-                    <td className="p-3 font-mono font-bold text-white/90">
-                      {p.variantCount} biến thể
-                    </td>
-
-                    <td className="p-3 font-mono text-white/90">
-                      {p.minPrice === p.maxPrice
-                        ? `${p.minPrice.toLocaleString('vi-VN')}₫`
-                        : `${p.minPrice.toLocaleString('vi-VN')}₫ – ${p.maxPrice.toLocaleString('vi-VN')}₫`}
-                    </td>
-
-                    <td className="p-3 font-mono">
-                      <span className={p.totalStock === 0 ? 'text-red-400 font-bold' : 'text-white/80'}>
-                        {p.totalStock} cái
-                      </span>
-                    </td>
-
-                    <td className="p-3">{renderStatusBadge(p.status)}</td>
-
-                    <td className="p-3 font-mono text-[10px] text-white/40">
-                      {new Date(p.updatedAt).toLocaleDateString('vi-VN')}
-                    </td>
-
-                    <td className="p-3 text-right space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setModalProductId(p.id)}
-                        className="px-2.5 py-1 text-[11px] font-mono bg-white/5 hover:bg-white/15 border border-white/15 text-[#C7AD83] rounded-2xs cursor-pointer"
-                        title="Xem chi tiết và chỉnh sửa biến thể"
-                      >
-                        Sửa & Biến thể
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setStatusModalProduct({ id: p.id, name: p.name, status: p.status })}
-                        className="px-2.5 py-1 text-[11px] font-mono bg-white/5 hover:bg-white/15 border border-white/15 text-white/80 rounded-2xs cursor-pointer"
-                        title="Đổi trạng thái hiển thị (DRAFT, ACTIVE, HIDDEN, ARCHIVED)"
-                      >
-                        Đổi trạng thái
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(p)}
-                        className="px-2 py-1 text-[11px] font-mono hover:bg-red-950/30 border border-transparent hover:border-red-500/30 text-red-400 rounded-2xs cursor-pointer"
-                        title="Xóa sản phẩm"
-                      >
-                        ✕
-                      </button>
-                    </td>
+          <>
+            {/* Desktop Table View (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs font-sans">
+                <thead className="bg-[#212226] font-mono text-[10px] uppercase text-[#D6B27C] border-b border-[#333235] tracking-wider">
+                  <tr>
+                    <th className="p-3.5">Sản phẩm</th>
+                    <th className="p-3.5">Danh mục</th>
+                    <th className="p-3.5">Số biến thể</th>
+                    <th className="p-3.5">Khoảng giá</th>
+                    <th className="p-3.5">Tổng tồn kho</th>
+                    <th className="p-3.5">Trạng thái</th>
+                    <th className="p-3.5">Cập nhật</th>
+                    <th className="p-3.5 text-right">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#333235] text-[#F5F0E9]/90">
+                  {products.map((p) => (
+                    <tr key={p.id} className="hover:bg-[#212226]/50 transition-colors">
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-3">
+                          {p.primaryImageUrl ? (
+                            <img
+                              src={p.primaryImageUrl}
+                              alt={p.name}
+                              className="w-10 h-12 object-cover rounded-xs border border-[#333235] bg-[#212226]"
+                            />
+                          ) : (
+                            <div className="w-10 h-12 rounded-xs border border-[#333235] bg-[#212226] flex items-center justify-center text-[10px] text-[#AAA5A0]">
+                              No img
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-[#F5F0E9] line-clamp-1">{p.name}</div>
+                            <div className="font-mono text-[10px] text-[#AAA5A0]">{p.slug}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-3.5 text-[#AAA5A0]">{p.categoryName}</td>
+
+                      <td className="p-3.5 font-mono font-bold text-[#F5F0E9]">
+                        {p.variantCount} biến thể
+                      </td>
+
+                      <td className="p-3.5 font-mono text-[#D6B27C]">
+                        {p.minPrice === p.maxPrice
+                          ? `${p.minPrice.toLocaleString('vi-VN')}₫`
+                          : `${p.minPrice.toLocaleString('vi-VN')}₫ – ${p.maxPrice.toLocaleString('vi-VN')}₫`}
+                      </td>
+
+                      <td className="p-3.5 font-mono">
+                        <span className={p.totalStock === 0 ? 'text-[#DF8D84] font-bold' : 'text-[#F5F0E9]'}>
+                          {p.totalStock} cái
+                        </span>
+                      </td>
+
+                      <td className="p-3.5">{renderStatusBadge(p.status)}</td>
+
+                      <td className="p-3.5 font-mono text-[10px] text-[#AAA5A0]">
+                        {new Date(p.updatedAt).toLocaleDateString('vi-VN')}
+                      </td>
+
+                      <td className="p-3.5 text-right space-x-2 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setModalProductId(p.id)}
+                          className="px-2.5 py-1 text-[11px] font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#D6B27C] rounded-xs cursor-pointer transition-colors"
+                          title="Xem chi tiết và chỉnh sửa biến thể"
+                        >
+                          Sửa & Biến thể
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setStatusModalProduct({ id: p.id, name: p.name, status: p.status })}
+                          className="px-2.5 py-1 text-[11px] font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] rounded-xs cursor-pointer transition-colors"
+                          title="Đổi trạng thái hiển thị (DRAFT, ACTIVE, HIDDEN, ARCHIVED)"
+                        >
+                          Đổi trạng thái
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(p)}
+                          className="px-2 py-1 text-[11px] font-mono hover:bg-[#DF8D84]/20 border border-transparent hover:border-[#DF8D84]/30 text-[#DF8D84] rounded-xs cursor-pointer transition-colors"
+                          title="Xóa sản phẩm"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List (< 768px) */}
+            <div className="block md:hidden divide-y divide-[#333235]">
+              {products.map((p) => (
+                <div key={p.id} className="p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    {p.primaryImageUrl ? (
+                      <img
+                        src={p.primaryImageUrl}
+                        alt={p.name}
+                        className="w-14 h-16 object-cover rounded-xs border border-[#333235] bg-[#212226] shrink-0"
+                      />
+                    ) : (
+                      <div className="w-14 h-16 rounded-xs border border-[#333235] bg-[#212226] flex items-center justify-center text-[10px] text-[#AAA5A0] shrink-0">
+                        No img
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-mono text-[#AAA5A0]">{p.categoryName}</span>
+                        {renderStatusBadge(p.status)}
+                      </div>
+                      <h4 className="font-semibold text-sm text-[#F5F0E9] line-clamp-1 mt-0.5">{p.name}</h4>
+                      <p className="font-mono text-[10px] text-[#AAA5A0]">{p.slug}</p>
+                      <div className="mt-1 font-mono text-xs text-[#D6B27C]">
+                        {p.minPrice === p.maxPrice
+                          ? `${p.minPrice.toLocaleString('vi-VN')}₫`
+                          : `${p.minPrice.toLocaleString('vi-VN')}₫ – ${p.maxPrice.toLocaleString('vi-VN')}₫`}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-mono pt-1 text-[#AAA5A0]">
+                    <span>{p.variantCount} biến thể</span>
+                    <span className={p.totalStock === 0 ? 'text-[#DF8D84] font-bold' : 'text-[#F5F0E9]'}>
+                      Tồn: {p.totalStock} chiếc
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#333235]/60">
+                    <button
+                      type="button"
+                      onClick={() => setModalProductId(p.id)}
+                      className="px-2.5 py-1.5 text-xs font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#D6B27C] rounded-xs cursor-pointer"
+                    >
+                      Sửa & Biến thể
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusModalProduct({ id: p.id, name: p.name, status: p.status })}
+                      className="px-2.5 py-1.5 text-xs font-mono bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] rounded-xs cursor-pointer"
+                    >
+                      Đổi trạng thái
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(p)}
+                      className="px-2.5 py-1.5 text-xs font-mono hover:bg-[#DF8D84]/20 border border-transparent hover:border-[#DF8D84]/30 text-[#DF8D84] rounded-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 bg-[#141414] border-t border-white/10 text-xs font-mono text-white/60">
+          <div className="flex items-center justify-between px-4 py-3 bg-[#212226] border-t border-[#333235] text-xs font-mono text-[#AAA5A0]">
             <div>
               Trang {page + 1} / {totalPages} ({totalElements} sản phẩm)
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="px-2.5 py-1 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-2xs border border-white/10 cursor-pointer"
+                className="px-2.5 py-1 bg-[#191A1D] hover:bg-[#212226] text-[#F5F0E9] disabled:opacity-30 rounded-xs border border-[#333235] cursor-pointer"
               >
                 Trước
               </button>
@@ -374,7 +445,7 @@ export default function OwnerProductsView() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
-                className="px-2.5 py-1 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-2xs border border-white/10 cursor-pointer"
+                className="px-2.5 py-1 bg-[#191A1D] hover:bg-[#212226] text-[#F5F0E9] disabled:opacity-30 rounded-xs border border-[#333235] cursor-pointer"
               >
                 Sau
               </button>
@@ -407,4 +478,3 @@ export default function OwnerProductsView() {
     </div>
   );
 }
-

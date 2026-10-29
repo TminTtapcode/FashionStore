@@ -45,10 +45,19 @@ export interface InventoryReconciliationDto {
   productName: string;
   currentStock: number;
   openingBalance: number;
+  postOpeningDelta: number;
   totalDelta: number;
   calculatedStock: number;
   discrepancy: number;
   isBalanced: boolean;
+}
+
+export interface InventoryGlobalStatsDto {
+  totalSku: number;
+  healthyStockSku: number;
+  lowStockSku: number;
+  outOfStockSku: number;
+  totalStockUnits: number;
 }
 
 export interface StockReceiptRequest {
@@ -101,6 +110,29 @@ export async function getOwnerInventoryOverviewApi(
   const body: ApiResponse<PageResponse<InventorySummaryDto>> = await response.json();
   if (!response.ok || body.error) {
     throw new Error(body.error?.message || 'Không thể tải danh sách tồn kho quản trị');
+  }
+
+  return body.data;
+}
+
+/**
+ * Fetch global store-wide inventory metrics.
+ */
+export async function getGlobalInventoryStatsApi(
+  signal?: AbortSignal
+): Promise<InventoryGlobalStatsDto> {
+  const response = await fetch(`${BASE_URL}/stats`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    signal,
+  });
+
+  const body: ApiResponse<InventoryGlobalStatsDto> = await response.json();
+  if (!response.ok || body.error) {
+    throw new Error(body.error?.message || 'Không thể tải thống kê tổng quan kho');
   }
 
   return body.data;
@@ -209,3 +241,4 @@ export async function recordManualAdjustmentApi(
 
   return body.data;
 }
+

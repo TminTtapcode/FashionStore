@@ -26,6 +26,7 @@ public interface InventoryMovementRepository extends JpaRepository<InventoryMove
     @Query("SELECT COALESCE(SUM(m.quantityDelta), 0) FROM InventoryMovement m WHERE m.variant.id = :variantId")
     Integer sumDeltaByVariantId(@Param("variantId") Long variantId);
 
-    @Query("SELECT m FROM InventoryMovement m WHERE m.variant.id = :variantId AND m.movementType = com.fashionstore.inventory.domain.InventoryMovementType.OPENING_BALANCE")
+    @Query("SELECT m FROM InventoryMovement m WHERE m.variant.id = :variantId AND (m.movementType = com.fashionstore.inventory.domain.InventoryMovementType.OPENING_BALANCE OR m.movementType = com.fashionstore.inventory.domain.InventoryMovementType.INITIAL_STOCK)")
     Optional<InventoryMovement> findOpeningBalanceByVariantId(@Param("variantId") Long variantId);
 }
+

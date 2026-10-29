@@ -12,6 +12,23 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* IVRE Atelier Dark Editorial Luxury Design System */
+  --color-atelier-bg: #0E0F11;
+  --color-atelier-rail: #111214;
+  --color-atelier-surface: #191A1D;
+  --color-atelier-surface2: #212226;
+  --color-atelier-surface3: #29292C;
+  --color-atelier-border: #333235;
+  --color-atelier-gold: #D6B27C;
+  --color-atelier-gold-hover: #E4C18E;
+  --color-atelier-gold-dark: #AF8455;
+  --color-atelier-text: #F5F0E9;
+  --color-atelier-muted: #AAA5A0;
+  --color-atelier-faint: #777574;
+  --color-atelier-green: #8BC9A8;
+  --color-atelier-amber: #E4BB78;
+  --color-atelier-red: #DF8D84;
 }
 
 @layer base {
@@ -30,6 +47,24 @@
     --border: #E8E8E3;
     --input: #E8E8E3;
     --ring: #151518;
+
+    /* IVRE Atelier Dark Luxe Tokens */
+    --atelier-bg: #0E0F11;
+    --atelier-rail: #111214;
+    --atelier-surface: #191A1D;
+    --atelier-surface2: #212226;
+    --atelier-surface3: #29292C;
+    --atelier-border: #333235;
+    --atelier-gold: #D6B27C;
+    --atelier-gold-hover: #E4C18E;
+    --atelier-gold-dark: #AF8455;
+    --atelier-gold-shade: rgba(214, 178, 124, 0.105);
+    --atelier-text: #F5F0E9;
+    --atelier-muted: #AAA5A0;
+    --atelier-faint: #777574;
+    --atelier-green: #8BC9A8;
+    --atelier-amber: #E4BB78;
+    --atelier-red: #DF8D84;
 
     /* Hybrid Luxury & Contemporary Streetwear Palette */
     --color-pearl: #F7F7F4;

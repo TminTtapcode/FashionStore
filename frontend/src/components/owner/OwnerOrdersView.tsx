@@ -126,59 +126,88 @@ export default function OwnerOrdersView() {
       });
     }
 
-    // Trigger refresh
     setRefreshTrigger((prev) => prev + 1);
   };
 
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {
       case 'PENDING':
-        return { label: 'Chờ xác nhận', cls: 'border-amber-500/30 bg-amber-500/10 text-amber-300' };
+        return { label: 'Chờ xác nhận', cls: 'border-[#E4BB78]/30 bg-[#E4BB78]/10 text-[#E4BB78]' };
       case 'CONFIRMED':
-        return { label: 'Đã xác nhận', cls: 'border-sky-500/30 bg-sky-500/10 text-sky-300' };
+        return { label: 'Đã xác nhận', cls: 'border-[#8BC9A8]/30 bg-[#8BC9A8]/10 text-[#8BC9A8]' };
       case 'PROCESSING':
-        return { label: 'Đang xử lý', cls: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' };
+        return { label: 'Đang xử lý', cls: 'border-[#D6B27C]/30 bg-[#D6B27C]/10 text-[#D6B27C]' };
       case 'SHIPPING':
-        return { label: 'Đang giao', cls: 'border-blue-500/30 bg-blue-500/10 text-blue-300' };
+        return { label: 'Đang giao', cls: 'border-sky-400/30 bg-sky-500/10 text-sky-300' };
       case 'COMPLETED':
-        return { label: 'Hoàn tất', cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' };
+        return { label: 'Hoàn tất', cls: 'border-[#8BC9A8]/30 bg-[#8BC9A8]/10 text-[#8BC9A8]' };
       case 'DELIVERY_FAILED':
-        return { label: 'Giao thất bại', cls: 'border-orange-500/30 bg-orange-500/10 text-orange-300' };
+        return { label: 'Giao thất bại', cls: 'border-orange-400/30 bg-orange-500/10 text-orange-300' };
       case 'RETURNED':
-        return { label: 'Đã hoàn về kho', cls: 'border-purple-500/30 bg-purple-500/10 text-purple-300' };
+        return { label: 'Đã hoàn về kho', cls: 'border-purple-400/30 bg-purple-500/10 text-purple-300' };
       case 'CANCELLED':
-        return { label: 'Đã hủy', cls: 'border-rose-500/30 bg-rose-500/10 text-rose-300' };
+        return { label: 'Đã hủy', cls: 'border-[#DF8D84]/30 bg-[#DF8D84]/10 text-[#DF8D84]' };
       default:
-        return { label: status, cls: 'border-white/20 bg-white/5 text-white' };
+        return { label: status, cls: 'border-[#333235] bg-[#212226] text-[#AAA5A0]' };
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Header Studio Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#333235]/60">
+        <div>
+          <span className="text-[10px] font-mono tracking-widest uppercase text-[#D6B27C] block mb-1">
+            OPERATIONS / ORDER FULFILLMENT
+          </span>
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-[#F5F0E9]">
+            Quản lý Đơn hàng
+          </h1>
+          <p className="text-xs text-[#AAA5A0] mt-1 max-w-xl">
+            Theo dõi hành trình hoàn tất đơn hàng, xác nhận xử lý, bàn giao shipper và kiểm soát hàng hoàn.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setRefreshTrigger((prev) => prev + 1)}
+            className="px-3.5 py-2 bg-[#191A1D] hover:bg-[#212226] border border-[#333235] text-[#F5F0E9] font-mono text-xs rounded-xs flex items-center gap-2 transition-colors cursor-pointer"
+            title="Làm mới dữ liệu"
+          >
+            <span>🔄</span>
+            <span className="hidden sm:inline">Làm mới</span>
+          </button>
+        </div>
+      </div>
+
       {/* Feedback Toast */}
       {feedbackMessage && (
         <div
-          className={`p-3.5 rounded-2xs border text-xs font-mono flex items-center justify-between transition-all ${
+          className={`p-3.5 rounded-xs border text-xs font-mono flex items-center justify-between transition-all ${
             feedbackMessage.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-[#8BC9A8]/10 border-[#8BC9A8]/30 text-[#8BC9A8]'
+              : 'bg-[#DF8D84]/10 border-[#DF8D84]/30 text-[#DF8D84]'
           }`}
         >
-          <span>{feedbackMessage.text}</span>
+          <div className="flex items-center gap-2">
+            <span>{feedbackMessage.type === 'success' ? '✓' : '⚠'}</span>
+            <span>{feedbackMessage.text}</span>
+          </div>
           <button
             type="button"
             onClick={() => setFeedbackMessage(null)}
-            className="text-white/40 hover:text-white cursor-pointer ml-3"
+            className="text-[#AAA5A0] hover:text-[#F5F0E9] cursor-pointer ml-3"
           >
             ✕
           </button>
         </div>
       )}
 
-      {/* Top Controls: Status Tabs & Search Bar */}
-      <div className="bg-[#111218] border border-white/10 rounded-xs p-4 space-y-4">
+      {/* Controls Container: Status Tabs & Search Bar */}
+      <div className="bg-[#191A1D] border border-[#333235] rounded-xs p-4 space-y-4 shadow-sm">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-white/10 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[#333235]/60 scrollbar-none">
           {STATUS_TABS.map((tab) => {
             const isActive = selectedStatus === tab.value;
             return (
@@ -186,10 +215,10 @@ export default function OwnerOrdersView() {
                 key={tab.value}
                 type="button"
                 onClick={() => handleTabChange(tab.value)}
-                className={`px-3 py-1.5 rounded-2xs text-[11px] font-mono tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xs text-[11px] font-mono tracking-wider whitespace-nowrap transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-[#C7AD83] text-[#0A0B0E] font-bold shadow-xs'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#D6B27C] text-[#0E0F11] font-bold shadow-xs'
+                    : 'text-[#AAA5A0] hover:text-[#F5F0E9] hover:bg-[#212226]'
                 }`}
               >
                 {tab.label}
@@ -198,7 +227,7 @@ export default function OwnerOrdersView() {
           })}
         </div>
 
-        {/* Search Bar & Stats */}
+        {/* Search Bar & Order Counter */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 max-w-md w-full">
             <div className="relative flex-1">
@@ -207,13 +236,13 @@ export default function OwnerOrdersView() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm mã đơn (#ORD-...), số ĐT, tên khách..."
-                className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-2xs text-xs text-white placeholder-white/30 focus:border-[#C7AD83] focus:outline-none transition-colors"
+                className="w-full px-3 py-2 bg-[#212226] border border-[#333235] rounded-xs text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:border-[#D6B27C] focus:outline-none transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={handleClearSearch}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#AAA5A0] hover:text-[#F5F0E9] text-xs cursor-pointer"
                 >
                   ✕
                 </button>
@@ -221,45 +250,37 @@ export default function OwnerOrdersView() {
             </div>
             <button
               type="submit"
-              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-mono text-xs rounded-2xs transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] font-mono text-xs rounded-xs transition-colors cursor-pointer"
             >
               Tìm
             </button>
           </form>
 
-          <div className="flex items-center gap-3 text-xs font-mono text-white/50">
+          <div className="flex items-center gap-3 text-xs font-mono text-[#AAA5A0]">
             <span>
-              Tổng số đơn: <strong className="text-white">{ordersPage?.totalElements ?? 0}</strong>
+              Tổng số đơn: <strong className="text-[#F5F0E9] font-bold">{ordersPage?.totalElements ?? 0}</strong>
             </span>
-            <button
-              type="button"
-              onClick={() => setRefreshTrigger((prev) => prev + 1)}
-              className="p-1.5 text-white/50 hover:text-white border border-white/10 hover:border-white/30 rounded-2xs transition-colors cursor-pointer"
-              title="Làm mới dữ liệu"
-            >
-              🔄
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Orders Table */}
-      <div className="bg-[#111218] border border-white/10 rounded-xs overflow-hidden">
+      {/* Main Container: Orders List */}
+      <div className="bg-[#191A1D] border border-[#333235] rounded-xs overflow-hidden shadow-sm">
         {isLoading && (
-          <div className="py-20 text-center text-white/50 font-mono text-xs">
-            <div className="w-6 h-6 border-2 border-[#C7AD83] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <div className="py-20 text-center text-[#AAA5A0] font-mono text-xs">
+            <div className="w-6 h-6 border-2 border-[#D6B27C] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
             <span>Đang tải danh sách đơn hàng...</span>
           </div>
         )}
 
         {error && (
-          <div className="p-8 text-center text-rose-300 font-sans text-xs">
+          <div className="p-8 text-center text-[#DF8D84] font-sans text-xs">
             <p className="font-bold mb-2">Đã xảy ra lỗi khi tải đơn hàng</p>
-            <p className="text-white/60 mb-4">{error}</p>
+            <p className="text-[#AAA5A0] mb-4">{error}</p>
             <button
               type="button"
               onClick={() => setRefreshTrigger((prev) => prev + 1)}
-              className="px-4 py-1.5 bg-rose-500/20 border border-rose-500/40 text-rose-200 rounded-2xs font-mono cursor-pointer"
+              className="px-4 py-1.5 bg-[#DF8D84]/20 border border-[#DF8D84]/40 text-[#DF8D84] rounded-xs font-mono cursor-pointer"
             >
               Thử lại
             </button>
@@ -267,8 +288,8 @@ export default function OwnerOrdersView() {
         )}
 
         {!isLoading && !error && ordersPage?.items.length === 0 && (
-          <div className="py-20 text-center text-white/40 font-mono text-xs space-y-2">
-            <p className="text-base text-white/60">Không tìm thấy đơn hàng nào</p>
+          <div className="py-20 text-center text-[#AAA5A0] font-mono text-xs space-y-2">
+            <p className="text-base text-[#F5F0E9]">Không tìm thấy đơn hàng nào</p>
             <p>
               {appliedSearch
                 ? `Không có kết quả khớp với từ khóa "${appliedSearch}"`
@@ -279,10 +300,11 @@ export default function OwnerOrdersView() {
           </div>
         )}
 
+        {/* Desktop Table View (>= 768px) */}
         {!isLoading && !error && ordersPage && ordersPage.items.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs font-sans">
-              <thead className="bg-white/5 border-b border-white/10 font-mono text-[11px] text-[#C7AD83]">
+              <thead className="bg-[#212226] border-b border-[#333235] font-mono text-[11px] text-[#D6B27C] tracking-wider uppercase">
                 <tr>
                   <th className="p-3.5">MÃ ĐƠN & NGÀY TẠO</th>
                   <th className="p-3.5">NGƯỜI NHẬN</th>
@@ -292,29 +314,29 @@ export default function OwnerOrdersView() {
                   <th className="p-3.5 text-right">THAO TÁC</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10 text-white/80">
+              <tbody className="divide-y divide-[#333235] text-[#F5F0E9]/90">
                 {ordersPage.items.map((order) => {
                   const statusBadge = getStatusBadge(order.status);
                   const firstItem = order.items[0];
                   const remainingCount = order.items.length - 1;
 
                   return (
-                    <tr key={order.orderId} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={order.orderId} className="hover:bg-[#212226]/50 transition-colors">
                       {/* Order number & Date */}
                       <td className="p-3.5">
-                        <div className="font-mono font-bold text-white tracking-wide">
+                        <div className="font-mono font-bold text-[#F5F0E9] tracking-wide">
                           #{order.orderNumber}
                         </div>
-                        <div className="text-[10px] font-mono text-white/40 mt-0.5">
+                        <div className="text-[10px] font-mono text-[#AAA5A0] mt-0.5">
                           {formatDate(order.createdAt)}
                         </div>
                       </td>
 
                       {/* Recipient */}
                       <td className="p-3.5">
-                        <div className="font-medium text-white">{order.recipient.name}</div>
-                        <div className="text-[10px] font-mono text-white/50">{order.recipient.phone}</div>
-                        <div className="text-[10px] text-white/40 truncate max-w-xs">
+                        <div className="font-medium text-[#F5F0E9]">{order.recipient.name}</div>
+                        <div className="text-[10px] font-mono text-[#AAA5A0]">{order.recipient.phone}</div>
+                        <div className="text-[10px] text-[#AAA5A0]/80 truncate max-w-xs">
                           {order.recipient.city || order.recipient.address}
                         </div>
                       </td>
@@ -323,14 +345,14 @@ export default function OwnerOrdersView() {
                       <td className="p-3.5">
                         {firstItem && (
                           <div>
-                            <span className="font-medium text-white/90">{firstItem.productName}</span>
-                            <span className="text-[11px] font-mono text-white/50 ml-1.5">
+                            <span className="font-medium text-[#F5F0E9]">{firstItem.productName}</span>
+                            <span className="text-[11px] font-mono text-[#AAA5A0] ml-1.5">
                               ({firstItem.colorName} / {firstItem.size} × {firstItem.quantity})
                             </span>
                           </div>
                         )}
                         {remainingCount > 0 && (
-                          <span className="text-[10px] font-mono text-[#C7AD83]">
+                          <span className="text-[10px] font-mono text-[#D6B27C] block mt-0.5">
                             +{remainingCount} mặt hàng khác
                           </span>
                         )}
@@ -338,16 +360,16 @@ export default function OwnerOrdersView() {
 
                       {/* Total Amount & Payment */}
                       <td className="p-3.5 text-right">
-                        <div className="font-mono font-bold text-white text-sm">
+                        <div className="font-mono font-bold text-[#F5F0E9] text-sm">
                           {formatVND(order.financials.finalAmount)}
                         </div>
-                        <div className="text-[10px] font-mono">
+                        <div className="text-[10px] font-mono mt-0.5">
                           <span
                             className={
-                              order.paymentStatus === 'PAID' ? 'text-emerald-400' : 'text-amber-400/80'
+                              order.paymentStatus === 'PAID' ? 'text-[#8BC9A8]' : 'text-[#E4BB78]'
                             }
                           >
-                            {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thu tiền'}
+                            {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thu tiền (COD)'}
                           </span>
                         </div>
                       </td>
@@ -355,7 +377,7 @@ export default function OwnerOrdersView() {
                       {/* Status */}
                       <td className="p-3.5 text-center">
                         <span
-                          className={`inline-block px-2.5 py-1 rounded-2xs text-[10px] font-mono font-bold border tracking-wider ${statusBadge.cls}`}
+                          className={`inline-block px-2.5 py-1 rounded-xs text-[10px] font-mono font-bold border tracking-wider ${statusBadge.cls}`}
                         >
                           {statusBadge.label}
                         </span>
@@ -366,7 +388,7 @@ export default function OwnerOrdersView() {
                         <button
                           type="button"
                           onClick={() => setViewingOrderNumber(order.orderNumber)}
-                          className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-mono text-[11px] rounded-2xs transition-colors cursor-pointer"
+                          className="px-2.5 py-1.5 bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] font-mono text-[11px] rounded-xs transition-colors cursor-pointer"
                         >
                           Chi tiết
                         </button>
@@ -376,7 +398,7 @@ export default function OwnerOrdersView() {
                           <button
                             type="button"
                             onClick={() => handleOpenAction(order.orderNumber, 'CONFIRMED')}
-                            className="px-2.5 py-1.5 bg-[#C7AD83] hover:bg-[#D9C09A] text-[#0A0B0E] font-mono text-[11px] font-bold rounded-2xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 bg-[#D6B27C] hover:bg-[#E5C592] text-[#0E0F11] font-mono text-[11px] font-bold rounded-xs transition-colors cursor-pointer"
                           >
                             Xác nhận
                           </button>
@@ -386,7 +408,7 @@ export default function OwnerOrdersView() {
                           <button
                             type="button"
                             onClick={() => handleOpenAction(order.orderNumber, 'PROCESSING')}
-                            className="px-2.5 py-1.5 bg-[#C7AD83] hover:bg-[#D9C09A] text-[#0A0B0E] font-mono text-[11px] font-bold rounded-2xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 bg-[#D6B27C] hover:bg-[#E5C592] text-[#0E0F11] font-mono text-[11px] font-bold rounded-xs transition-colors cursor-pointer"
                           >
                             Xử lý
                           </button>
@@ -396,7 +418,7 @@ export default function OwnerOrdersView() {
                           <button
                             type="button"
                             onClick={() => handleOpenAction(order.orderNumber, 'SHIPPING')}
-                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-mono text-[11px] font-bold rounded-2xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-[#0E0F11] font-mono text-[11px] font-bold rounded-xs transition-colors cursor-pointer"
                           >
                             Giao shipper
                           </button>
@@ -406,7 +428,7 @@ export default function OwnerOrdersView() {
                           <button
                             type="button"
                             onClick={() => handleOpenAction(order.orderNumber, 'COMPLETED')}
-                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[11px] font-bold rounded-2xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 bg-[#8BC9A8] hover:bg-[#9fd5ba] text-[#0E0F11] font-mono text-[11px] font-bold rounded-xs transition-colors cursor-pointer"
                           >
                             Hoàn tất
                           </button>
@@ -416,7 +438,7 @@ export default function OwnerOrdersView() {
                           <button
                             type="button"
                             onClick={() => handleOpenAction(order.orderNumber, undefined, true)}
-                            className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-mono text-[11px] font-bold rounded-2xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 bg-[#E4BB78] hover:bg-[#ebd097] text-[#0E0F11] font-mono text-[11px] font-bold rounded-xs transition-colors cursor-pointer"
                           >
                             Nhận hàng hoàn
                           </button>
@@ -430,9 +452,144 @@ export default function OwnerOrdersView() {
           </div>
         )}
 
+        {/* Mobile Card List (< 768px) */}
+        {!isLoading && !error && ordersPage && ordersPage.items.length > 0 && (
+          <div className="block md:hidden divide-y divide-[#333235]">
+            {ordersPage.items.map((order) => {
+              const statusBadge = getStatusBadge(order.status);
+              const firstItem = order.items[0];
+              const remainingCount = order.items.length - 1;
+
+              return (
+                <div key={order.orderId} className="p-4 space-y-3">
+                  {/* Top: Order # & Status Badge */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-mono font-bold text-sm text-[#F5F0E9] tracking-wide">
+                        #{order.orderNumber}
+                      </span>
+                      <span className="text-[10px] font-mono text-[#AAA5A0] ml-2">
+                        {formatDate(order.createdAt)}
+                      </span>
+                    </div>
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-xs text-[10px] font-mono font-bold border tracking-wider ${statusBadge.cls}`}
+                    >
+                      {statusBadge.label}
+                    </span>
+                  </div>
+
+                  {/* Recipient Snapshot */}
+                  <div className="bg-[#212226] border border-[#333235] rounded-xs p-2.5 text-xs">
+                    <div className="flex items-center justify-between font-medium text-[#F5F0E9]">
+                      <span>{order.recipient.name}</span>
+                      <span className="font-mono text-[11px] text-[#AAA5A0]">{order.recipient.phone}</span>
+                    </div>
+                    <p className="text-[11px] text-[#AAA5A0] mt-1 line-clamp-1">
+                      {order.recipient.address}
+                      {order.recipient.city ? `, ${order.recipient.city}` : ''}
+                    </p>
+                  </div>
+
+                  {/* Products snippet */}
+                  <div className="text-xs text-[#AAA5A0]">
+                    {firstItem && (
+                      <p className="text-[#F5F0E9]">
+                        <strong>{firstItem.productName}</strong>
+                        <span className="text-[#AAA5A0] font-mono text-[11px] ml-1">
+                          ({firstItem.colorName} / {firstItem.size} × {firstItem.quantity})
+                        </span>
+                      </p>
+                    )}
+                    {remainingCount > 0 && (
+                      <span className="text-[11px] font-mono text-[#D6B27C] block mt-0.5">
+                        +{remainingCount} mặt hàng khác
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Financials & Actions Row */}
+                  <div className="pt-1 flex items-center justify-between">
+                    <div>
+                      <div className="font-mono font-bold text-[#D6B27C] text-sm">
+                        {formatVND(order.financials.finalAmount)}
+                      </div>
+                      <div className="text-[10px] font-mono">
+                        <span className={order.paymentStatus === 'PAID' ? 'text-[#8BC9A8]' : 'text-[#E4BB78]'}>
+                          {order.paymentStatus === 'PAID' ? 'Đã TT' : 'Thu COD'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewingOrderNumber(order.orderNumber)}
+                        className="px-3 py-1.5 bg-[#212226] hover:bg-[#333235] border border-[#333235] text-[#F5F0E9] font-mono text-xs rounded-xs transition-colors cursor-pointer"
+                      >
+                        Chi tiết
+                      </button>
+
+                      {order.status === 'PENDING' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAction(order.orderNumber, 'CONFIRMED')}
+                          className="px-3 py-1.5 bg-[#D6B27C] hover:bg-[#E5C592] text-[#0E0F11] font-mono text-xs font-bold rounded-xs cursor-pointer"
+                        >
+                          Xác nhận
+                        </button>
+                      )}
+
+                      {order.status === 'CONFIRMED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAction(order.orderNumber, 'PROCESSING')}
+                          className="px-3 py-1.5 bg-[#D6B27C] hover:bg-[#E5C592] text-[#0E0F11] font-mono text-xs font-bold rounded-xs cursor-pointer"
+                        >
+                          Xử lý
+                        </button>
+                      )}
+
+                      {order.status === 'PROCESSING' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAction(order.orderNumber, 'SHIPPING')}
+                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-[#0E0F11] font-mono text-xs font-bold rounded-xs cursor-pointer"
+                        >
+                          Giao shipper
+                        </button>
+                      )}
+
+                      {order.status === 'SHIPPING' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAction(order.orderNumber, 'COMPLETED')}
+                          className="px-3 py-1.5 bg-[#8BC9A8] hover:bg-[#9fd5ba] text-[#0E0F11] font-mono text-xs font-bold rounded-xs cursor-pointer"
+                        >
+                          Hoàn tất
+                        </button>
+                      )}
+
+                      {order.status === 'DELIVERY_FAILED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAction(order.orderNumber, undefined, true)}
+                          className="px-3 py-1.5 bg-[#E4BB78] hover:bg-[#ebd097] text-[#0E0F11] font-mono text-xs font-bold rounded-xs cursor-pointer"
+                        >
+                          Nhận hoàn
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Pagination Footer */}
         {ordersPage && ordersPage.totalPages > 1 && (
-          <div className="p-3.5 border-t border-white/10 bg-black/40 flex items-center justify-between text-xs font-mono text-white/60">
+          <div className="p-3.5 border-t border-[#333235] bg-[#212226] flex items-center justify-between text-xs font-mono text-[#AAA5A0]">
             <div>
               Trang {ordersPage.page + 1} / {ordersPage.totalPages} ({ordersPage.totalElements} đơn)
             </div>
@@ -441,7 +598,7 @@ export default function OwnerOrdersView() {
                 type="button"
                 disabled={!ordersPage.hasPrevious}
                 onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                className="px-3 py-1 border border-white/15 rounded-2xs hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                className="px-3 py-1 border border-[#333235] bg-[#191A1D] rounded-xs hover:bg-[#212226] text-[#F5F0E9] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
               >
                 ← Trước
               </button>
@@ -449,7 +606,7 @@ export default function OwnerOrdersView() {
                 type="button"
                 disabled={!ordersPage.hasNext}
                 onClick={() => setCurrentPage((p) => p + 1)}
-                className="px-3 py-1 border border-white/15 rounded-2xs hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                className="px-3 py-1 border border-[#333235] bg-[#191A1D] rounded-xs hover:bg-[#212226] text-[#F5F0E9] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
               >
                 Sau →
               </button>

@@ -80,11 +80,13 @@ public class CheckoutService {
 
     /**
      * Process COD Checkout atomically with Idempotency, Deadlock prevention,
-     * conditional inventory deduction, voucher quota control, and cart invalidation.
+     * conditional inventory deduction, voucher quota control, and cart
+     * invalidation.
      */
     public OrderConfirmationDto checkoutCod(Long userId, String idempotencyKey, CheckoutRequest request) {
         if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_IDEMPOTENCY_KEY", "Yêu cầu đặt hàng phải có Idempotency-Key");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_IDEMPOTENCY_KEY",
+                    "Yêu cầu đặt hàng phải có Idempotency-Key");
         }
         String cleanIdempotencyKey = idempotencyKey.trim();
 
@@ -93,8 +95,9 @@ public class CheckoutService {
         if (existingOrderOpt.isPresent()) {
             Order existingOrder = existingOrderOpt.get();
             if (!existingOrder.getShippingPhone().equals(request.getShippingPhone().trim()) ||
-                !existingOrder.getShippingAddress().equals(request.getShippingAddress().trim())) {
-                throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "Khóa request đã được sử dụng cho một yêu cầu khác");
+                    !existingOrder.getShippingAddress().equals(request.getShippingAddress().trim())) {
+                throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT",
+                        "Khóa request đã được sử dụng cho một yêu cầu khác");
             }
             return mapToOrderConfirmationDto(existingOrder, true);
         }
@@ -109,11 +112,13 @@ public class CheckoutService {
 
         // 2. Fetch User's Cart
         Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "CART_EMPTY", "Giỏ hàng của bạn đang trống, không thể tiến hành đặt hàng"));
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "CART_EMPTY",
+                        "Giỏ hàng của bạn đang trống, không thể tiến hành đặt hàng"));
 
         List<CartItem> cartItems = cartItemRepository.findByCartIdWithDetails(cart.getId());
         if (cartItems.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "CART_EMPTY", "Giỏ hàng của bạn đang trống, không thể tiến hành đặt hàng");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CART_EMPTY",
+                    "Giỏ hàng của bạn đang trống, không thể tiến hành đặt hàng");
         }
 
         // 3. Validate Catalog Active Status
@@ -124,15 +129,13 @@ public class CheckoutService {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "VARIANT_UNAVAILABLE",
-                        "Sản phẩm '" + (p != null ? p.getName() : "không xác định") + "' hiện đã tạm ngừng kinh doanh"
-                );
+                        "Sản phẩm '" + (p != null ? p.getName() : "không xác định") + "' hiện đã tạm ngừng kinh doanh");
             }
             if (v.getStatus() != ProductVariantStatus.ACTIVE) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "VARIANT_UNAVAILABLE",
-                        "Phân loại hàng '" + p.getName() + " - " + v.getSize() + "' hiện đã tạm ngừng kinh doanh"
-                );
+                        "Phân loại hàng '" + p.getName() + " - " + v.getSize() + "' hiện đã tạm ngừng kinh doanh");
             }
         }
 
@@ -169,7 +172,8 @@ public class CheckoutService {
 
         if (couponCode != null) {
             appliedCoupon = couponRepository.findByCodeWithLock(couponCode)
-                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "COUPON_INVALID", "Mã giảm giá không tồn tại hoặc đã ngừng áp dụng"));
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "COUPON_INVALID",
+                            "Mã giảm giá không tồn tại hoặc đã ngừng áp dụng"));
 
             if (!"ACTIVE".equalsIgnoreCase(appliedCoupon.getStatus())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_INVALID", "Mã giảm giá hiện không hoạt động");
@@ -177,45 +181,54 @@ public class CheckoutService {
 
             Instant now = Instant.now();
             if (appliedCoupon.getStartsAt() != null && now.isBefore(appliedCoupon.getStartsAt())) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_INVALID", "Mã giảm giá chưa đến thời gian áp dụng");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_INVALID",
+                        "Mã giảm giá chưa đến thời gian áp dụng");
             }
             if (appliedCoupon.getExpiresAt() != null && now.isAfter(appliedCoupon.getExpiresAt())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_EXPIRED", "Mã giảm giá đã hết thời hạn sử dụng");
             }
 
-            if (appliedCoupon.getMinOrderAmount() != null && subtotalAmount.compareTo(appliedCoupon.getMinOrderAmount()) < 0) {
+            if (appliedCoupon.getMinOrderAmount() != null
+                    && subtotalAmount.compareTo(appliedCoupon.getMinOrderAmount()) < 0) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "COUPON_MIN_ORDER_NOT_MET",
-                        "Đơn hàng chưa đạt giá trị tối thiểu " + appliedCoupon.getMinOrderAmount().longValue() + "đ để áp dụng mã này"
-                );
+                        "Đơn hàng chưa đạt giá trị tối thiểu " + appliedCoupon.getMinOrderAmount().longValue()
+                                + "đ để áp dụng mã này");
             }
 
             if (appliedCoupon.getUsageLimit() != null) {
-                long totalUsed = couponUsageRepository.countByCouponIdAndStatus(appliedCoupon.getId(), CouponUsage.STATUS_APPLIED);
+                long totalUsed = couponUsageRepository.countByCouponIdAndStatus(appliedCoupon.getId(),
+                        CouponUsage.STATUS_APPLIED);
                 if (totalUsed >= appliedCoupon.getUsageLimit()) {
-                    throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_USAGE_EXCEEDED", "Mã giảm giá đã hết lượt sử dụng trên hệ thống");
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_USAGE_EXCEEDED",
+                            "Mã giảm giá đã hết lượt sử dụng trên hệ thống");
                 }
             }
 
             if (appliedCoupon.getPerUserLimit() != null && appliedCoupon.getPerUserLimit() > 0) {
-                long userUsed = couponUsageRepository.countByCouponIdAndUserIdAndStatus(appliedCoupon.getId(), userId, CouponUsage.STATUS_APPLIED);
+                long userUsed = couponUsageRepository.countByCouponIdAndUserIdAndStatus(appliedCoupon.getId(), userId,
+                        CouponUsage.STATUS_APPLIED);
                 if (userUsed >= appliedCoupon.getPerUserLimit()) {
-                    throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_USAGE_EXCEEDED", "Bạn đã sử dụng hết lượt cho mã giảm giá này");
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_USAGE_EXCEEDED",
+                            "Bạn đã sử dụng hết lượt cho mã giảm giá này");
                 }
             }
 
             if (appliedCoupon.isFirstOrderOnly()) {
-                long nonCancelledOrders = orderRepository.countByUserIdAndStatusNotIn(userId, List.of(OrderStatus.CANCELLED, OrderStatus.RETURNED));
+                long nonCancelledOrders = orderRepository.countByUserIdAndStatusNotIn(userId,
+                        List.of(OrderStatus.CANCELLED, OrderStatus.RETURNED));
                 if (nonCancelledOrders > 0) {
-                    throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_FIRST_ORDER_ONLY", "Mã giảm giá chỉ áp dụng cho đơn hàng đầu tiên của bạn");
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "COUPON_FIRST_ORDER_ONLY",
+                            "Mã giảm giá chỉ áp dụng cho đơn hàng đầu tiên của bạn");
                 }
             }
 
             if (appliedCoupon.getDiscountType() == DiscountType.PERCENTAGE) {
                 discountAmount = subtotalAmount.multiply(appliedCoupon.getDiscountValue())
                         .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-                if (appliedCoupon.getMaxDiscount() != null && discountAmount.compareTo(appliedCoupon.getMaxDiscount()) > 0) {
+                if (appliedCoupon.getMaxDiscount() != null
+                        && discountAmount.compareTo(appliedCoupon.getMaxDiscount()) > 0) {
                     discountAmount = appliedCoupon.getMaxDiscount();
                 }
             } else if (appliedCoupon.getDiscountType() == DiscountType.FIXED_AMOUNT) {
@@ -244,8 +257,7 @@ public class CheckoutService {
                 discountAmount,
                 shippingFee,
                 finalAmount,
-                couponCode
-        );
+                couponCode);
 
         // 11. Create Immutable OrderItems Snapshots
         for (CartItem item : cartItems) {
@@ -266,8 +278,7 @@ public class CheckoutService {
                     thumbnail,
                     v.getPrice(),
                     item.getQuantity(),
-                    itemTotal
-            );
+                    itemTotal);
             order.addItem(orderItem);
         }
 
@@ -277,8 +288,7 @@ public class CheckoutService {
                 null,
                 OrderStatus.PENDING,
                 "Đơn hàng COD được tạo thành công",
-                "CUSTOMER"
-        );
+                "CUSTOMER");
         order.addStatusHistory(history);
 
         Order savedOrder = orderRepository.save(order);
@@ -343,16 +353,14 @@ public class CheckoutService {
                 order.getShippingCity(),
                 order.getShippingDistrict(),
                 order.getShippingWard(),
-                order.getShippingNote()
-        );
+                order.getShippingNote());
 
         FinancialsDto financials = new FinancialsDto(
                 order.getSubtotalAmount(),
                 order.getDiscountAmount(),
                 order.getShippingFee(),
                 order.getFinalAmount(),
-                order.getCouponCode()
-        );
+                order.getCouponCode());
 
         List<OrderItemDto> itemDtos = order.getItems().stream().map(item -> new OrderItemDto(
                 item.getId(),
@@ -366,8 +374,7 @@ public class CheckoutService {
                 item.getThumbnailUrl(),
                 item.getUnitPrice(),
                 item.getQuantity(),
-                item.getTotalPrice()
-        )).toList();
+                item.getTotalPrice())).toList();
 
         return new OrderConfirmationDto(
                 order.getId(),
@@ -379,8 +386,6 @@ public class CheckoutService {
                 financials,
                 itemDtos,
                 order.getCreatedAt(),
-                isReplay
-        );
+                isReplay);
     }
 }
-

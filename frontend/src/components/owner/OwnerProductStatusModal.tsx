@@ -101,46 +101,61 @@ export default function OwnerProductStatusModal({
     <div
       ref={containerRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs focus:outline-hidden"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-xs focus:outline-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="product-status-modal-title"
     >
-      <div className="relative w-full max-w-md bg-[#161616] border border-[#C7AD83]/30 rounded-xs shadow-2xl p-6 text-white">
-        <h3 id="product-status-modal-title" className="text-base font-serif font-bold text-[#C7AD83] mb-1">
-          CHUYỂN TRẠNG THÁI SẢN PHẨM
-        </h3>
-        <p className="text-xs text-white/60 mb-4 line-clamp-1">{productName}</p>
+      <div className="relative w-full max-w-md bg-[#191A1D] border border-[#333235] rounded-t-xl sm:rounded-xs shadow-2xl p-5 sm:p-6 text-[#F5F0E9]">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div>
+            <span className="text-[10px] font-mono tracking-widest text-[#D6B27C] uppercase font-bold block mb-1">
+              CATALOG / LIFECYCLE
+            </span>
+            <h3 id="product-status-modal-title" className="text-base font-serif font-medium text-[#F5F0E9]">
+              Chuyển trạng thái sản phẩm
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center text-[#AAA5A0] hover:text-[#F5F0E9] hover:bg-[#212226] rounded-full transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <p className="text-xs text-[#AAA5A0] mb-4 line-clamp-1">{productName}</p>
 
         {error && (
-          <div className="mb-4 p-2.5 bg-red-950/50 border border-red-500/40 text-red-200 text-xs rounded-2xs">
+          <div className="mb-4 p-2.5 bg-[#DF8D84]/10 border border-[#DF8D84]/30 text-[#DF8D84] text-xs rounded-xs">
             {error}
           </div>
         )}
 
         {allowedTargets.length === 0 ? (
-          <div className="py-6 text-center text-xs text-white/60">
+          <div className="py-6 text-center text-xs text-[#AAA5A0]">
             Sản phẩm đã ở trạng thái kết thúc ({STATUS_LABELS[currentStatus]}), không thể chuyển đổi tiếp.
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-mono uppercase text-white/50 mb-1.5">
+              <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1.5">
                 Trạng thái hiện tại
               </label>
-              <div className="text-xs font-mono px-3 py-2 bg-white/5 border border-white/10 rounded-2xs text-[#C7AD83]">
+              <div className="text-xs font-mono px-3 py-2 bg-[#212226] border border-[#333235] rounded-xs text-[#D6B27C]">
                 {STATUS_LABELS[currentStatus]}
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-mono uppercase text-white/50 mb-1.5">
-                Chọn trạng thái mới <span className="text-red-400">*</span>
+              <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1.5">
+                Chọn trạng thái mới <span className="text-[#DF8D84]">*</span>
               </label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value as ProductStatus)}
-                className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                className="w-full bg-[#212226] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] focus:outline-hidden focus:border-[#D6B27C]"
               >
                 {allowedTargets.map((st) => (
                   <option key={st} value={st}>
@@ -151,10 +166,10 @@ export default function OwnerProductStatusModal({
             </div>
 
             {selectedStatus && STATUS_DESCRIPTIONS[selectedStatus] && (
-              <div className={`p-3 rounded-2xs text-xs border ${
+              <div className={`p-3 rounded-xs text-xs border ${
                 selectedStatus === 'ARCHIVED'
-                  ? 'bg-red-950/30 border-red-500/30 text-red-200'
-                  : 'bg-[#C7AD83]/10 border-[#C7AD83]/30 text-white/80'
+                  ? 'bg-[#DF8D84]/10 border-[#DF8D84]/30 text-[#DF8D84]'
+                  : 'bg-[#D6B27C]/10 border-[#D6B27C]/30 text-[#F5F0E9]/90'
               }`}>
                 <p className="font-semibold mb-1 text-[11px] uppercase tracking-wider">
                   {selectedStatus === 'ARCHIVED' ? '⚠ Cảnh báo hệ quả nghiêm trọng' : 'ℹ Hệ quả vận hành'}
@@ -166,7 +181,7 @@ export default function OwnerProductStatusModal({
             )}
 
             <div>
-              <label className="block text-[11px] font-mono uppercase text-white/50 mb-1.5">
+              <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1.5">
                 Ghi chú lý do thay đổi (Tùy chọn)
               </label>
               <textarea
@@ -174,23 +189,23 @@ export default function OwnerProductStatusModal({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Nhập lý do xuất bản, tạm ẩn hoặc lưu trữ..."
                 rows={2}
-                className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs p-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                className="w-full bg-[#212226] border border-[#333235] rounded-xs p-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#333235]">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-3 py-1.5 text-xs text-white/70 hover:text-white border border-white/20 rounded-2xs cursor-pointer"
+                className="px-3.5 py-1.5 text-xs text-[#AAA5A0] hover:text-[#F5F0E9] border border-[#333235] bg-[#212226] rounded-xs cursor-pointer"
               >
                 HỦY
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || !selectedStatus}
-                className="px-4 py-1.5 text-xs font-mono font-bold bg-[#C7AD83] text-black hover:bg-[#b5996f] disabled:opacity-50 rounded-2xs cursor-pointer"
+                className="px-4 py-1.5 text-xs font-mono font-bold bg-[#D6B27C] text-[#0E0F11] hover:bg-[#E5C592] disabled:opacity-50 rounded-xs cursor-pointer"
               >
                 {isSubmitting ? 'ĐANG CẬP NHẬT...' : 'XÁC NHẬN'}
               </button>
@@ -201,4 +216,3 @@ export default function OwnerProductStatusModal({
     </div>
   );
 }
-

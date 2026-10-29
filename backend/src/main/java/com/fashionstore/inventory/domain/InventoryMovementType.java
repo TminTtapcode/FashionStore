@@ -9,3 +9,4 @@ public enum InventoryMovementType {
     STOCK_RECEIPT,      // Nhập hàng bổ sung từ xưởng / nhà cung cấp
     MANUAL_ADJUSTMENT   // Điều chỉnh kiểm kê, sai lệch số lượng hoặc hàng hỏng
 }
+

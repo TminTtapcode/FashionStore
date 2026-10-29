@@ -21,3 +21,4 @@ public record InventoryMovementDto(
     String reason,
     Instant createdAt
 ) {}
+

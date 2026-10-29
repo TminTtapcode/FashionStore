@@ -120,3 +120,4 @@ public class InventoryMovement {
         return createdAt;
     }
 }
+

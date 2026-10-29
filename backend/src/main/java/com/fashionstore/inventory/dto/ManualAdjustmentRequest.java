@@ -14,3 +14,4 @@ public record ManualAdjustmentRequest(
     @Size(max = 500, message = "Lý do điều chỉnh tối đa 500 ký tự")
     String reason
 ) {}
+

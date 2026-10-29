@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { InventorySummaryDto, StockReceiptRequest } from '../../api/ownerInventoryApi';
 import { recordStockReceiptApi } from '../../api/ownerInventoryApi';
 
@@ -15,11 +15,30 @@ export const OwnerStockReceiptModal: React.FC<OwnerStockReceiptModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [quantity, setQuantity] = useState<number>(10);
+  const [quantity, setQuantity] = useState<number>(15);
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuantity(15);
+      setReferenceNumber('');
+      setReason('');
+      setErrorMessage(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !variant) return null;
 
@@ -55,146 +74,140 @@ export const OwnerStockReceiptModal: React.FC<OwnerStockReceiptModalProps> = ({
   const projectedStock = variant.currentStock + (quantity > 0 ? Math.floor(quantity) : 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-white">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-200">
-              📥
-            </span>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">Nhập kho bổ sung (Stock Receipt)</h3>
-              <p className="text-xs text-gray-500 font-medium">Ghi tăng tồn kho và đối soát chứng từ nhập</p>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stockReceiptTitle"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-[#1C1D1F] border border-[#5B5043] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] text-[#F5F0E9] animate-rise">
+        {/* Modal Header */}
+        <div className="px-6 py-5 border-b border-[#333235] bg-gradient-to-r from-[#292825] to-[#1C1D1F] flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[10px] font-mono tracking-[2px] text-[#D6B27C] uppercase font-bold">
+              INVENTORY / RECEIPT
             </div>
+            <h3 id="stockReceiptTitle" className="font-editorial text-2xl font-normal text-white mt-1">
+              Nhập kho bổ sung
+            </h3>
+            <p className="text-xs text-[#AAA5A0] mt-0.5">
+              Ghi nhận chứng từ và biến động ATS cho một biến thể SKU
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-white/80 transition-colors"
+            className="w-8 h-8 rounded-xl border border-[#333235] hover:border-[#D6B27C] text-[#AAA5A0] hover:text-[#D6B27C] flex items-center justify-center text-lg transition-colors cursor-pointer"
             aria-label="Đóng"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
-          {/* Variant Info Card */}
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Biến thể đích</span>
-              <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-gray-200 text-gray-800">
-                {variant.sku}
-              </span>
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Variant Info Summary */}
+          <div className="bg-[#111214] border border-[#333235] rounded-xl p-3.5 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-[#AAA5A0]">
+              <span>Sản phẩm:</span>
+              <strong className="text-white truncate max-w-[260px]">{variant.productName}</strong>
             </div>
-            <div className="text-sm font-semibold text-gray-900 line-clamp-1">{variant.productName}</div>
-            <div className="flex items-center gap-4 text-xs text-gray-600">
-              <span>Size: <strong className="text-gray-900">{variant.size}</strong></span>
-              <span>•</span>
-              <span className="flex items-center gap-1.5">
-                Màu: <strong className="text-gray-900">{variant.colorName}</strong>
-                {variant.colorHex && (
-                  <span className="w-3.5 h-3.5 rounded-full border border-gray-300 inline-block" style={{ backgroundColor: variant.colorHex }} />
-                )}
-              </span>
-              <span>•</span>
-              <span>Tồn hiện tại: <strong className="text-gray-900">{variant.currentStock}</strong> chiếc</span>
+            <div className="flex items-center justify-between text-[#AAA5A0]">
+              <span>Biến thể:</span>
+              <strong className="text-white">{variant.size} · {variant.colorName}</strong>
             </div>
+            <div className="flex items-center justify-between text-[#AAA5A0]">
+              <span>Mã SKU:</span>
+              <strong className="font-mono text-[#D6B27C] text-[11px]">{variant.sku}</strong>
+            </div>
+          </div>
+
+          {/* Quantity Input */}
+          <div className="space-y-1.5">
+            <label htmlFor="receiptQuantity" className="block text-xs font-semibold text-[#AAA5A0] uppercase tracking-wider">
+              Số lượng nhập (chiếc) <span className="text-[#D6B27C]">*</span>
+            </label>
+            <input
+              id="receiptQuantity"
+              type="number"
+              min="1"
+              step="1"
+              required
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              className="w-full h-11 px-4 bg-[#111214] border border-[#3A393A] rounded-xl text-sm font-mono text-white focus:outline-none focus:border-[#D6B27C] transition-colors"
+            />
+          </div>
+
+          {/* Live Projection Card */}
+          <div className="p-4 rounded-xl border border-[#665640] bg-[#D6B27C]/10 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-mono tracking-wider text-[#AAA5A0] uppercase block">
+                DỰ PHÓNG TỒN KHO SAU NHẬP
+              </span>
+              <span className="text-xs text-[#AAA5A0] mt-0.5 block">Tồn hiện tại → Tồn dự kiến</span>
+            </div>
+            <div className="font-editorial text-xl font-normal text-[#D6B27C] tabular-nums">
+              {variant.currentStock} → {projectedStock}
+            </div>
+          </div>
+
+          {/* Reference Document */}
+          <div className="space-y-1.5">
+            <label htmlFor="receiptReference" className="block text-xs font-semibold text-[#AAA5A0] uppercase tracking-wider">
+              Mã phiếu nhập / Chứng từ
+            </label>
+            <input
+              id="receiptReference"
+              type="text"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              placeholder="VD: PNK-2026-X01 hoặc Hóa đơn xưởng may..."
+              className="w-full h-11 px-4 bg-[#111214] border border-[#3A393A] rounded-xl text-xs text-white placeholder-[#777574] focus:outline-none focus:border-[#D6B27C] transition-colors"
+            />
+          </div>
+
+          {/* Reason / Notes */}
+          <div className="space-y-1.5">
+            <label htmlFor="receiptReason" className="block text-xs font-semibold text-[#AAA5A0] uppercase tracking-wider">
+              Lý do / Ghi chú nghiệp vụ
+            </label>
+            <textarea
+              id="receiptReason"
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ghi rõ nguồn gốc lô hàng hoặc mục đích nhập kho..."
+              className="w-full p-3.5 bg-[#111214] border border-[#3A393A] rounded-xl text-xs text-white placeholder-[#777574] focus:outline-none focus:border-[#D6B27C] transition-colors resize-none"
+            />
           </div>
 
           {/* Error Banner */}
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
-              <span>⚠️</span>
-              <span>{errorMessage}</span>
+            <div className="p-3 bg-[#5A302E]/30 border border-[#8A4441] rounded-xl text-[#DF8D84] text-xs">
+              {errorMessage}
             </div>
           )}
 
-          {/* Form Fields */}
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="receipt-qty" className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                Số lượng nhập thêm <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="receipt-qty"
-                type="number"
-                min="1"
-                step="1"
-                required
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 0))}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-semibold text-gray-900"
-                placeholder="Ví dụ: 20"
-              />
-            </div>
-
-            {/* Projected Stock Preview */}
-            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between text-xs">
-              <span className="text-emerald-900 font-medium">Dự kiến tồn sau nhập:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 line-through">{variant.currentStock}</span>
-                <span className="text-gray-400">→</span>
-                <span className="text-base font-extrabold text-emerald-700 font-mono">
-                  {projectedStock} chiếc
-                </span>
-                <span className="text-emerald-600 font-semibold">(+{quantity > 0 ? quantity : 0})</span>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="receipt-ref" className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                Mã chứng từ / Phiếu nhập kho (Reference)
-              </label>
-              <input
-                id="receipt-ref"
-                type="text"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm text-gray-900 font-mono"
-                placeholder="Ví dụ: PNK-2026-X01 hoặc PO-8921"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="receipt-reason" className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-                Lý do / Ghi chú nhập hàng
-              </label>
-              <textarea
-                id="receipt-reason"
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm text-gray-900 resize-none"
-                placeholder="Ví dụ: Nhập bổ sung đợt may số 2 từ xưởng Hà Nội"
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100">
+          {/* Modal Footer */}
+          <div className="pt-4 border-t border-[#333235] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2.5 border border-[#49423A] hover:border-[#D6B27C] text-[#AAA5A0] hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || quantity <= 0}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-[#D6B27C] hover:bg-[#E4C18E] text-[#191A1D] rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
             >
-              {isSubmitting ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Đang ghi sổ...</span>
-                </>
-              ) : (
-                <span>Xác nhận nhập kho</span>
-              )}
+              {isSubmitting ? 'Đang lưu...' : 'Xác nhận nhập kho'}
             </button>
           </div>
         </form>

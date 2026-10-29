@@ -5,6 +5,8 @@ import type {
   InventoryReconciliationDto
 } from '../../api/ownerInventoryApi';
 import { getVariantLedgerApi, reconcileVariantApi } from '../../api/ownerInventoryApi';
+import { OwnerStockReceiptModal } from './OwnerStockReceiptModal';
+import { OwnerStockAdjustmentModal } from './OwnerStockAdjustmentModal';
 
 interface OwnerInventoryLedgerDrawerProps {
   variant: InventorySummaryDto | null;
@@ -17,6 +19,7 @@ export const OwnerInventoryLedgerDrawer: React.FC<OwnerInventoryLedgerDrawerProp
   variant,
   isOpen,
   onClose,
+  onStockUpdated,
 }) => {
   const [movements, setMovements] = useState<InventoryMovementDto[]>([]);
   const [reconciliation, setReconciliation] = useState<InventoryReconciliationDto | null>(null);
@@ -26,6 +29,10 @@ export const OwnerInventoryLedgerDrawer: React.FC<OwnerInventoryLedgerDrawerProp
   const [page, setPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [totalElements, setTotalElements] = useState<number>(0);
+
+  // Sub-modals for receipt/adjustment directly from ledger
+  const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
+  const [isAdjustmentOpen, setIsAdjustmentOpen] = useState<boolean>(false);
 
   const fetchLedger = useCallback(async (pageNum: number) => {
     if (!variant) return;
@@ -65,236 +72,353 @@ export const OwnerInventoryLedgerDrawer: React.FC<OwnerInventoryLedgerDrawerProp
     }
   }, [isOpen, variant, fetchLedger, handleReconcile]);
 
+  // Handle Escape key to close drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen && !isReceiptOpen && !isAdjustmentOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isReceiptOpen, isAdjustmentOpen, onClose]);
+
   if (!isOpen || !variant) return null;
 
-  const getMovementBadge = (type: string) => {
+  const getMovementLabel = (type: string) => {
     switch (type) {
       case 'OPENING_BALANCE':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">⚪ Số dư ban đầu</span>;
+        return { label: 'Số dư đầu kỳ', color: 'text-[#AAA5A0] bg-white/5 border-[#49423A]' };
       case 'INITIAL_STOCK':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-100 text-purple-700 border border-purple-200">✨ Khởi tạo SKU</span>;
+        return { label: 'Khởi tạo SKU', color: 'text-[#D6B27C] bg-[#D6B27C]/10 border-[#5D4836]' };
       case 'STOCK_RECEIPT':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">📥 Nhập kho</span>;
+        return { label: 'Nhập kho bổ sung', color: 'text-[#8BC9A8] bg-[#8BC9A8]/10 border-[#8BC9A8]/30' };
       case 'ORDER_DEDUCT':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-800 border border-rose-200">📦 Xuất đơn hàng</span>;
+        return { label: 'Xuất đơn hàng', color: 'text-[#DF8D84] bg-[#DF8D84]/10 border-[#DF8D84]/30' };
       case 'CANCEL_RESTORE':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">↩️ Hoàn hủy đơn</span>;
+        return { label: 'Hoàn hủy đơn', color: 'text-[#8BC9A8] bg-[#8BC9A8]/10 border-[#8BC9A8]/30' };
       case 'RETURN_RESTORE':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">🚚 Hoàn trả bưu tá</span>;
+        return { label: 'Hoàn trả bưu tá', color: 'text-[#E4BB78] bg-[#E4BB78]/10 border-[#E4BB78]/30' };
       case 'MANUAL_ADJUSTMENT':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-800 border border-orange-200">⚖️ Điều chỉnh kiểm kê</span>;
+        return { label: 'Điều chỉnh kiểm kê', color: 'text-[#E4BB78] bg-[#E4BB78]/10 border-[#E4BB78]/30' };
       default:
-        return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-800">{type}</span>;
+        return { label: type, color: 'text-[#AAA5A0] bg-white/5 border-[#333235]' };
     }
   };
 
+  // Safe calculated delta after opening balance
+  const postOpeningDelta = reconciliation
+    ? (reconciliation.postOpeningDelta !== undefined
+        ? reconciliation.postOpeningDelta
+        : reconciliation.totalDelta - reconciliation.openingBalance)
+    : 0;
+
+  const isBalanced = reconciliation ? reconciliation.isBalanced : true;
+  const currentATS = reconciliation ? reconciliation.currentStock : variant.currentStock;
+  const openingBal = reconciliation ? reconciliation.openingBalance : 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in" role="dialog" aria-modal="true">
-      <div className="bg-white w-full max-w-3xl h-full shadow-2xl flex flex-col border-l border-gray-200 animate-slide-left">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-900 via-slate-800 to-gray-900 text-white flex items-center justify-between">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-md animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sổ cái kiểm toán tồn kho"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-[#1B1C1E] border-l border-[#333235] w-full max-w-2xl lg:max-w-3xl h-full shadow-2xl flex flex-col text-[#F5F0E9] animate-slide-left overflow-hidden">
+        {/* Drawer Header */}
+        <div className="p-6 sm:p-7 border-b border-[#333235] flex items-start justify-between gap-4 bg-[#141517]">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">📜</span>
-              <h2 className="text-lg font-bold">Sổ cái Kiểm toán Tồn kho (Audit Ledger)</h2>
+            <div className="text-[10px] font-mono tracking-[2.5px] text-[#D6B27C] uppercase font-bold">
+              INVENTORY AUDIT / SKU DETAIL
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">Nhật ký biến động bất biến & đối soát tính toàn vẹn</p>
+            <h2 className="font-editorial text-2xl sm:text-3xl font-normal text-[#F5F0E9] mt-1">
+              Sổ cái Kiểm toán
+            </h2>
+            <p className="text-xs text-[#AAA5A0] mt-1">
+              Đối chiếu dữ liệu tồn kho theo từng sự kiện biến động bất biến.
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Đóng"
+            className="w-9 h-9 rounded-xl border border-[#333235] hover:border-[#D6B27C] text-[#AAA5A0] hover:text-[#D6B27C] flex items-center justify-center text-lg transition-colors cursor-pointer"
+            aria-label="Đóng ngăn kéo"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Variant Info Bar */}
-        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 rounded bg-gray-200 text-gray-800 font-mono text-xs font-bold">
-              {variant.sku}
-            </span>
-            <span className="text-xs font-semibold text-gray-900 line-clamp-1 max-w-md">
-              {variant.productName}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-600">
-            <span>Size: <strong className="text-gray-900">{variant.size}</strong></span>
-            <span>•</span>
-            <span>Màu: <strong className="text-gray-900">{variant.colorName}</strong></span>
-          </div>
-        </div>
-
-        {/* Reconciliation Metric Card */}
-        <div className="p-6 border-b border-gray-200 bg-slate-50/70">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Đối soát số dư toán học</span>
-              <span className="text-[11px] text-gray-400 font-mono">Current == Opening + ∑Deltas</span>
+        {/* Drawer Content */}
+        <div className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-6">
+          {/* Variant Context Card */}
+          <div className="p-4 rounded-xl bg-[#212226] border border-[#333235] flex items-center gap-3.5">
+            <div className="w-11 h-13 rounded-lg bg-gradient-to-br from-[#615444] to-[#2F2B29] border border-white/10 flex items-center justify-center text-[#DBC6A7] shrink-0 overflow-hidden">
+              {variant.primaryImageUrl ? (
+                <img src={variant.primaryImageUrl} alt={variant.productName} className="w-full h-full object-cover" />
+              ) : (
+                <svg className="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={handleReconcile}
-              disabled={isReconciling}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-white text-sm truncate">{variant.productName}</div>
+              <div className="flex items-center gap-2 text-xs text-[#AAA5A0] mt-0.5">
+                <span>Kích cỡ: <strong className="text-white">{variant.size}</strong></span>
+                <span>·</span>
+                <span>Màu: <strong className="text-white">{variant.colorName}</strong></span>
+              </div>
+              <div className="font-mono text-[10px] text-[#D6B27C] tracking-tight mt-1 truncate">
+                {variant.sku}
+              </div>
+            </div>
+          </div>
+
+          {/* Mathematical Reconciliation Box (3 Metric Cards) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 font-bold text-white">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D6B27C]" />
+                <span>ĐỐI SOÁT SỐ DƯ TOÁN HỌC</span>
+              </div>
+              <span className="font-mono text-[11px] text-[#AAA5A0]">
+                ATS = Opening + Δ sau mở sổ
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+              {/* Card 1: ATS Hiện tại */}
+              <div className="bg-[#212226] border border-[#333235] rounded-xl p-4 flex flex-col justify-between min-h-[96px]">
+                <span className="text-[10px] font-mono tracking-wider text-[#AAA5A0] uppercase font-bold">
+                  ATS HIỆN TẠI
+                </span>
+                <div className="font-editorial text-2xl sm:text-3xl font-normal text-white tabular-nums my-1">
+                  {currentATS}
+                </div>
+                <span className="text-[10px] text-[#777574]">Khả dụng mở bán</span>
+              </div>
+
+              {/* Card 2: Số dư đầu kỳ */}
+              <div className="bg-[#212226] border border-[#333235] rounded-xl p-4 flex flex-col justify-between min-h-[96px]">
+                <span className="text-[10px] font-mono tracking-wider text-[#AAA5A0] uppercase font-bold">
+                  SỐ DƯ ĐẦU KỲ
+                </span>
+                <div className="font-editorial text-2xl sm:text-3xl font-normal text-[#AAA5A0] tabular-nums my-1">
+                  {openingBal}
+                </div>
+                <span className="text-[10px] text-[#777574]">Chốt cutover / khởi tạo</span>
+              </div>
+
+              {/* Card 3: Biến động sau mở sổ */}
+              <div className="bg-[#212226] border border-[#333235] rounded-xl p-4 flex flex-col justify-between min-h-[96px]">
+                <span className="text-[10px] font-mono tracking-wider text-[#AAA5A0] uppercase font-bold">
+                  BIẾN ĐỘNG SAU MỞ SỔ
+                </span>
+                <div className="font-editorial text-2xl sm:text-3xl font-normal text-[#D6B27C] tabular-nums my-1">
+                  {postOpeningDelta > 0 ? `+${postOpeningDelta}` : postOpeningDelta}
+                </div>
+                <span className="text-[10px] text-[#777574]">∑ Nhập - Xuất - Chỉnh</span>
+              </div>
+            </div>
+
+            {/* Reconciliation State Banner */}
+            <div
+              className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+                isBalanced
+                  ? 'bg-[#234133]/30 border-[#50866A] text-[#8BC9A8]'
+                  : 'bg-[#5A302E]/30 border-[#8A4441] text-[#DF8D84]'
+              }`}
             >
-              <span className={`text-sm ${isReconciling ? 'animate-spin' : ''}`}>🔄</span>
-              <span>{isReconciling ? 'Đang tính...' : 'Đối soát lại'}</span>
-            </button>
+              <div className="flex items-center gap-2">
+                <span>{isBalanced ? '✓' : '⚠'}</span>
+                <span>
+                  {isBalanced
+                    ? 'Cân đối chính xác · Độ lệch 0 chiếc'
+                    : `Cảnh báo lệch tồn kho: ${reconciliation?.discrepancy || 0} chiếc`}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleReconcile}
+                disabled={isReconciling}
+                className="text-[11px] underline hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isReconciling ? 'Đang tính...' : 'Đối soát lại ↻'}
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
-              <div className="text-[11px] text-gray-500 font-medium">Tồn khả dụng (ATS)</div>
-              <div className="text-lg font-extrabold text-gray-900 font-mono mt-0.5">
-                {reconciliation ? reconciliation.currentStock : variant.currentStock}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
-              <div className="text-[11px] text-gray-500 font-medium">Số dư đầu kỳ</div>
-              <div className="text-lg font-extrabold text-gray-900 font-mono mt-0.5">
-                {reconciliation ? reconciliation.openingBalance : '—'}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
-              <div className="text-[11px] text-gray-500 font-medium">Tổng biến động (∑Δ)</div>
-              <div className="text-lg font-extrabold text-indigo-600 font-mono mt-0.5">
-                {reconciliation ? reconciliation.totalDelta : '—'}
-              </div>
-            </div>
-            <div className={`rounded-xl p-3 border shadow-sm ${
-              reconciliation?.isBalanced
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : 'bg-red-50 border-red-200 text-red-900'
-            }`}>
-              <div className="text-[11px] font-medium">Trạng thái đối soát</div>
-              <div className="text-xs font-bold mt-1 flex items-center gap-1.5">
-                {reconciliation?.isBalanced ? (
-                  <>
-                    <span className="text-emerald-600">✓</span>
-                    <span>Cân đối (Lệch 0)</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-red-600">⚠️</span>
-                    <span>Lệch {reconciliation?.discrepancy ?? '?'} chiếc</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+          <div className="h-[1px] bg-[#333235]" />
 
-        {/* Ledger Table */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Nhật ký giao dịch ({totalElements} bản ghi)
-            </h3>
-          </div>
+          {/* Transaction Audit Log */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#AAA5A0] flex items-center gap-2">
+                <span>NHẬT KÝ GIAO DỊCH SỔ CÁI</span>
+                <span className="text-[#777574] font-mono">({totalElements})</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => fetchLedger(page)}
+                className="text-[11px] text-[#D6B27C] hover:underline transition-colors"
+              >
+                ↻ Làm mới nhật ký
+              </button>
+            </div>
 
-          {errorMessage && (
-            <div className="p-3.5 mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
-              {errorMessage}
-            </div>
-          )}
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="p-3 bg-[#5A302E]/30 border border-[#8A4441] rounded-xl text-[#DF8D84] text-xs">
+                {errorMessage}
+              </div>
+            )}
 
-          {isLoading ? (
-            <div className="py-20 flex flex-col items-center justify-center text-gray-400 gap-2">
-              <span className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-medium">Đang truy vấn sổ cái...</span>
-            </div>
-          ) : movements.length === 0 ? (
-            <div className="py-20 text-center text-gray-400 text-xs">
-              Chưa có bản ghi biến động nào cho biến thể này.
-            </div>
-          ) : (
-            <div className="overflow-x-auto border border-gray-200 rounded-xl">
-              <table className="w-full text-left text-xs text-gray-700">
-                <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
-                  <tr>
-                    <th className="py-3 px-3.5 font-bold">Thời gian</th>
-                    <th className="py-3 px-3.5 font-bold">Loại biến động</th>
-                    <th className="py-3 px-3.5 font-bold text-center">Biến động</th>
-                    <th className="py-3 px-3.5 font-bold text-center">Trước → Sau</th>
-                    <th className="py-3 px-3.5 font-bold">Chứng từ / Đơn</th>
-                    <th className="py-3 px-3.5 font-bold">Người thực hiện</th>
-                    <th className="py-3 px-3.5 font-bold">Ghi chú</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 font-medium">
-                  {movements.map((m) => (
-                    <tr key={m.id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="py-3 px-3.5 whitespace-nowrap text-gray-500 text-[11px]">
-                        {new Date(m.createdAt).toLocaleString('vi-VN')}
-                      </td>
-                      <td className="py-3 px-3.5 whitespace-nowrap">
-                        {getMovementBadge(m.movementType)}
-                      </td>
-                      <td className="py-3 px-3.5 whitespace-nowrap text-center font-mono font-bold">
-                        <span className={m.quantityDelta > 0 ? 'text-emerald-600' : m.quantityDelta < 0 ? 'text-rose-600' : 'text-gray-500'}>
+            {/* Movements List */}
+            {isLoading && (
+              <div className="py-10 text-center text-xs text-[#AAA5A0]">
+                <div className="w-6 h-6 border-2 border-[#D6B27C] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <span className="font-mono">Đang tải nhật ký kiểm toán...</span>
+              </div>
+            )}
+
+            {!isLoading && movements.length === 0 && (
+              <div className="py-8 text-center text-xs text-[#777574]">
+                Chưa có bản ghi giao dịch nào cho biến thể này.
+              </div>
+            )}
+
+            {!isLoading && movements.length > 0 && (
+              <div className="space-y-2">
+                {movements.map((m) => {
+                  const badge = getMovementLabel(m.movementType);
+                  return (
+                    <div
+                      key={m.id}
+                      className="p-3.5 rounded-xl bg-[#212226] border border-[#333235] hover:border-[#49423A] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${badge.color}`}>
+                            {badge.label}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#777574]">
+                            {new Date(m.createdAt).toLocaleString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#AAA5A0] truncate max-w-md">
+                          {m.referenceId && (
+                            <span className="font-mono text-white mr-1.5">[{m.referenceId}]</span>
+                          )}
+                          <span>{m.reason || 'Không có ghi chú'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 font-mono text-right">
+                        <div
+                          className={`text-sm font-bold ${
+                            m.quantityDelta > 0
+                              ? 'text-[#8BC9A8]'
+                              : m.quantityDelta < 0
+                              ? 'text-[#DF8D84]'
+                              : 'text-white'
+                          }`}
+                        >
                           {m.quantityDelta > 0 ? `+${m.quantityDelta}` : m.quantityDelta}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 whitespace-nowrap text-center font-mono text-[11px] text-gray-600">
-                        <span>{m.stockBefore}</span>
-                        <span className="mx-1 text-gray-400">→</span>
-                        <span className="font-bold text-gray-900">{m.stockAfter}</span>
-                      </td>
-                      <td className="py-3 px-3.5 whitespace-nowrap font-mono text-gray-700 text-[11px]">
-                        {m.referenceId ? `#${m.referenceId}` : '—'}
-                      </td>
-                      <td className="py-3 px-3.5 whitespace-nowrap text-gray-600 text-[11px]">
-                        {m.actorName || 'Hệ thống'}
-                      </td>
-                      <td className="py-3 px-3.5 text-gray-600 max-w-xs truncate text-[11px]" title={m.reason || ''}>
-                        {m.reason || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                        </div>
+                        <div className="text-[11px] text-[#777574]">
+                          {m.stockBefore} → <strong className="text-white">{m.stockAfter}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2 text-xs text-[#AAA5A0]">
+                <span>Trang {page + 1} / {totalPages}</span>
+                <div className="flex items-center gap-1.5 font-mono">
+                  <button
+                    type="button"
+                    disabled={page <= 0 || isLoading}
+                    onClick={() => {
+                      const prev = page - 1;
+                      setPage(prev);
+                      fetchLedger(prev);
+                    }}
+                    className="px-2.5 py-1 rounded-lg border border-[#3A3734] bg-[#262527] text-[#AAA5A0] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages - 1 || isLoading}
+                    onClick={() => {
+                      const next = page + 1;
+                      setPage(next);
+                      fetchLedger(next);
+                    }}
+                    className="px-2.5 py-1 rounded-lg border border-[#3A3734] bg-[#262527] text-[#AAA5A0] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Footer Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs">
-            <span className="text-gray-500">
-              Trang <strong>{page + 1}</strong> / <strong>{totalPages}</strong>
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || isLoading}
-                onClick={() => {
-                  const newPage = page - 1;
-                  setPage(newPage);
-                  fetchLedger(newPage);
-                }}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Trước
-              </button>
-              <button
-                type="button"
-                disabled={page >= totalPages - 1 || isLoading}
-                onClick={() => {
-                  const newPage = page + 1;
-                  setPage(newPage);
-                  fetchLedger(newPage);
-                }}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Drawer Footer Actions */}
+        <div className="p-5 sm:p-6 border-t border-[#333235] bg-[#141517] flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsAdjustmentOpen(true)}
+            className="px-4 py-2.5 border border-[#49423A] hover:border-[#D6B27C] text-[#F5F0E9] hover:text-[#D6B27C] rounded-xl text-xs font-bold transition-colors cursor-pointer"
+          >
+            Điều chỉnh kiểm kê
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsReceiptOpen(true)}
+            className="px-5 py-2.5 bg-[#D6B27C] hover:bg-[#E4C18E] text-[#191A1D] rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+          >
+            + Nhập kho bổ sung
+          </button>
+        </div>
       </div>
+
+      {/* Sub-modals triggered directly from Drawer */}
+      <OwnerStockReceiptModal
+        variant={variant}
+        isOpen={isReceiptOpen}
+        onClose={() => setIsReceiptOpen(false)}
+        onSuccess={() => {
+          fetchLedger(0);
+          handleReconcile();
+          if (onStockUpdated) onStockUpdated();
+        }}
+      />
+
+      <OwnerStockAdjustmentModal
+        variant={variant}
+        isOpen={isAdjustmentOpen}
+        onClose={() => setIsAdjustmentOpen(false)}
+        onSuccess={() => {
+          fetchLedger(0);
+          handleReconcile();
+          if (onStockUpdated) onStockUpdated();
+        }}
+      />
     </div>
   );
 };

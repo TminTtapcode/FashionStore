@@ -19,3 +19,4 @@ public record StockReceiptRequest(
     @Size(max = 500, message = "Lý do nhập kho tối đa 500 ký tự")
     String reason
 ) {}
+

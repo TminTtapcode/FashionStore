@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ProductVariantRepository extends JpaRepository<ProductVariant, Long>, JpaSpecificationExecutor<ProductVariant> {
+public interface ProductVariantRepository
+        extends JpaRepository<ProductVariant, Long>, JpaSpecificationExecutor<ProductVariant> {
 
     Optional<ProductVariant> findBySku(String sku);
 
@@ -31,7 +32,8 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     boolean existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCase(Long productId, String size, String colorName);
 
-    boolean existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCaseAndIdNot(Long productId, String size, String colorName, Long id);
+    boolean existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCaseAndIdNot(Long productId, String size,
+            String colorName, Long id);
 
     /**
      * Conditional atomic stock deduction:
@@ -48,4 +50,16 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @Modifying
     @Query("UPDATE ProductVariant v SET v.stockQuantity = v.stockQuantity + :quantity WHERE v.id = :id")
     int restoreStock(@Param("id") Long id, @Param("quantity") int quantity);
+
+    @Query("SELECT COUNT(v) FROM ProductVariant v WHERE v.stockQuantity > 5")
+    long countHealthyStock();
+
+    @Query("SELECT COUNT(v) FROM ProductVariant v WHERE v.stockQuantity >= 1 AND v.stockQuantity <= 5")
+    long countLowStock();
+
+    @Query("SELECT COUNT(v) FROM ProductVariant v WHERE v.stockQuantity = 0")
+    long countOutOfStock();
+
+    @Query("SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariant v")
+    long sumTotalStockUnits();
 }

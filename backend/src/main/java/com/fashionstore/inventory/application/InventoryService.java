@@ -50,7 +50,8 @@ public class InventoryService {
      * Records initial stock for a newly created variant in the catalog.
      */
     @Transactional(rollbackFor = Exception.class)
-    public InventoryMovement recordInitialStockForNewVariant(ProductVariant variant, int initialStock, Long actorUserId) {
+    public InventoryMovement recordInitialStockForNewVariant(ProductVariant variant, int initialStock,
+            Long actorUserId) {
         String movementKey = "INIT-" + variant.getId();
         if (movementRepository.existsByMovementKey(movementKey)) {
             return movementRepository.findByMovementKey(movementKey).orElseThrow();
@@ -67,17 +68,18 @@ public class InventoryService {
                 String.valueOf(variant.getProduct().getId()),
                 movementKey,
                 actor,
-                "Tồn kho khởi tạo ban đầu khi tạo mới biến thể " + variant.getSku()
-        );
+                "Tồn kho khởi tạo ban đầu khi tạo mới biến thể " + variant.getSku());
 
         return movementRepository.save(movement);
     }
 
     /**
-     * Atomically deducts Available-to-Sell (ATS) stock for an order item inside checkout transaction.
+     * Atomically deducts Available-to-Sell (ATS) stock for an order item inside
+     * checkout transaction.
      */
     @Transactional(rollbackFor = Exception.class)
-    public InventoryMovement deductStockForOrder(Long orderId, String orderNumber, Long variantId, int quantity, Long actorUserId) {
+    public InventoryMovement deductStockForOrder(Long orderId, String orderNumber, Long variantId, int quantity,
+            Long actorUserId) {
         if (quantity <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", "Số lượng trừ tồn kho phải lớn hơn 0");
         }
@@ -95,8 +97,8 @@ public class InventoryService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "VARIANT_UNAVAILABLE",
-                    "Phân loại hàng '" + variant.getProduct().getName() + " - " + variant.getSize() + "' hiện đã tạm ngừng kinh doanh"
-            );
+                    "Phân loại hàng '" + variant.getProduct().getName() + " - " + variant.getSize()
+                            + "' hiện đã tạm ngừng kinh doanh");
         }
 
         int stockBefore = variant.getStockQuantity();
@@ -104,8 +106,9 @@ public class InventoryService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "INSUFFICIENT_STOCK",
-                    "Sản phẩm '" + variant.getProduct().getName() + " (" + variant.getSize() + " - " + variant.getColorName() + ")' không đủ tồn kho khả dụng (còn: " + stockBefore + ", cần: " + quantity + ")"
-            );
+                    "Sản phẩm '" + variant.getProduct().getName() + " (" + variant.getSize() + " - "
+                            + variant.getColorName() + ")' không đủ tồn kho khả dụng (còn: " + stockBefore + ", cần: "
+                            + quantity + ")");
         }
 
         int stockAfter = stockBefore - quantity;
@@ -123,17 +126,18 @@ public class InventoryService {
                 orderNumber,
                 movementKey,
                 actor,
-                "Trừ tồn kho khả dụng cho đơn hàng #" + orderNumber
-        );
+                "Trừ tồn kho khả dụng cho đơn hàng #" + orderNumber);
 
         return movementRepository.save(movement);
     }
 
     /**
-     * Restores Available-to-Sell stock when an order is cancelled prior to shipping.
+     * Restores Available-to-Sell stock when an order is cancelled prior to
+     * shipping.
      */
     @Transactional(rollbackFor = Exception.class)
-    public InventoryMovement restoreStockForCancellation(Long orderId, String orderNumber, Long variantId, int quantity, Long actorUserId, String reason) {
+    public InventoryMovement restoreStockForCancellation(Long orderId, String orderNumber, Long variantId, int quantity,
+            Long actorUserId, String reason) {
         if (quantity <= 0) {
             return null;
         }
@@ -163,17 +167,18 @@ public class InventoryService {
                 orderNumber,
                 movementKey,
                 actor,
-                reason != null && !reason.isBlank() ? reason : "Hoàn tồn kho khả dụng do hủy đơn hàng #" + orderNumber
-        );
+                reason != null && !reason.isBlank() ? reason : "Hoàn tồn kho khả dụng do hủy đơn hàng #" + orderNumber);
 
         return movementRepository.save(movement);
     }
 
     /**
-     * Restores stock when a delivery failure is physically received back at the warehouse.
+     * Restores stock when a delivery failure is physically received back at the
+     * warehouse.
      */
     @Transactional(rollbackFor = Exception.class)
-    public InventoryMovement restoreStockForReturn(Long orderId, String orderNumber, Long variantId, int quantity, Long actorUserId, String reason) {
+    public InventoryMovement restoreStockForReturn(Long orderId, String orderNumber, Long variantId, int quantity,
+            Long actorUserId, String reason) {
         if (quantity <= 0) {
             return null;
         }
@@ -203,8 +208,8 @@ public class InventoryService {
                 orderNumber,
                 movementKey,
                 actor,
-                reason != null && !reason.isBlank() ? reason : "Hoàn tồn kho sau khi bưu tá giao hàng trả về kho cho đơn #" + orderNumber
-        );
+                reason != null && !reason.isBlank() ? reason
+                        : "Hoàn tồn kho sau khi bưu tá giao hàng trả về kho cho đơn #" + orderNumber);
 
         return movementRepository.save(movement);
     }
@@ -238,8 +243,7 @@ public class InventoryService {
                 variant.getSku(),
                 movementKey,
                 actor,
-                reason != null && !reason.isBlank() ? reason : "Tồn kho ban đầu khi tạo biến thể"
-        );
+                reason != null && !reason.isBlank() ? reason : "Tồn kho ban đầu khi tạo biến thể");
 
         return movementRepository.save(movement);
     }
@@ -274,8 +278,7 @@ public class InventoryService {
                 request.referenceNumber(),
                 movementKey,
                 actor,
-                request.reason()
-        );
+                request.reason());
 
         InventoryMovement saved = movementRepository.save(movement);
         return toMovementDto(saved);
@@ -300,8 +303,8 @@ public class InventoryService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "NEGATIVE_STOCK_FORBIDDEN",
-                    "Tồn kho sau điều chỉnh không được nhỏ hơn 0 (Hiện tại: " + stockBefore + ", giảm: " + Math.abs(request.quantityDelta()) + ")"
-            );
+                    "Tồn kho sau điều chỉnh không được nhỏ hơn 0 (Hiện tại: " + stockBefore + ", giảm: "
+                            + Math.abs(request.quantityDelta()) + ")");
         }
 
         variant.setStockQuantity(stockAfter);
@@ -320,8 +323,7 @@ public class InventoryService {
                 null,
                 movementKey,
                 actor,
-                request.reason()
-        );
+                request.reason());
 
         InventoryMovement saved = movementRepository.save(movement);
         return toMovementDto(saved);
@@ -337,7 +339,8 @@ public class InventoryService {
         }
 
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100));
-        Page<InventoryMovement> movementPage = movementRepository.findByVariantIdOrderByCreatedAtDescIdDesc(variantId, pageable);
+        Page<InventoryMovement> movementPage = movementRepository.findByVariantIdOrderByCreatedAtDescIdDesc(variantId,
+                pageable);
 
         List<InventoryMovementDto> items = movementPage.getContent().stream()
                 .map(this::toMovementDto)
@@ -350,12 +353,12 @@ public class InventoryService {
                 movementPage.getTotalElements(),
                 movementPage.getTotalPages(),
                 movementPage.hasNext(),
-                movementPage.hasPrevious()
-        );
+                movementPage.hasPrevious());
     }
 
     /**
-     * Reconciles a variant's current stock against the cumulative sum of all ledger movements.
+     * Reconciles a variant's current stock against the cumulative sum of all ledger
+     * movements.
      */
     @Transactional(readOnly = true)
     public InventoryReconciliationDto reconcileVariant(Long variantId) {
@@ -367,8 +370,10 @@ public class InventoryService {
 
         Optional<InventoryMovement> opening = movementRepository.findOpeningBalanceByVariantId(variantId);
         int openingBalance = opening.map(InventoryMovement::getQuantityDelta).orElse(0);
+        int postOpeningDelta = sumDelta - openingBalance;
 
-        int discrepancy = currentStock - sumDelta;
+        int calculatedStock = openingBalance + postOpeningDelta;
+        int discrepancy = currentStock - calculatedStock;
         boolean isBalanced = (discrepancy == 0);
 
         return new InventoryReconciliationDto(
@@ -377,21 +382,37 @@ public class InventoryService {
                 variant.getProduct().getName(),
                 currentStock,
                 openingBalance,
+                postOpeningDelta,
                 sumDelta,
-                sumDelta,
+                calculatedStock,
                 discrepancy,
-                isBalanced
-        );
+                isBalanced);
     }
 
     /**
-     * Lists inventory overview across all variants with filter by category, search, and stock status.
+     * Store-wide inventory metrics across all variants:
+     * Guarantees totalSku = healthyStockSku + lowStockSku + outOfStockSku.
+     */
+    @Transactional(readOnly = true)
+    public InventoryGlobalStatsDto getGlobalInventoryStats() {
+        long totalSku = variantRepository.count();
+        long healthy = variantRepository.countHealthyStock();
+        long low = variantRepository.countLowStock();
+        long out = variantRepository.countOutOfStock();
+        long totalUnits = variantRepository.sumTotalStockUnits();
+        return new InventoryGlobalStatsDto(totalSku, healthy, low, out, totalUnits);
+    }
+
+    /**
+     * Lists inventory overview across all variants with filter by category, search,
+     * and stock status.
      */
     @Transactional(readOnly = true)
     public PageResponse<InventorySummaryDto> getInventoryOverview(
             int page, int size, String stockStatus, Long categoryId, String search) {
 
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100), Sort.by(Sort.Direction.DESC, "id"));
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100),
+                Sort.by(Sort.Direction.DESC, "id"));
         Page<ProductVariant> variantPage = variantRepository.findAll((root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
 
@@ -434,8 +455,7 @@ public class InventoryService {
                 variantPage.getTotalElements(),
                 variantPage.getTotalPages(),
                 variantPage.hasNext(),
-                variantPage.hasPrevious()
-        );
+                variantPage.hasPrevious());
     }
 
     private InventoryMovementDto toMovementDto(InventoryMovement m) {
@@ -456,15 +476,15 @@ public class InventoryService {
                 m.getMovementKey(),
                 m.getActor() != null ? m.getActor().getFullName() : "SYSTEM",
                 m.getReason(),
-                m.getCreatedAt()
-        );
+                m.getCreatedAt());
     }
 
     private InventorySummaryDto toSummaryDto(ProductVariant v) {
         Product p = v.getProduct();
         String primaryImage = p.getPrimaryImage().map(ProductImage::getImageUrl).orElse(null);
 
-        Optional<InventoryMovement> lastMovement = movementRepository.findFirstByVariantIdOrderByCreatedAtDescIdDesc(v.getId());
+        Optional<InventoryMovement> lastMovement = movementRepository
+                .findFirstByVariantIdOrderByCreatedAtDescIdDesc(v.getId());
 
         return new InventorySummaryDto(
                 v.getId(),
@@ -480,7 +500,6 @@ public class InventoryService {
                 v.getStatus(),
                 primaryImage,
                 lastMovement.map(InventoryMovement::getCreatedAt).orElse(null),
-                lastMovement.map(m -> m.getMovementType().name()).orElse(null)
-        );
+                lastMovement.map(m -> m.getMovementType().name()).orElse(null));
     }
 }

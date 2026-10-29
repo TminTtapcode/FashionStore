@@ -51,3 +51,4 @@ SELECT
     'Số dư tồn kho khởi tạo tại thời điểm kích hoạt Sổ cái Kiểm toán (Cutover)',
     CURRENT_TIMESTAMP
 FROM product_variants;
+

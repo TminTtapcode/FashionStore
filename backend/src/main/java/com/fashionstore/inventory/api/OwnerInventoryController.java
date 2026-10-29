@@ -24,7 +24,8 @@ public class OwnerInventoryController {
     }
 
     /**
-     * Lists inventory overview across all variants with filter by category, search, and stock status.
+     * Lists inventory overview across all variants with filter by category, search,
+     * and stock status.
      */
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<InventorySummaryDto>>> getInventoryOverview(
@@ -34,7 +35,8 @@ public class OwnerInventoryController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String search) {
 
-        PageResponse<InventorySummaryDto> data = inventoryService.getInventoryOverview(page, size, stockStatus, categoryId, search);
+        PageResponse<InventorySummaryDto> data = inventoryService.getInventoryOverview(page, size, stockStatus,
+                categoryId, search);
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 
@@ -59,6 +61,15 @@ public class OwnerInventoryController {
             @PathVariable Long variantId) {
 
         InventoryReconciliationDto data = inventoryService.reconcileVariant(variantId);
+        return ResponseEntity.ok(ApiResponse.success(data));
+    }
+
+    /**
+     * Store-wide global inventory stats (total, healthy, low, out, totalUnits).
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<InventoryGlobalStatsDto>> getInventoryStats() {
+        InventoryGlobalStatsDto data = inventoryService.getGlobalInventoryStats();
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 

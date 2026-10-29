@@ -98,8 +98,7 @@ public class OwnerProductService {
                 productPage.getTotalElements(),
                 productPage.getTotalPages(),
                 productPage.hasNext(),
-                productPage.hasPrevious()
-        );
+                productPage.hasPrevious());
     }
 
     /**
@@ -120,10 +119,12 @@ public class OwnerProductService {
     @Transactional(rollbackFor = Exception.class)
     public OwnerProductDetailDto createProduct(CreateProductRequest request) {
         Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục ID: " + request.categoryId()));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Không tìm thấy danh mục ID: " + request.categoryId()));
 
         if (category.getStatus() != CategoryStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "INACTIVE_CATEGORY", "Không thể gán sản phẩm vào danh mục đã bị vô hiệu hóa");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INACTIVE_CATEGORY",
+                    "Không thể gán sản phẩm vào danh mục đã bị vô hiệu hóa");
         }
 
         String slug = skuGeneratorService.generateUniqueSlug(request.name(), request.slug(), null);
@@ -135,8 +136,7 @@ public class OwnerProductService {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "ACTIVE_REQUIRES_VARIANTS",
-                        "Sản phẩm phải có ít nhất một biến thể để có thể xuất bản ở trạng thái Hoạt động (ACTIVE)"
-                );
+                        "Sản phẩm phải có ít nhất một biến thể để có thể xuất bản ở trạng thái Hoạt động (ACTIVE)");
             }
             boolean hasActiveVariant = request.variants().stream()
                     .anyMatch(v -> v.status() == null || v.status() == ProductVariantStatus.ACTIVE);
@@ -144,8 +144,7 @@ public class OwnerProductService {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "ACTIVE_REQUIRES_ACTIVE_VARIANT",
-                        "Sản phẩm phải có ít nhất một biến thể ở trạng thái Hoạt động để có thể xuất bản"
-                );
+                        "Sản phẩm phải có ít nhất một biến thể ở trạng thái Hoạt động để có thể xuất bản");
             }
         }
 
@@ -160,8 +159,7 @@ public class OwnerProductService {
                 request.fitStyle() != null ? request.fitStyle().trim() : null,
                 request.careInstructions(),
                 request.specifications(),
-                initialStatus
-        );
+                initialStatus);
 
         // Process initial variants if provided
         if (request.variants() != null && !request.variants().isEmpty()) {
@@ -176,8 +174,8 @@ public class OwnerProductService {
                     throw new ApiException(
                             HttpStatus.BAD_REQUEST,
                             "DUPLICATE_VARIANT_COMBINATION",
-                            "Tổ hợp kích cỡ '" + vReq.size() + "' và màu '" + vReq.colorName() + "' bị trùng lặp trong yêu cầu tạo"
-                    );
+                            "Tổ hợp kích cỡ '" + vReq.size() + "' và màu '" + vReq.colorName()
+                                    + "' bị trùng lặp trong yêu cầu tạo");
                 }
 
                 validateVariantPrices(vReq.price(), vReq.compareAtPrice());
@@ -199,8 +197,7 @@ public class OwnerProductService {
                         vReq.price(),
                         vReq.compareAtPrice(),
                         vReq.stockQuantity() != null ? vReq.stockQuantity() : 0,
-                        vReq.status() != null ? vReq.status() : ProductVariantStatus.ACTIVE
-                );
+                        vReq.status() != null ? vReq.status() : ProductVariantStatus.ACTIVE);
                 product.addVariant(variant);
             }
         }
@@ -209,7 +206,8 @@ public class OwnerProductService {
         if (saved.getVariants() != null) {
             for (ProductVariant v : saved.getVariants()) {
                 if (v.getStockQuantity() > 0) {
-                    inventoryService.recordInitialStock(v.getId(), v.getStockQuantity(), null, "Khởi tạo tồn kho ban đầu khi tạo sản phẩm");
+                    inventoryService.recordInitialStock(v.getId(), v.getStockQuantity(), null,
+                            "Khởi tạo tồn kho ban đầu khi tạo sản phẩm");
                 }
             }
         }
@@ -225,14 +223,17 @@ public class OwnerProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm ID: " + productId));
 
         if (product.getStatus().isTerminal()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "TERMINAL_STATE", "Không thể sửa sản phẩm đã bị Lưu trữ (ARCHIVED)");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "TERMINAL_STATE",
+                    "Không thể sửa sản phẩm đã bị Lưu trữ (ARCHIVED)");
         }
 
         Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục ID: " + request.categoryId()));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Không tìm thấy danh mục ID: " + request.categoryId()));
 
         if (category.getStatus() != CategoryStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "INACTIVE_CATEGORY", "Không thể chuyển sản phẩm sang danh mục đã vô hiệu hóa");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INACTIVE_CATEGORY",
+                    "Không thể chuyển sản phẩm sang danh mục đã vô hiệu hóa");
         }
 
         String newSlug = skuGeneratorService.generateUniqueSlug(request.name(), request.slug(), productId);
@@ -272,8 +273,7 @@ public class OwnerProductService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_TRANSITION",
-                    "Không thể chuyển trạng thái sản phẩm từ " + currentStatus + " sang " + targetStatus
-            );
+                    "Không thể chuyển trạng thái sản phẩm từ " + currentStatus + " sang " + targetStatus);
         }
 
         if (targetStatus == ProductStatus.ACTIVE) {
@@ -283,8 +283,7 @@ public class OwnerProductService {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "NO_ACTIVE_VARIANTS",
-                        "Không thể kích hoạt (ACTIVE) sản phẩm vì chưa có bất kỳ biến thể nào đang hoạt động"
-                );
+                        "Không thể kích hoạt (ACTIVE) sản phẩm vì chưa có bất kỳ biến thể nào đang hoạt động");
             }
         }
 
@@ -303,18 +302,20 @@ public class OwnerProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm ID: " + productId));
 
         if (product.getStatus().isTerminal()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "TERMINAL_STATE", "Không thể thêm biến thể cho sản phẩm đã Lưu trữ (ARCHIVED)");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "TERMINAL_STATE",
+                    "Không thể thêm biến thể cho sản phẩm đã Lưu trữ (ARCHIVED)");
         }
 
         String normalizedSize = request.size().trim().toUpperCase(Locale.ROOT);
         String normalizedColor = request.colorName().trim();
 
-        if (variantRepository.existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCase(productId, normalizedSize, normalizedColor)) {
+        if (variantRepository.existsByProductIdAndSizeIgnoreCaseAndColorNameIgnoreCase(productId, normalizedSize,
+                normalizedColor)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "DUPLICATE_VARIANT_COMBINATION",
-                    "Tổ hợp kích cỡ '" + normalizedSize + "' và màu '" + normalizedColor + "' đã tồn tại cho sản phẩm này"
-            );
+                    "Tổ hợp kích cỡ '" + normalizedSize + "' và màu '" + normalizedColor
+                            + "' đã tồn tại cho sản phẩm này");
         }
 
         validateVariantPrices(request.price(), request.compareAtPrice());
@@ -336,13 +337,13 @@ public class OwnerProductService {
                 request.price(),
                 request.compareAtPrice(),
                 request.stockQuantity() != null ? request.stockQuantity() : 0,
-                request.status() != null ? request.status() : ProductVariantStatus.ACTIVE
-        );
+                request.status() != null ? request.status() : ProductVariantStatus.ACTIVE);
 
         product.addVariant(variant);
         ProductVariant saved = variantRepository.save(variant);
         if (saved.getStockQuantity() > 0) {
-            inventoryService.recordInitialStock(saved.getId(), saved.getStockQuantity(), null, "Khởi tạo tồn kho ban đầu khi tạo biến thể");
+            inventoryService.recordInitialStock(saved.getId(), saved.getStockQuantity(), null,
+                    "Khởi tạo tồn kho ban đầu khi tạo biến thể");
         }
 
         return toVariantDto(saved, false);
@@ -358,11 +359,13 @@ public class OwnerProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể ID: " + variantId));
 
         if (!variant.getProduct().getId().equals(productId)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "VARIANT_MISMATCH", "Biến thể không thuộc về sản phẩm đã chỉ định");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VARIANT_MISMATCH",
+                    "Biến thể không thuộc về sản phẩm đã chỉ định");
         }
 
         if (variant.getProduct().getStatus().isTerminal()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "TERMINAL_STATE", "Không thể sửa biến thể của sản phẩm đã Lưu trữ (ARCHIVED)");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "TERMINAL_STATE",
+                    "Không thể sửa biến thể của sản phẩm đã Lưu trữ (ARCHIVED)");
         }
 
         boolean hasOrders = orderItemRepository.existsByVariantId(variantId);
@@ -375,8 +378,8 @@ public class OwnerProductService {
                     throw new ApiException(
                             HttpStatus.BAD_REQUEST,
                             "SKU_IMMUTABLE",
-                            "Mã SKU '" + variant.getSku() + "' đã phát sinh đơn hàng lịch sử, không được phép thay đổi để bảo toàn đối soát"
-                    );
+                            "Mã SKU '" + variant.getSku()
+                                    + "' đã phát sinh đơn hàng lịch sử, không được phép thay đổi để bảo toàn đối soát");
                 }
                 if (variantRepository.existsBySkuAndIdNot(newSku, variantId)) {
                     throw new DuplicateResourceException("Mã SKU '" + newSku + "' đã tồn tại trên một biến thể khác");
@@ -393,8 +396,8 @@ public class OwnerProductService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "DUPLICATE_VARIANT_COMBINATION",
-                    "Tổ hợp kích cỡ '" + normalizedSize + "' và màu '" + normalizedColor + "' đã tồn tại trên biến thể khác của sản phẩm này"
-            );
+                    "Tổ hợp kích cỡ '" + normalizedSize + "' và màu '" + normalizedColor
+                            + "' đã tồn tại trên biến thể khác của sản phẩm này");
         }
 
         validateVariantPrices(request.price(), request.compareAtPrice());
@@ -424,8 +427,8 @@ public class OwnerProductService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "PRODUCT_HAS_ORDERS",
-                    "Sản phẩm '" + product.getName() + "' đã phát sinh đơn hàng trong quá khứ, không thể xóa vật lý. Vui lòng chuyển trạng thái sang Lưu trữ (ARCHIVED)"
-            );
+                    "Sản phẩm '" + product.getName()
+                            + "' đã phát sinh đơn hàng trong quá khứ, không thể xóa vật lý. Vui lòng chuyển trạng thái sang Lưu trữ (ARCHIVED)");
         }
 
         productRepository.delete(product);
@@ -439,8 +442,7 @@ public class OwnerProductService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_COMPARE_AT_PRICE",
-                    "Giá niêm yết so sánh (" + compareAtPrice + ") không được nhỏ hơn giá bán thực tế (" + price + ")"
-            );
+                    "Giá niêm yết so sánh (" + compareAtPrice + ") không được nhỏ hơn giá bán thực tế (" + price + ")");
         }
     }
 
@@ -463,8 +465,7 @@ public class OwnerProductService {
                 p.getMaxPrice(),
                 primaryImg,
                 p.getCreatedAt(),
-                p.getUpdatedAt()
-        );
+                p.getUpdatedAt());
     }
 
     private OwnerProductDetailDto toDetailDto(Product p, boolean hasOrders) {
@@ -482,8 +483,7 @@ public class OwnerProductService {
                         img.getImageUrl(),
                         img.getAltText(),
                         img.getSortOrder(),
-                        img.isPrimary()
-                ))
+                        img.isPrimary()))
                 .toList();
 
         return new OwnerProductDetailDto(
@@ -504,8 +504,7 @@ public class OwnerProductService {
                 imageDtos,
                 hasOrders,
                 p.getCreatedAt(),
-                p.getUpdatedAt()
-        );
+                p.getUpdatedAt());
     }
 
     private OwnerVariantDto toVariantDto(ProductVariant v, boolean hasOrders) {
@@ -521,8 +520,6 @@ public class OwnerProductService {
                 v.getStatus(),
                 hasOrders,
                 v.getCreatedAt(),
-                v.getUpdatedAt()
-        );
+                v.getUpdatedAt());
     }
 }
-

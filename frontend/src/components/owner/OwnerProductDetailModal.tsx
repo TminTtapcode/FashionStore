@@ -118,35 +118,43 @@ export default function OwnerProductDetailModal({
           setCareInstructions(p.careInstructions || '');
           setDescription(p.description || '');
           setSpecifications(p.specifications || '{}');
+          setStatus(p.status === 'ACTIVE' ? 'ACTIVE' : 'DRAFT');
           setIsDirty(false);
         })
-        .catch((err) => setError(err.message))
+        .catch((err) => {
+          setError(err.message || 'Không thể tải chi tiết sản phẩm');
+        })
         .finally(() => setIsLoading(false));
     } else {
-      // Reset for create
-      setLoadedProduct(null);
+      // Reset Create Form
       setName('');
       setSlug('');
-      setMaterial('100% Cotton Organic');
+      setBrand('IVRE Atelier');
+      setMaterial('');
       setFitStyle('Regular Fit');
-      setCareInstructions('Giặt tay nhẹ, ủi ở nhiệt độ trung bình');
+      setCareInstructions('');
       setDescription('');
       setSpecifications('{}');
       setStatus('DRAFT');
+      setCreateVariants([
+        { size: 'S', colorName: 'Trắng', colorHex: '#FFFFFF', price: 500000, compareAtPrice: 650000, stockQuantity: 10, status: 'ACTIVE' },
+        { size: 'M', colorName: 'Trắng', colorHex: '#FFFFFF', price: 500000, compareAtPrice: 650000, stockQuantity: 10, status: 'ACTIVE' },
+      ]);
+      setLoadedProduct(null);
       setIsDirty(false);
     }
   }, [isOpen, productId]);
 
   const handleSafeClose = () => {
     if (isDirty) {
-      if (!window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng form không?')) {
+      if (!window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng?')) {
         return;
       }
     }
     onClose();
   };
 
-  // Escape key handler
+  // Trap Escape key
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -157,26 +165,26 @@ export default function OwnerProductDetailModal({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isDirty, onClose]);
+  }, [isOpen, isDirty]);
 
-  // Matrix Generator: Generates combinations
+  // Quick Matrix Generator logic
   const handleGenerateMatrix = () => {
     const rawColors = matrixColorNames
       .split(',')
       .map((c) => c.trim())
       .filter(Boolean);
 
-    if (matrixSizes.length === 0 || rawColors.length === 0) {
-      setError('Vui lòng chọn ít nhất 1 kích cỡ và 1 màu sắc để sinh ma trận');
+    if (rawColors.length === 0 || matrixSizes.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 kích cỡ và 1 màu sắc');
       return;
     }
 
     const generated: CreateVariantPayload[] = [];
     for (const color of rawColors) {
-      const matchDefault = DEFAULT_COLORS.find(
+      const matched = DEFAULT_COLORS.find(
         (dc) => dc.name.toLowerCase() === color.toLowerCase()
       );
-      const hex = matchDefault ? matchDefault.hex : '#888888';
+      const hex = matched ? matched.hex : '#1A1A1A';
 
       for (const size of matrixSizes) {
         generated.push({
@@ -184,7 +192,7 @@ export default function OwnerProductDetailModal({
           colorName: color,
           colorHex: hex,
           price: matrixBasePrice,
-          compareAtPrice: matrixComparePrice || null,
+          compareAtPrice: matrixComparePrice || undefined,
           stockQuantity: matrixInitialStock,
           status: 'ACTIVE',
         });
@@ -194,7 +202,6 @@ export default function OwnerProductDetailModal({
     setCreateVariants(generated);
     setShowMatrixGenerator(false);
     setIsDirty(true);
-    setError(null);
   };
 
   // Save General Product Form (Create or Update)
@@ -313,26 +320,26 @@ export default function OwnerProductDetailModal({
     <div
       ref={containerRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs focus:outline-hidden"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-xs focus:outline-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="owner-product-modal-title"
     >
-      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#141414] border border-[#C7AD83]/30 rounded-xs shadow-2xl text-white overflow-hidden">
+      <div className="relative w-full max-w-4xl max-h-[92vh] sm:max-h-[88vh] flex flex-col bg-[#191A1D] border border-[#333235] rounded-t-xl sm:rounded-xs shadow-2xl text-[#F5F0E9] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1a1a1a]">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#333235] bg-[#0E0F11]/60">
           <div>
-            <span className="text-[10px] font-mono tracking-widest uppercase text-[#C7AD83]">
+            <span className="text-[10px] font-mono tracking-widest uppercase text-[#D6B27C] block mb-0.5">
               {isCreateMode ? 'KHỞI TẠO SẢN PHẨM MỚI' : 'CHỈNH SỬA SẢN PHẨM'}
             </span>
-            <h2 id="owner-product-modal-title" className="text-base font-serif font-bold text-white line-clamp-1">
+            <h2 id="owner-product-modal-title" className="text-base sm:text-lg font-serif font-medium text-[#F5F0E9] line-clamp-1">
               {isCreateMode ? (name || 'Sản phẩm mới') : loadedProduct?.name}
             </h2>
           </div>
           <button
             type="button"
             onClick={handleSafeClose}
-            className="p-1.5 text-white/50 hover:text-white rounded-xs border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-[#AAA5A0] hover:text-[#F5F0E9] rounded-full hover:bg-[#212226] transition-colors cursor-pointer"
             aria-label="Đóng"
           >
             ✕
@@ -340,29 +347,30 @@ export default function OwnerProductDetailModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           {error && (
-            <div className="p-3 bg-red-950/50 border border-red-500/40 text-red-200 text-xs rounded-2xs">
+            <div className="p-3 bg-[#DF8D84]/10 border border-[#DF8D84]/30 text-[#DF8D84] text-xs rounded-xs">
               {error}
             </div>
           )}
 
           {isLoading ? (
-            <div className="py-20 text-center text-xs text-white/50 animate-pulse">
-              Đang tải thông tin sản phẩm...
+            <div className="py-20 text-center text-xs text-[#AAA5A0] animate-pulse font-mono">
+              <div className="w-6 h-6 border-2 border-[#D6B27C] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <span>Đang tải thông tin sản phẩm...</span>
             </div>
           ) : (
             <form onSubmit={handleSaveProduct} className="space-y-6">
               {/* Section 1: Thông tin cơ bản */}
-              <div className="bg-white/5 p-4 rounded-xs border border-white/10 space-y-4">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#C7AD83] border-b border-white/10 pb-2">
+              <div className="bg-[#212226] p-4 rounded-xs border border-[#333235] space-y-4">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#D6B27C] border-b border-[#333235] pb-2">
                   1. THÔNG TIN CƠ BẢN
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
-                      Tên sản phẩm <span className="text-red-400">*</span>
+                    <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
+                      Tên sản phẩm <span className="text-[#DF8D84]">*</span>
                     </label>
                     <input
                       type="text"
@@ -373,13 +381,13 @@ export default function OwnerProductDetailModal({
                       }}
                       placeholder="Ví dụ: Đầm Lụa Maxi Cổ Chữ V"
                       required
-                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                      className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
-                      Danh mục thời trang <span className="text-red-400">*</span>
+                    <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
+                      Danh mục thời trang <span className="text-[#DF8D84]">*</span>
                     </label>
                     <select
                       value={categoryId}
@@ -387,7 +395,7 @@ export default function OwnerProductDetailModal({
                         setCategoryId(Number(e.target.value));
                         setIsDirty(true);
                       }}
-                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                      className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] focus:outline-hidden focus:border-[#D6B27C]"
                     >
                       {categories.map((cat) => (
                         <optgroup key={cat.id} label={cat.name}>
@@ -403,7 +411,7 @@ export default function OwnerProductDetailModal({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                    <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
                       Thương hiệu / Dòng sản phẩm
                     </label>
                     <input
@@ -414,12 +422,12 @@ export default function OwnerProductDetailModal({
                         setIsDirty(true);
                       }}
                       placeholder="IVRE Atelier"
-                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                      className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                    <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
                       Chất liệu vải
                     </label>
                     <input
@@ -430,12 +438,12 @@ export default function OwnerProductDetailModal({
                         setIsDirty(true);
                       }}
                       placeholder="Ví dụ: 100% Lụa Tơ Tằm, Cotton Organic..."
-                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                      className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                    <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
                       Form dáng (Fit Style)
                     </label>
                     <input
@@ -446,12 +454,12 @@ export default function OwnerProductDetailModal({
                         setIsDirty(true);
                       }}
                       placeholder="Ví dụ: Regular Fit, Dáng xòe, Oversized..."
-                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                      className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                    <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
                       Đường dẫn tĩnh (Slug) - Tùy chọn
                     </label>
                     <input
@@ -462,13 +470,13 @@ export default function OwnerProductDetailModal({
                         setIsDirty(true);
                       }}
                       placeholder="Tự động sinh từ tên nếu để trống"
-                      className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                      className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                  <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
                     Hướng dẫn bảo quản & Giặt ủi
                   </label>
                   <input
@@ -479,12 +487,12 @@ export default function OwnerProductDetailModal({
                       setIsDirty(true);
                     }}
                     placeholder="Giặt tay nhẹ với nước lạnh, không dùng chất tẩy, ủi hơi nước nhiệt độ thấp"
-                    className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    className="w-full bg-[#191A1D] border border-[#333235] rounded-xs px-3 py-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono uppercase text-white/60 mb-1">
+                  <label className="block text-[11px] font-mono uppercase text-[#AAA5A0] mb-1">
                     Mô tả kiểu dáng & Hoàn cảnh mặc
                   </label>
                   <textarea
@@ -495,15 +503,15 @@ export default function OwnerProductDetailModal({
                     }}
                     rows={2}
                     placeholder="Mô tả phong cách, sự kiện phù hợp (dạo phố, công sở, dạ hội)..."
-                    className="w-full bg-[#1e1e1e] border border-white/20 rounded-2xs p-2 text-xs text-white focus:outline-hidden focus:border-[#C7AD83]"
+                    className="w-full bg-[#191A1D] border border-[#333235] rounded-xs p-2 text-xs text-[#F5F0E9] placeholder-[#AAA5A0]/50 focus:outline-hidden focus:border-[#D6B27C]"
                   />
                 </div>
               </div>
 
               {/* Section 2: Quản lý Ma trận Biến thể */}
-              <div className="bg-white/5 p-4 rounded-xs border border-white/10 space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#C7AD83]">
+              <div className="bg-[#212226] p-4 rounded-xs border border-[#333235] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#333235] pb-2">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#D6B27C]">
                     2. MA TRẬN BIẾN THỂ (SIZE × MÀU SẮC)
                   </h3>
 
@@ -511,7 +519,7 @@ export default function OwnerProductDetailModal({
                     <button
                       type="button"
                       onClick={() => setShowMatrixGenerator(!showMatrixGenerator)}
-                      className="px-2.5 py-1 text-[11px] font-mono text-[#C7AD83] bg-[#C7AD83]/15 hover:bg-[#C7AD83]/25 border border-[#C7AD83]/30 rounded-2xs cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-[11px] font-mono text-[#D6B27C] bg-[#D6B27C]/10 hover:bg-[#D6B27C]/20 border border-[#D6B27C]/30 rounded-xs cursor-pointer flex items-center gap-1 transition-colors"
                     >
                       <span>⚡ Sinh ma trận tự động</span>
                     </button>
@@ -519,7 +527,7 @@ export default function OwnerProductDetailModal({
                     <button
                       type="button"
                       onClick={() => setIsAddingVariant(!isAddingVariant)}
-                      className="px-2.5 py-1 text-[11px] font-mono text-[#C7AD83] bg-[#C7AD83]/15 hover:bg-[#C7AD83]/25 border border-[#C7AD83]/30 rounded-2xs cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-[11px] font-mono text-[#D6B27C] bg-[#D6B27C]/10 hover:bg-[#D6B27C]/20 border border-[#D6B27C]/30 rounded-xs cursor-pointer flex items-center gap-1 transition-colors"
                     >
                       <span>+ Thêm biến thể mới</span>
                     </button>
@@ -528,13 +536,13 @@ export default function OwnerProductDetailModal({
 
                 {/* Create Mode: Quick Matrix Generator Panel */}
                 {isCreateMode && showMatrixGenerator && (
-                  <div className="p-4 bg-[#1e1e1e] border border-[#C7AD83]/40 rounded-xs space-y-3">
-                    <p className="text-xs font-mono font-bold text-[#C7AD83]">CÔNG CỤ SINH MA TRẬN BIẾN THỂ NHANH</p>
+                  <div className="p-4 bg-[#191A1D] border border-[#D6B27C]/40 rounded-xs space-y-3">
+                    <p className="text-xs font-mono font-bold text-[#D6B27C]">CÔNG CỤ SINH MA TRẬN BIẾN THỂ NHANH</p>
                     <div>
-                      <span className="block text-[11px] font-mono text-white/70 mb-1">Chọn kích cỡ:</span>
+                      <span className="block text-[11px] font-mono text-[#AAA5A0] mb-1">Chọn kích cỡ:</span>
                       <div className="flex flex-wrap gap-2">
                         {COMMON_SIZES.map((sz) => (
-                          <label key={sz} className="flex items-center gap-1.5 text-xs bg-white/5 px-2 py-1 rounded-2xs cursor-pointer">
+                          <label key={sz} className="flex items-center gap-1.5 text-xs bg-[#212226] px-2.5 py-1 rounded-xs border border-[#333235] cursor-pointer">
                             <input
                               type="checkbox"
                               checked={matrixSizes.includes(sz)}
@@ -542,7 +550,7 @@ export default function OwnerProductDetailModal({
                                 if (e.target.checked) setMatrixSizes([...matrixSizes, sz]);
                                 else setMatrixSizes(matrixSizes.filter((s) => s !== sz));
                               }}
-                              className="accent-[#C7AD83]"
+                              className="accent-[#D6B27C]"
                             />
                             <span>{sz}</span>
                           </label>
@@ -552,7 +560,7 @@ export default function OwnerProductDetailModal({
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="sm:col-span-2">
-                        <label className="block text-[11px] font-mono text-white/70 mb-1">
+                        <label className="block text-[11px] font-mono text-[#AAA5A0] mb-1">
                           Các màu sản xuất (ngăn cách bằng dấu phẩy):
                         </label>
                         <input
@@ -560,40 +568,40 @@ export default function OwnerProductDetailModal({
                           value={matrixColorNames}
                           onChange={(e) => setMatrixColorNames(e.target.value)}
                           placeholder="Ví dụ: Trắng, Đen, Xanh Navy, Be"
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2.5 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-mono text-white/70 mb-1">Tồn kho mỗi size:</label>
+                        <label className="block text-[11px] font-mono text-[#AAA5A0] mb-1">Tồn kho mỗi size:</label>
                         <input
                           type="number"
                           min="0"
                           value={matrixInitialStock}
                           onChange={(e) => setMatrixInitialStock(Number(e.target.value))}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2.5 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-mono text-white/70 mb-1">Giá bán cơ sở (VNĐ):</label>
+                        <label className="block text-[11px] font-mono text-[#AAA5A0] mb-1">Giá bán cơ sở (VNĐ):</label>
                         <input
                           type="number"
                           step="1000"
                           value={matrixBasePrice}
                           onChange={(e) => setMatrixBasePrice(Number(e.target.value))}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2.5 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-mono text-white/70 mb-1">Giá niêm yết (gạch ngang):</label>
+                        <label className="block text-[11px] font-mono text-[#AAA5A0] mb-1">Giá niêm yết (gạch ngang):</label>
                         <input
                           type="number"
                           step="1000"
                           value={matrixComparePrice}
                           onChange={(e) => setMatrixComparePrice(Number(e.target.value))}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2.5 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2.5 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                     </div>
@@ -602,14 +610,14 @@ export default function OwnerProductDetailModal({
                       <button
                         type="button"
                         onClick={() => setShowMatrixGenerator(false)}
-                        className="px-3 py-1 text-xs text-white/60 hover:text-white"
+                        className="px-3 py-1 text-xs text-[#AAA5A0] hover:text-[#F5F0E9]"
                       >
                         Đóng
                       </button>
                       <button
                         type="button"
                         onClick={handleGenerateMatrix}
-                        className="px-3 py-1 text-xs font-mono font-bold bg-[#C7AD83] text-black rounded-2xs cursor-pointer"
+                        className="px-3 py-1 text-xs font-mono font-bold bg-[#D6B27C] text-[#0E0F11] hover:bg-[#E5C592] rounded-xs cursor-pointer"
                       >
                         Áp Dụng Ma Trận
                       </button>
@@ -619,15 +627,15 @@ export default function OwnerProductDetailModal({
 
                 {/* Edit Mode: Add Variant Form Panel */}
                 {!isCreateMode && isAddingVariant && (
-                  <div className="p-4 bg-[#1e1e1e] border border-[#C7AD83]/40 rounded-xs space-y-3">
-                    <p className="text-xs font-mono font-bold text-[#C7AD83]">THÊM BIẾN THỂ MỚI</p>
+                  <div className="p-4 bg-[#191A1D] border border-[#D6B27C]/40 rounded-xs space-y-3">
+                    <p className="text-xs font-mono font-bold text-[#D6B27C]">THÊM BIẾN THỂ MỚI</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Kích cỡ:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Kích cỡ:</label>
                         <select
                           value={newVarSize}
                           onChange={(e) => setNewVarSize(e.target.value)}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         >
                           {COMMON_SIZES.map((sz) => (
                             <option key={sz} value={sz}>{sz}</option>
@@ -635,74 +643,74 @@ export default function OwnerProductDetailModal({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Tên màu:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Tên màu:</label>
                         <input
                           type="text"
                           value={newVarColor}
                           onChange={(e) => setNewVarColor(e.target.value)}
                           placeholder="Trắng, Đen..."
                           required
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Mã Hex:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Mã Hex:</label>
                         <div className="flex items-center gap-1.5">
                           <input
                             type="color"
                             value={newVarHex}
                             onChange={(e) => setNewVarHex(e.target.value)}
-                            className="w-7 h-7 rounded-2xs border border-white/20 cursor-pointer bg-transparent"
+                            className="w-7 h-7 rounded-xs border border-[#333235] cursor-pointer bg-transparent"
                           />
                           <input
                             type="text"
                             value={newVarHex}
                             onChange={(e) => setNewVarHex(e.target.value)}
-                            className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1 text-xs text-white font-mono"
+                            className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1 text-xs text-[#F5F0E9] font-mono"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Tồn kho khởi tạo:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Tồn kho khởi tạo:</label>
                         <input
                           type="number"
                           min="0"
                           value={newVarStock}
                           onChange={(e) => setNewVarStock(Number(e.target.value))}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Giá bán (VNĐ):</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Giá bán (VNĐ):</label>
                         <input
                           type="number"
                           step="1000"
                           value={newVarPrice}
                           onChange={(e) => setNewVarPrice(Number(e.target.value))}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Giá niêm yết (VNĐ):</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Giá niêm yết (VNĐ):</label>
                         <input
                           type="number"
                           step="1000"
                           value={newVarComparePrice}
                           onChange={(e) => setNewVarComparePrice(Number(e.target.value))}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Mã SKU (để trống tự sinh):</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Mã SKU (để trống tự sinh):</label>
                         <input
                           type="text"
                           value={newVarSku}
                           onChange={(e) => setNewVarSku(e.target.value)}
                           placeholder="Tự động sinh..."
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9] font-mono"
                         />
                       </div>
                     </div>
@@ -711,7 +719,7 @@ export default function OwnerProductDetailModal({
                       <button
                         type="button"
                         onClick={() => setIsAddingVariant(false)}
-                        className="px-3 py-1 text-xs text-white/60 hover:text-white"
+                        className="px-3 py-1 text-xs text-[#AAA5A0] hover:text-[#F5F0E9]"
                       >
                         Hủy
                       </button>
@@ -719,7 +727,7 @@ export default function OwnerProductDetailModal({
                         type="button"
                         onClick={handleAddVariantInEdit}
                         disabled={isSaving}
-                        className="px-3 py-1 text-xs font-mono font-bold bg-[#C7AD83] text-black rounded-2xs cursor-pointer"
+                        className="px-3 py-1 text-xs font-mono font-bold bg-[#D6B27C] text-[#0E0F11] hover:bg-[#E5C592] rounded-xs cursor-pointer"
                       >
                         {isSaving ? 'Đang thêm...' : 'Lưu Biến Thể'}
                       </button>
@@ -729,13 +737,13 @@ export default function OwnerProductDetailModal({
 
                 {/* Edit Mode: Edit Existing Variant Sub-Modal / Panel */}
                 {!isCreateMode && editingVariant && (
-                  <div className="p-4 bg-[#1e1e1e] border border-yellow-500/40 rounded-xs space-y-3">
+                  <div className="p-4 bg-[#191A1D] border border-[#D6B27C]/40 rounded-xs space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-mono font-bold text-yellow-400">
+                      <p className="text-xs font-mono font-bold text-[#D6B27C]">
                         CHỈNH SỬA BIẾN THỂ: {editingVariant.sku}
                       </p>
                       {editingVariant.hasOrders && (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-2xs">
+                        <span className="text-[10px] bg-[#E4BB78]/20 text-[#E4BB78] border border-[#E4BB78]/40 px-2 py-0.5 rounded-xs">
                           🔒 Đã có đơn hàng - Khóa sửa SKU
                         </span>
                       )}
@@ -743,11 +751,11 @@ export default function OwnerProductDetailModal({
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Kích cỡ:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Kích cỡ:</label>
                         <select
                           value={editingVariant.size}
                           onChange={(e) => setEditingVariant({ ...editingVariant, size: e.target.value })}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         >
                           {COMMON_SIZES.map((sz) => (
                             <option key={sz} value={sz}>{sz}</option>
@@ -756,32 +764,32 @@ export default function OwnerProductDetailModal({
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Tên màu:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Tên màu:</label>
                         <input
                           type="text"
                           value={editingVariant.colorName}
                           onChange={(e) => setEditingVariant({ ...editingVariant, colorName: e.target.value })}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Giá bán (VNĐ):</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Giá bán (VNĐ):</label>
                         <input
                           type="number"
                           step="1000"
                           value={editingVariant.price}
                           onChange={(e) => setEditingVariant({ ...editingVariant, price: Number(e.target.value) })}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-mono text-white/60 mb-1">Trạng thái:</label>
+                        <label className="block text-[10px] font-mono text-[#AAA5A0] mb-1">Trạng thái:</label>
                         <select
                           value={editingVariant.status}
                           onChange={(e) => setEditingVariant({ ...editingVariant, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
-                          className="w-full bg-[#161616] border border-white/20 rounded-2xs px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-[#212226] border border-[#333235] rounded-xs px-2 py-1.5 text-xs text-[#F5F0E9]"
                         >
                           <option value="ACTIVE">Hoạt động (ACTIVE)</option>
                           <option value="INACTIVE">Vô hiệu hóa (INACTIVE)</option>
@@ -793,7 +801,7 @@ export default function OwnerProductDetailModal({
                       <button
                         type="button"
                         onClick={() => setEditingVariant(null)}
-                        className="px-3 py-1 text-xs text-white/60 hover:text-white"
+                        className="px-3 py-1 text-xs text-[#AAA5A0] hover:text-[#F5F0E9]"
                       >
                         Đóng
                       </button>
@@ -801,7 +809,7 @@ export default function OwnerProductDetailModal({
                         type="button"
                         onClick={handleUpdateVariantInEdit}
                         disabled={isSaving}
-                        className="px-3 py-1 text-xs font-mono font-bold bg-[#C7AD83] text-black rounded-2xs cursor-pointer"
+                        className="px-3 py-1 text-xs font-mono font-bold bg-[#D6B27C] text-[#0E0F11] hover:bg-[#E5C592] rounded-xs cursor-pointer"
                       >
                         {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
                       </button>
@@ -810,9 +818,9 @@ export default function OwnerProductDetailModal({
                 )}
 
                 {/* Variants Table */}
-                <div className="overflow-x-auto border border-white/10 rounded-2xs">
+                <div className="overflow-x-auto border border-[#333235] rounded-xs">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-white/5 font-mono text-[10px] uppercase text-white/50 border-b border-white/10">
+                    <thead className="bg-[#191A1D] font-mono text-[10px] uppercase text-[#D6B27C] border-b border-[#333235]">
                       <tr>
                         <th className="p-2.5">SKU</th>
                         <th className="p-2.5">Kích cỡ</th>
@@ -824,37 +832,37 @@ export default function OwnerProductDetailModal({
                         <th className="p-2.5 text-right">Thao tác</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-[#333235] text-[#F5F0E9]/90">
                       {isCreateMode ? (
                         createVariants.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="p-6 text-center text-white/40">
+                            <td colSpan={8} className="p-6 text-center text-[#AAA5A0]">
                               Chưa có biến thể nào. Hãy bấm ⚡ Sinh ma trận tự động ở trên!
                             </td>
                           </tr>
                         ) : (
                           createVariants.map((v, idx) => (
-                            <tr key={idx} className="hover:bg-white/5">
-                              <td className="p-2.5 font-mono text-[11px] text-white/70">
+                            <tr key={idx} className="hover:bg-[#191A1D]/50">
+                              <td className="p-2.5 font-mono text-[11px] text-[#AAA5A0]">
                                 {v.sku || '(Tự động sinh)'}
                               </td>
-                              <td className="p-2.5 font-bold font-mono">{v.size}</td>
+                              <td className="p-2.5 font-bold font-mono text-[#F5F0E9]">{v.size}</td>
                               <td className="p-2.5 flex items-center gap-1.5">
                                 {v.colorHex && (
                                   <span
-                                    className="w-3.5 h-3.5 rounded-full border border-white/20"
+                                    className="w-3.5 h-3.5 rounded-full border border-[#333235]"
                                     style={{ backgroundColor: v.colorHex }}
                                   />
                                 )}
                                 <span>{v.colorName}</span>
                               </td>
-                              <td className="p-2.5 font-mono">{v.price.toLocaleString('vi-VN')}₫</td>
-                              <td className="p-2.5 font-mono text-white/40">
+                              <td className="p-2.5 font-mono text-[#F5F0E9]">{v.price.toLocaleString('vi-VN')}₫</td>
+                              <td className="p-2.5 font-mono text-[#AAA5A0]">
                                 {v.compareAtPrice ? `${v.compareAtPrice.toLocaleString('vi-VN')}₫` : '—'}
                               </td>
-                              <td className="p-2.5 font-mono">{v.stockQuantity ?? 0}</td>
+                              <td className="p-2.5 font-mono font-bold text-[#F5F0E9]">{v.stockQuantity ?? 0}</td>
                               <td className="p-2.5">
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-2xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-[#8BC9A8]/10 text-[#8BC9A8] border border-[#8BC9A8]/30">
                                   ACTIVE
                                 </span>
                               </td>
@@ -865,7 +873,7 @@ export default function OwnerProductDetailModal({
                                     setCreateVariants(createVariants.filter((_, i) => i !== idx));
                                     setIsDirty(true);
                                   }}
-                                  className="text-red-400 hover:text-red-300 text-xs cursor-pointer"
+                                  className="text-[#DF8D84] hover:text-[#eb9d95] text-xs cursor-pointer"
                                   title="Xóa biến thể"
                                 >
                                   ✕
@@ -876,30 +884,30 @@ export default function OwnerProductDetailModal({
                         )
                       ) : (
                         loadedProduct?.variants.map((v) => (
-                          <tr key={v.id} className="hover:bg-white/5">
-                            <td className="p-2.5 font-mono text-[11px] text-[#C7AD83]">
+                          <tr key={v.id} className="hover:bg-[#191A1D]/50">
+                            <td className="p-2.5 font-mono text-[11px] text-[#D6B27C]">
                               {v.sku}
                             </td>
-                            <td className="p-2.5 font-bold font-mono">{v.size}</td>
+                            <td className="p-2.5 font-bold font-mono text-[#F5F0E9]">{v.size}</td>
                             <td className="p-2.5 flex items-center gap-1.5">
                               {v.colorHex && (
                                 <span
-                                  className="w-3.5 h-3.5 rounded-full border border-white/20"
+                                  className="w-3.5 h-3.5 rounded-full border border-[#333235]"
                                   style={{ backgroundColor: v.colorHex }}
                                 />
                               )}
                               <span>{v.colorName}</span>
                             </td>
-                            <td className="p-2.5 font-mono">{v.price.toLocaleString('vi-VN')}₫</td>
-                            <td className="p-2.5 font-mono text-white/40">
+                            <td className="p-2.5 font-mono text-[#F5F0E9]">{v.price.toLocaleString('vi-VN')}₫</td>
+                            <td className="p-2.5 font-mono text-[#AAA5A0]">
                               {v.compareAtPrice ? `${v.compareAtPrice.toLocaleString('vi-VN')}₫` : '—'}
                             </td>
-                            <td className="p-2.5 font-mono">{v.stockQuantity}</td>
+                            <td className="p-2.5 font-mono font-bold text-[#F5F0E9]">{v.stockQuantity}</td>
                             <td className="p-2.5">
-                              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-2xs border ${
+                              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-xs border ${
                                 v.status === 'ACTIVE'
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                  : 'bg-white/10 text-white/40 border-white/20'
+                                  ? 'bg-[#8BC9A8]/10 text-[#8BC9A8] border-[#8BC9A8]/30'
+                                  : 'bg-[#212226] text-[#AAA5A0] border-[#333235]'
                               }`}>
                                 {v.status}
                               </span>
@@ -908,7 +916,7 @@ export default function OwnerProductDetailModal({
                               <button
                                 type="button"
                                 onClick={() => setEditingVariant(v)}
-                                className="text-xs font-mono text-[#C7AD83] hover:underline cursor-pointer"
+                                className="text-xs font-mono text-[#D6B27C] hover:underline cursor-pointer"
                               >
                                 Sửa
                               </button>
@@ -922,8 +930,8 @@ export default function OwnerProductDetailModal({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                <div className="text-[11px] text-white/50">
+              <div className="flex items-center justify-between pt-4 border-t border-[#333235]">
+                <div className="text-[11px] text-[#AAA5A0] font-mono">
                   {isCreateMode
                     ? `Tổng số biến thể: ${createVariants.length}`
                     : `Tổng số biến thể: ${loadedProduct?.variants.length || 0}`}
@@ -934,14 +942,14 @@ export default function OwnerProductDetailModal({
                     type="button"
                     onClick={handleSafeClose}
                     disabled={isSaving}
-                    className="px-4 py-2 text-xs text-white/70 hover:text-white border border-white/20 rounded-2xs cursor-pointer"
+                    className="px-4 py-2 text-xs text-[#AAA5A0] hover:text-[#F5F0E9] border border-[#333235] bg-[#212226] rounded-xs cursor-pointer transition-colors"
                   >
                     HỦY
                   </button>
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="px-5 py-2 text-xs font-mono font-bold bg-[#C7AD83] text-black hover:bg-[#b5996f] disabled:opacity-50 rounded-2xs cursor-pointer"
+                    className="px-5 py-2 text-xs font-mono font-bold bg-[#D6B27C] text-[#0E0F11] hover:bg-[#E5C592] disabled:opacity-50 rounded-xs cursor-pointer transition-colors shadow-sm"
                   >
                     {isSaving ? 'ĐANG LƯU...' : isCreateMode ? 'TẠO SẢN PHẨM' : 'LƯU THAY ĐỔI'}
                   </button>
