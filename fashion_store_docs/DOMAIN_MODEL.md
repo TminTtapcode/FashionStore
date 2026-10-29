@@ -61,6 +61,10 @@
   - `alt_text`: VARCHAR(255) nullable (mô tả ảnh cho SEO và trợ năng accessibility).
   - `sort_order`: INT DEFAULT 0 (thứ tự hiển thị trong bộ sưu tập gallery).
   - `is_primary`: BOOLEAN NOT NULL DEFAULT FALSE (ảnh đại diện chính cho sản phẩm trên card catalog).
+  - `file_size`: BIGINT nullable (kích thước tệp tính bằng bytes).
+  - `width`: INT nullable (chiều rộng pixel của hình ảnh).
+  - `height`: INT nullable (chiều cao pixel của hình ảnh).
+  - `format`: VARCHAR(20) nullable (định dạng ảnh: jpg, png, webp, avif).
   - `created_at`: TIMESTAMP.
   - *Ràng buộc toàn vẹn ảnh*:
     - `CONSTRAINT fk_image_product_variant FOREIGN KEY (product_id, variant_id) REFERENCES product_variants(product_id, id) ON DELETE CASCADE` (đảm bảo variant_id nếu gán thì bắt buộc phải thuộc cùng sản phẩm đó, không thể trỏ chéo sang sản phẩm khác).

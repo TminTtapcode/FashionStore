@@ -62,6 +62,26 @@
 5. **Chính sách Không Tiết lộ Bí Mật & Mật khẩu trong Tài liệu & Logs**:
    - Tuyệt đối không lưu mật khẩu, JWT token, bcrypt hashes hay bearer tokens trong bất kỳ tài liệu kiến trúc, sơ đồ sequence hay commit log. Mọi ví dụ chỉ dùng định danh giả định an toàn: `<OWNER_EMAIL>`, `<SECURE_PASSWORD>`.
 
+### Bảo Mật Tải Ảnh & Chữ Ký Số Cloudinary (Phase 5C.4 Media Security)
+
+1. **Giao thức Tải Ảnh Ký Số (Signed Upload Protocol)**:
+   - `api_secret` của Cloudinary lưu trữ độc quyền tại Spring Boot backend (biến môi trường `CLOUDINARY_API_SECRET` hoặc cấu hình `application.yml`). Tuyệt đối không bao giờ trả về frontend hay commit vào mã nguồn git.
+   - Frontend yêu cầu chữ ký qua endpoint `POST /api/v1/owner/media/sign-upload` (bảo vệ nghiêm ngặt bằng RBAC `@PreAuthorize("hasAnyRole('SHOP_OWNER', 'ADMIN')")`).
+   - Backend sử dụng thuật toán băm SHA-1 chuẩn Java (`MessageDigest.getInstance("SHA-1")`) để ký tham số `timestamp` và `folder`.
+   - Frontend truyền tải file trực tiếp lên Cloudinary CDN endpoint kèm theo `signature`, `api_key` và `timestamp`.
+
+2. **Chế độ Giả lập An toàn (Safe Mock Fallback)**:
+   - Khi chạy ở môi trường phát triển cục bộ mà chưa có API key Cloudinary thực tế, backend tự kích hoạt cờ `isMock = true`, cung cấp mock signature và chuyển hướng tải ảnh sang `POST /api/v1/owner/media/dev-mock-upload` an toàn, không làm gián đoạn luồng vận hành.
+
+3. **Toàn vẹn Dữ liệu Liên kết Biến thể (Composite Foreign Key Invariant)**:
+   - Cơ sở dữ liệu ràng buộc `CONSTRAINT fk_images_product_variant FOREIGN KEY (product_id, variant_id) REFERENCES product_variants (product_id, id) ON DELETE CASCADE`.
+   - Backend `MediaManagementService` kiểm tra nghiêm ngặt `!variant.getProduct().getId().equals(productId)`. Nếu vi phạm, lập tức chặn đứng với mã lỗi `INVALID_VARIANT_ASSOCIATION` (HTTP 400).
+
+4. **Bảo toàn Tính Duy nhất của Ảnh Đại diện (Single Primary Invariant)**:
+   - Một sản phẩm chỉ có duy nhất 1 ảnh `is_primary = true`. Khi tải ảnh đầu tiên, hệ thống tự động gán là ảnh chính.
+   - Khi đặt một ảnh khác làm ảnh chính, toàn bộ các ảnh khác của sản phẩm tự động demote về `false`.
+   - Khi ảnh chính bị xóa, hệ thống tự động thăng cấp ảnh kế tiếp (theo thứ tự `sortOrder ASC, id ASC`) thành ảnh chính mới.
+
 ### Phòng vệ Mass-Assignment & Khai thác Giá (Over-Posting Defense):
 
 - Mọi endpoint cập nhật sản phẩm/biến thể đều sử dụng các Java Records DTO chuyên dụng với Bean Validation (`@NotNull`, `@Size`, `@DecimalMin`).

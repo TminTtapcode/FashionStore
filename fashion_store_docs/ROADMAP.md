@@ -219,7 +219,26 @@ Deliverables:
     - Áp dụng triệt để Dark Luxe cho Đơn hàng (`OwnerOrdersView`, `OwnerOrderDetailModal`, `OwnerActionConfirmModal`) và Quản lý Sản phẩm (`OwnerProductsView`, `OwnerProductDetailModal`, `OwnerProductStatusModal`).
     - Kiểm thử: 134/134 backend tests PASS (100%), 72/72 frontend tests PASS (100%), 0 build & lint errors.
     - Chrome DevTools MCP: Đạt 8/8 kịch bản kiểm chứng thực tế trên đa độ phân giải Desktop ($1440 \times 900$) và Mobile ($390 \times 844$).
-- **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Kế tiếp].
+- **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Hoàn tất]:
+  - **Giao thức Ký số Bảo mật (Signed Upload Protocol)**:
+    - Triển khai endpoint `POST /api/v1/owner/media/sign-upload` cấp chữ ký SHA-1 cho Cloudinary mà tuyệt đối không để lộ `api_secret` ra frontend.
+    - Cơ chế Safe Mock Fallback tự động nhận biết khi thiếu credentials Cloudinary trong môi trường dev cục bộ, cung cấp cờ `isMock = true` và endpoint giả lập `dev-mock-upload`.
+  - **Vòng đời Hình ảnh & Toàn vẹn Dữ liệu (Image Lifecycle & Invariants)**:
+    - Bổ sung Flyway migration `V9__enhance_product_images_for_media_library.sql` thêm các trường `file_size`, `width`, `height`, `format`.
+    - Bảo toàn ràng buộc khóa ngoại phức hợp `(product_id, variant_id)` ngăn gán ảnh vào biến thể của sản phẩm khác (`INVALID_VARIANT_ASSOCIATION`).
+    - Quy tắc 1 ảnh chính duy nhất (`is_primary`): Tự động gán cho ảnh đầu tiên, tự động hạ cấp ảnh cũ khi đặt ảnh mới làm chính, và tự động thăng cấp ảnh kế tiếp khi xóa ảnh chính.
+    - Sắp xếp thứ tự ảnh (`reorder`) và xóa ảnh tích hợp gọi lệnh Cloudinary destroy.
+  - **Giao diện Media Studio IVRE Atelier (Dark Editorial Luxury)**:
+    - Xây dựng component `OwnerMediaView.tsx` tích hợp Dropzone kéo thả ảnh (hỗ trợ JPG, PNG, WEBP, AVIF tối đa 10MB), thanh tiến trình tải ảnh, bộ chọn biến thể/màu sắc trực quan, và thẻ hiển thị trạng thái Signed / Mock.
+    - Lưới gallery 3:4 chuẩn thời trang với huy hiệu sao vàng cho ảnh chính, tag biến thể màu, nút đổi biến thể tức thì, phím di chuyển thứ tự và nút xóa kèm xác nhận.
+    - Tích hợp trực tiếp vào Sidebar và Mobile Bottom Nav của `OwnerPortal.tsx`, đồng thời bổ sung phím tắt mở thư viện ảnh từ bảng sản phẩm `OwnerProductsView.tsx` và modal chi tiết `OwnerProductDetailModal.tsx`.
+  - **Tích hợp Storefront Lookbook**:
+    - Đồng bộ hoàn hảo với thuật toán dynamic gallery của `ProductDetailModal.tsx`: ưu tiên ảnh theo biến thể màu được chọn kết hợp ảnh chung (`variantId = null`), và rơi về ảnh đại diện chính khi không có ảnh trùng màu.
+  - **Kiểm thử & Nghiệm thu Thực tế**:
+    - Backend: 9/9 integration tests mới tại `OwnerMediaControllerIntegrationTest`, nâng tổng bộ kiểm thử backend lên **143/143 tests PASS (100%)**.
+    - Frontend: 10/10 tests mới tại `ownerMediaLogic.test.ts`, nâng tổng bộ kiểm thử frontend lên **82/82 tests PASS (100%)**.
+    - Chrome DevTools MCP: Đạt kiểm chứng giao diện thực tế trên Desktop ($1440 \times 900$) và Mobile ($390 \times 844$, $320 \times 640$), 0 horizontal overflow.
+- **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
 
 ## Phase 6 — Payment gateway
