@@ -200,4 +200,58 @@ Storefront khách hàng được tái thiết toàn diện để biến IVRE th�
 | **1440px** | Desktop Màn hình rộng | Desktop Nav đầy đủ + Auth | Bố cục rộng 1280px | 4 cột | `scrollWidth <= clientWidth` | **PASS** |
 | **1920px** | Full HD / Ultra Wide | Căn giữa Max-width 7xl | Đầy đủ chi tiết runway | 4-5 cột | `scrollWidth <= clientWidth` | **PASS** |
 
+### 10.4. Tinh chỉnh Thị giác Storefront (Phase 5D.1.1)
+1. **Header Account Dropdown**:
+   - Tinh giản thanh điều hướng desktop: Thay thế hàng nút bấm rải rác và chữ bị cắt `ATELIER SHOP OW...` bằng menu popover kính mờ `AccountDropdown` gọn gàng.
+   - Nhấp vào avatar monogram sẽ mở menu tùy chọn: Thông tin người dùng, Phím tắt `QUẢN TRỊ ↗` (đối với Shop Owner / Admin), Lịch sử đơn hàng, và Đăng xuất. Tự động đóng khi nhấp chuột ra ngoài.
+2. **Khu biệt Phạm vi WebGL Living Runway**:
+   - WebGL shader canvas được giới hạn tuyệt đối trong phạm vi section Hero.
+   - Toàn bộ các phân khu phía dưới (`BrandValueStrip`, `CategoryShowcase`, `EditorialCampaign`, `#catalog-section`, `StylingStudioTeaser`, `StorefrontFooter`) được áp dụng nền đen Obsidian Black (`bg-[#0A0B0E]`) và Charcoal tĩnh với `relative z-10`, triệt tiêu hoàn toàn sự xao nhãng thị giác, giúp người dùng tập trung tối đa vào sản phẩm.
+3. **Đồng bộ Hình ảnh Danh mục (Category Showcase)**:
+   - Thay thế các ảnh stock ngoại cảnh bằng 4 tác phẩm nhiếp ảnh studio may đo cao cấp (Studio Tailoring) mang tông màu trung tính (charcoal, kem, ivory, be) đồng nhất với bản sắc IVRE Atelier.
+4. **Cân đối Danh mục Sản phẩm khi Lọc 1–2 Món**:
+   - Khi bộ lọc chỉ trả về 1 hoặc 2 sản phẩm, hệ thống tự động căn giữa trong container (`max-w-4xl mx-auto flex justify-center gap-6 sm:gap-8`), giữ chiều rộng thẻ chuẩn mực (`max-w-[340px] sm:max-w-[380px]`), loại bỏ hiện tượng dồn cụm lệch sang lề trái.
+
+---
+
+## 11. Trải nghiệm Chi tiết Sản phẩm Tạp chí IVRE Atelier (Phase 5D.2)
+
+### 11.1. Bố cục 58% Gallery / 42% Sticky Purchase Panel
+Lấy cảm hứng từ thiết kế Daylog / Theory Trench Coat Editorial:
+- **Cột Trái — Lookbook Gallery (58%)**:
+  - Không gian ảnh lớn với tỉ lệ thời trang chân dung, phủ gradient ánh sáng tinh tế.
+  - Hỗ trợ duyệt ảnh qua mũi tên trái/phải, bộ đếm ảnh (`01 / 04`), và hàng thumbnail viền vàng champagne (`ring-2 ring-[#D6B27C]`).
+  - Tự động lọc gallery theo biến thể màu được chọn, hiển thị nhãn cảnh báo nếu sử dụng ảnh minh họa kiểu dáng chung.
+- **Cột Phải — Sticky Purchase Panel (42%)**:
+  - Tiêu đề thương hiệu: `IVRE / THE ATELIER EDIT`.
+  - Tên sản phẩm dùng font editorial serif trang nhã, phân tầng cùng mô tả ngắn.
+  - Giá bán định dạng VND nổi bật bằng màu vàng champagne kèm giá so sánh gạch ngang và huy hiệu phần trăm giảm giá.
+  - Bộ chấm chọn màu sắc tròn (`w-7 h-7`), tự động điều phối kích cỡ khả dụng để ngăn chặn Ghost Variant.
+  - Bộ chọn kích cỡ 4 trạng thái (Selected, Available, Out-of-Stock gạch chéo, Not-Offered làm mờ) kèm liên kết mở nhanh Bảng quy đổi size (`SizeGuideDrawer`).
+  - Thanh chỉnh số lượng stepper `[-] Qty [+]` và nút CTA `THÊM VÀO GIỎ HÀNG` vàng champagne nổi bật với hiệu ứng flash phản hồi thị giác tức thì.
+
+### 11.2. Bộ 5 Khối Thông tin Mở rộng (Editorial Accordions)
+Thay thế dạng tab truyền thống bằng các khối thông tin đóng/mở độc lập (disclosure panels):
+1. **Mô tả & Cảm hứng Thiết kế**: Câu chuyện sáng tạo và giá trị chế tác thủ công.
+2. **Chất liệu & Cấu trúc Sợi**: Chi tiết thành phần sợi dệt tự nhiên, độ thoáng khí và cảm giác tiếp xúc da.
+3. **Form dáng & Thông số Kích cỡ**: Phom dáng may đo tiêu chuẩn kèm liên kết mở bảng đo 3 vòng.
+4. **Hướng dẫn Bảo quản & Giặt là**: Quy chuẩn giặt hấp khô, giặt tay nhẹ và nhiệt độ ủi để giữ bền form dáng.
+5. **Chính sách Giao nhận & Đổi trả**: Cam kết giao hàng 1-2 ngày, thanh toán COD đồng kiểm tận tay và đổi size miễn phí 7 ngày.
+
+### 11.3. Dải Cam kết Dịch vụ Thượng hạng (Daylog Trust Badges)
+Ba trụ cột an tâm mua sắm thời trang cao cấp:
+- 🚚 **Giao COD Toàn Quốc**: Kiểm tra hàng trước khi thanh toán tiền mặt.
+- 🔄 **Đổi Size 7 Ngày**: Hỗ trợ tư vấn và đổi kích cỡ tận tâm.
+- 🛡️ **100% Chính Hãng IVRE**: Sản phẩm chế tác chuẩn mực từ xưởng may atelier.
+
+### 11.4. Gợi Ý Hoàn Thiện Phong Cách ("You May Also Like")
+- Tự động tuyển chọn tối đa 4 thiết kế tương thích từ cùng danh mục hoặc bộ sưu tập Atelier Drop.
+- Mỗi card hiển thị ảnh lookbook 3:4, tên sản phẩm font serif, giá VND và các chấm swatch màu.
+- Tương tác nhấp chuột kích hoạt `onSelectProduct(slug)` chuyển đổi modal sang sản phẩm mới và đồng bộ URL query (`?product=slug`) tức thì mà không gây tải lại trang hoặc phá vỡ WebGL shader.
+
+### 11.5. Trải nghiệm Di động & Thanh Thao tác Ghim Đáy (Sticky Safe-Area Bar)
+- Trên mobile ($< 1024\text{px}$), nút thêm vào giỏ hàng được ghim cố định ở đáy màn hình với hiệu ứng kính mờ (`bg-[#0D0E12]/95 backdrop-blur-md`).
+- Tự động cộng khoảng đệm an toàn `pb-[max(0.75rem,env(safe-area-inset-bottom))]` tương thích hoàn hảo với thanh Home Bar của iPhone.
+- Hiển thị song song tổng tiền biến thể và nút `THÊM VÀO GIỎ` lớn, giúp khách hàng mua sắm bằng một tay thuận tiện tại bất kỳ vị trí cuộn nào.
+
 

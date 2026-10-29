@@ -1131,3 +1131,41 @@ Nhằm tránh tình trạng phình to mã nguồn monolithic trong `App.tsx` (g�
 - Trên màn hình lớn ($\ge 1024\text{px}$):
   - Hero chia 2 cột đối xứng tỉ lệ vàng (7 cột typography / 5 cột ảnh chân dung).
   - Lưới sản phẩm mở rộng từ 4 đến 5 cột thoáng đãng.
+
+### 11.4. Bất Biến Kiểm Soát Không Gian WebGL (Stacking Context Scoping)
+- WebGL living runway canvas được gán `fixed inset-0 pointer-events-none z-0`.
+- Toàn bộ các phân khu bên dưới section Hero (`BrandValueStrip`, `CategoryShowcase`, `EditorialCampaign`, `#catalog-section`, `StylingStudioTeaser`, `StorefrontFooter`) đều được gán `relative z-10 bg-[#0A0B0E]` (Obsidian Black) hoặc `bg-[#08090B]`.
+- Bằng cách thiết lập stacking context tự nhiên trong CSS thay vì unmount canvas phức tạp, WebGL shader chỉ hiển thị như một bức tranh nền sống động phía sau Hero, còn khu vực mua sắm và duyệt sản phẩm hoàn toàn yên tĩnh, tương phản cao, triệt tiêu xao nhãng thị giác.
+
+---
+
+## 12. KIẾN TRÚC MODAL CHI TIẾT SẢN PHẨM TẠP CHÍ & BẢO TOÀN TỒN KHO (PHASE 5D.2)
+
+### 12.1. Phân Tầng Bố Cục Tạp chí 58% Gallery / 42% Sticky Purchase Panel
+Dựa trên ngôn ngữ thiết kế Daylog / Theory Trench Coat Editorial:
+- Cột trái (58%): Gallery khổ lớn tỉ lệ chân dung với mũi tên chuyển ảnh mượt mà, bộ đếm số lượng (`01 / 04`) và hàng ảnh thu nhỏ thumbnail viền vàng champagne.
+- Cột phải (42%): Bảng thông số mua hàng với font editorial serif sang trọng, bộ chọn swatch màu động lọc gallery, bộ chọn kích cỡ 4 trạng thái, chỉ báo tồn kho, bộ đếm số lượng và nút CTA `THÊM VÀO GIỎ HÀNG`.
+
+### 12.2. Post-Mortem 21: Bất Biến Giới Hạn Giỏ Hàng (Cart Limit Invariant)
+* **Quy tắc Kiểm soát Tồn kho Tuyệt đối:**
+  Khi khách hàng thêm sản phẩm vào giỏ hàng, số lượng cho phép thêm tối đa của biến thể được tính theo công thức:
+  $$\text{maxTotalAllowed} = \min(\text{MAX\_PER\_LINE}, \text{variant.stockQuantity})$$
+  $$\text{maxAddableQuantity} = \max(0, \text{maxTotalAllowed} - \text{existingCartQuantity})$$
+  Trong đó:
+  - $\text{MAX\_PER\_LINE} = 10$ (giới hạn an toàn chống đầu cơ theo ADR-011).
+  - $\text{existingCartQuantity}$ là số lượng sản phẩm của biến thể đó đã nằm trong giỏ.
+* **Minh chứng Thực tế:**
+  Nếu kho chỉ còn 5 chiếc và khách đã có 3 chiếc trong giỏ hàng, $\text{maxAddableQuantity} = \max(0, \min(10, 5) - 3) = 2$ chiếc. Khách không thể tăng số lượng lên 3, và nút `+` trong stepper tự động bị vô hiệu hóa (`disabled`).
+
+### 12.3. Điều Phối Sản Phẩm Gợi Ý (You May Also Like Coordination)
+- Khi mở chi tiết sản phẩm, modal tự động gọi `getProductsApi({ categoryId: product.categoryId, limit: 6 })` để lấy các sản phẩm tương thích cùng bộ sưu tập.
+- Loại trừ chính sản phẩm đang xem (`p.slug !== product.slug`) và hiển thị 4 card trên desktop, 2 card trên mobile.
+- Khi người dùng nhấp vào một sản phẩm gợi ý:
+  - Gọi prop `onSelectProduct(p.slug)`.
+  - Component cha (`App.tsx`) cập nhật `selectedProductSlug` và thực hiện `window.history.pushState` với query `?product=p.slug`.
+  - Modal chuyển sang hiển thị sản phẩm mới mượt mà, cuộn lên đầu trang mà không cần tải lại trang.
+
+### 12.4. Thanh Thao Tác Mua Hàng Ghim Đáy Cho Thiết Bị Di Động (Mobile Sticky Bar)
+- Trên màn hình nhỏ ($< 1024\text{px}$), nút CTA mua hàng được ghim cố định ở đáy màn hình với kính mờ `bg-[#0D0E12]/95 backdrop-blur-md` và `z-30`.
+- Tự động cộng khoảng đệm an toàn `pb-[max(0.75rem,env(safe-area-inset-bottom))]` để tương thích thanh điều hướng cử chỉ của iOS/Android.
+- Luôn hiển thị tổng tiền biến thể và nút thêm vào giỏ hàng, giải phóng khách hàng khỏi việc phải cuộn ngược qua danh sách mô tả dài để tìm nút mua hàng.

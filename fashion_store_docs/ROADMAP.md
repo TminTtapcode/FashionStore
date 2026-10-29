@@ -256,8 +256,40 @@ Deliverables:
     - **Backend tests**: 143/143 unit & integration tests PASS (100%).
     - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
     - **Chrome DevTools MCP Responsive Matrix**: PASS trên toàn bộ 7 độ phân giải chuẩn (320px, 375px, 390px, 768px, 1024px, 1440px, 1920px), triệt tiêu hoàn toàn horizontal overflow (`scrollWidth <= clientWidth`), không bị che nút hoặc tràn chữ.
-- **Phase 5D.2 — Immersive Product Detail Redesign (Trench Coat Editorial & Sticky Purchase Panel)** [Kế tiếp].
-- **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
+- **Phase 5D.1.1 — Storefront Visual Polish & Background Distraction Elimination** [Hoàn tất]:
+  - **Header Refinement**: Thu gọn các nút bấm rải rác thành `AccountDropdown` popover bán trong suốt (glassmorphism) gom cụm Avatar Monogram, thông tin phiên đăng nhập, phím tắt `QUẢN TRỊ ↗`, Lịch sử đơn hàng, và Đăng xuất; triệt tiêu tình trạng xuống dòng và co cụm chữ `ATELIER SHOP OW...`.
+  - **Giới hạn Không gian WebGL Living Runway**: Đóng khung WebGL Living Runway strictly trong khu vực Hero; áp dụng nền đen Obsidian Black (`bg-[#0A0B0E]`) và Charcoal tĩnh cho toàn bộ các section bên dưới, triệt tiêu sự lấn át thị giác và giúp sản phẩm trở thành trung tâm thu hút.
+  - **Category Showcase Đồng nhất**: Thay thế ảnh stock chụp ngoại cảnh bằng bộ 4 ảnh chụp studio may đo cao cấp (studio tailoring photography) với bảng màu trung tính (charcoal, cream, ivory, black, taupe) đồng điệu bản sắc IVRE Atelier.
+  - **Cân đối Lưới Catalog 1-2 Sản phẩm**: Căn giữa danh sách sản phẩm khi bộ lọc chỉ trả về 1-2 item (`max-w-4xl mx-auto flex justify-center gap-6 sm:gap-8`), giữ độ rộng card tối ưu (`max-w-[340px] sm:max-w-[380px]`) tránh dồn cục méo mó sang lề trái.
+- **Phase 5D.2 — IVRE Immersive Product Detail Experience (Trench Coat Editorial & Sticky Purchase Panel)** [Hoàn tất]:
+  - **Bố cục Phân tầng Tạp chí 58% Gallery / 42% Sticky Purchase Panel**:
+    - Thiết kế theo ngôn ngữ Daylog / Theory Trench Coat Editorial: Cột trái 58% Gallery Lookbook chụp studio với hiệu ứng gradient ánh sáng sang trọng, bộ đếm ảnh (`01 / 04`), mũi tên chuyển ảnh mượt mà, và hàng thumbnail viền vàng champagne.
+    - Cột phải 42% Purchase Panel: Tiêu đề `font-editorial` trang nhã, nhãn `IVRE / THE ATELIER EDIT`, giá phân tầng, swatch màu tròn viền vàng (`w-7 h-7`), và bộ chọn kích cỡ 4 trạng thái (Selected, Available, Out-of-Stock gạch chéo, Not-Offered làm mờ).
+  - **Xác minh Công thức Bất biến Giới hạn Giỏ hàng**:
+    - Xác nhận và bảo toàn công thức kiểm soát tồn kho:
+      $$\text{maxAddableQuantity} = \max(0, \min(10, \text{currentVariant.stockQuantity}) - \text{existingCartQuantity})$$
+      Đảm bảo khi kho có 5 chiếc và giỏ đã có 3 chiếc thì khách chỉ được thêm tối đa 2 chiếc, không thể vượt quá giới hạn kho hoặc trần 10 sản phẩm/dòng.
+  - **Bộ 5 Khối Thông tin Mở rộng (Editorial Disclosure Accordions)**:
+    - `Mô tả & Cảm hứng Thiết kế`: Cảm hứng may đo thủ công và giá trị thiết kế độc bản.
+    - `Chất liệu & Cấu trúc Sợi`: Chi tiết thành phần vải và đặc tính sợi dệt tự nhiên.
+    - `Form dáng & Thông số Kích cỡ`: Phom dáng chuẩn và liên kết mở nhanh Bảng quy đổi size (`SizeGuideDrawer`).
+    - `Hướng dẫn Bảo quản & Giặt là`: Quy chuẩn giặt là cao cấp bảo vệ sợi vải.
+    - `Chính sách Giao nhận & Đổi trả`: Quy định COD kiểm hàng tận tay và đổi size miễn phí trong 7 ngày.
+  - **Dải Cam kết Dịch vụ Thượng hạng (Daylog Trust Badges)**:
+    - 🚚 Giao COD Toàn Quốc (Thanh toán khi nhận hàng).
+    - 🔄 Đổi Size 7 Ngày (Hỗ trợ thử & đổi tận tâm).
+    - 🛡️ 100% Chính Hãng (Kiểm tra hàng trước khi nhận).
+  - **Bộ sưu tập Tương thích "You May Also Like" (Sản phẩm Gợi ý Hoàn thiện Phong cách)**:
+    - Lưới 4 card trên desktop và 2 card trên mobile gợi ý các sản phẩm cùng bộ sưu tập / danh mục.
+    - Tương tác nhấp chuột kích hoạt `onSelectProduct(slug)` chuyển đổi modal mượt mà và cập nhật URL deep-link tức thì mà không cần tải lại trang.
+  - **Trải nghiệm Mobile & Thanh Thao tác Ghim Đáy (Sticky Safe-Area Purchase Bar)**:
+    - Trên màn hình di động, thanh thao tác mua hàng được ghim cố định ở đáy màn hình với hiệu ứng kính mờ (`bg-[#0D0E12]/95 backdrop-blur-md`), tự động đệm `safe-area-inset-bottom`, hiển thị tổng tiền VND và nút `THÊM VÀO GIỎ` chạm ngón cái tiện lợi.
+  - **Kiểm chứng Toàn diện & Quality Gates**:
+    - **Frontend tests**: 83/83 unit & component tests PASS (100%).
+    - **Backend tests**: 143/143 unit & integration tests PASS (100%).
+    - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
+    - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$) và Mobile ($390 \times 844$), chụp và lưu trữ minh chứng màn hình chi tiết.
+- **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
 
 ## Phase 6 — Payment gateway
 
