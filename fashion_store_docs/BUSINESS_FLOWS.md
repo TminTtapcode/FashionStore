@@ -290,3 +290,29 @@ Sổ cái tồn kho được tích hợp trực tiếp vào 3 sự kiện nghi�
   - Đối chiếu với số tồn hiện hành `product_variants.stock_quantity`.
   - Nếu `currentStock == openingBalance + sum(deltas)`: Trả về `reconciled = true`, `discrepancy = 0`.
   - Drawer hiển thị huy hiệu xanh lá `"Cân đối (Lệch 0)"` cùng thẻ đối soát 3 chỉ số minh bạch: Tồn hiện tại, Số dư mở sổ, Tổng biến thiên lũy kế. Nếu phát hiện chênh lệch, lập tức hiển thị cảnh báo đỏ `"Lệch tồn kho"` yêu cầu kiểm toán khẩn cấp.
+
+---
+
+## 11. Chính sách Vận chuyển, Đồng kiểm Ngoại quan và Đổi size (Fulfillment & Service Grounding)
+
+Nhằm đảm bảo tính trung thực tuyệt đối giữa cam kết giao diện (UI Badges / Accordions) và năng lực vận hành thực tế của hệ thống backend:
+
+### 11.1 Giao hàng COD & Thu tiền Mặt Tận nơi
+- Hệ thống hỗ trợ phương thức thanh toán tiền mặt khi nhận hàng (Cash On Delivery - COD).
+- Đơn hàng COD khởi tạo ở trạng thái `PAYMENT_PENDING`. Trạng thái thanh toán chỉ chuyển sang `PAID` sau khi đơn vị vận chuyển giao hàng thành công và đối soát tiền mặt với cửa hàng.
+- Huy hiệu giao diện: `Giao COD Toàn Quốc` / `Đồng kiểm khi nhận hàng`.
+
+### 11.2 Đồng kiểm Ngoại quan khi Nhận hàng (Carrier Exterior Inspection)
+- Khách hàng được quyền kiểm tra ngoại quan gói hàng (tình trạng hộp bọc, tem niêm phong, số lượng sản phẩm, mẫu mã) trước khi thanh toán cho nhân viên giao vận.
+- Quy định không mặc thử tại chỗ khi nhân viên giao vận đang đợi nhằm bảo vệ chất liệu vải lụa tơ tằm và linen may đo cao cấp khỏi nguy cơ rách hoặc vấy bẩn ngoại cảnh.
+
+### 11.3 Hỗ trợ Đổi size Thủ công qua Boutique Concierge trong 7 Ngày
+- Hệ thống backend hiện tại **chưa có** cổng tự phục vụ đổi trả tự động hậu giao hàng (post-delivery automated return portal). Backend chỉ quản lý luồng hoàn hàng vật lý khi giao vận thất bại (`DELIVERY_FAILED -> RETURNED`).
+- Mọi trường hợp khách hàng có nhu cầu đổi kích cỡ trang phục được thực hiện qua kênh chăm sóc khách hàng thủ công (Boutique Concierge Hotline/Zalo) trong vòng 7 ngày kể từ khi nhận kiện hàng.
+- Điều kiện áp dụng: Sản phẩm may đo còn nguyên vẹn tem mác thương hiệu IVRE Atelier, chưa qua giặt tẩy, chỉnh sửa hoặc sử dụng thực tế.
+- Huy hiệu giao diện: `Hỗ Trợ Đổi Size` / `Boutique Concierge 7 ngày`.
+
+### 11.4 Cam kết 100% Chế tác Thủ công IVRE Atelier
+- 100% sản phẩm bày bán trên Storefront được thiết kế và may đo tại xưởng may IVRE Atelier, trải qua quy trình kiểm định chất lượng (QC) nghiêm ngặt trước khi xuất kho.
+- Huy hiệu giao diện: `100% IVRE Atelier` / `Chế tác thủ công chuẩn mực`.
+

@@ -289,7 +289,25 @@ Deliverables:
     - **Backend tests**: 143/143 unit & integration tests PASS (100%).
     - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
     - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$) và Mobile ($390 \times 844$), chụp và lưu trữ minh chứng màn hình chi tiết.
+- **Phase 5D.2.1 — Product Detail Final Acceptance & Reliability Hardening** [Hoàn tất]:
+  - **Hợp đồng Lịch sử Modal Đa bước (Multi-Hop In-Modal History Coordination)**:
+    - Theo dõi `modalDepth` khi duyệt sản phẩm liên quan trong modal. Nút Đóng (`X`) hoặc phím Escape thực thi `window.history.go(-depth)` cuộn lùi về thẳng Catalog (`/`) trong 1 thao tác. Phím Back/Forward trình duyệt vẫn cho phép lùi từng bước (`C <-> B <-> A <-> Catalog`).
+    - Khách vào bằng Deep-link trực tiếp (`/?product=slug`) được đánh dấu `isDeepLinkOrigin = true`, khi đóng modal sử dụng `window.history.replaceState` xóa query `?product` mà không đẩy người dùng văng khỏi trang web.
+  - **Hủy Yêu cầu Lỗi thời khi Duyệt Nhanh (Stale Request Cancellation with AbortController)**:
+    - Bổ sung `AbortSignal` vào `getProductDetailApi`. Tự động hủy (`abort()`) request in-flight khi người dùng chuyển sản phẩm nhanh, triệt tiêu nguy cơ race condition dữ liệu.
+  - **Cam kết Dịch vụ Minh bạch & Trung thực Thực tế Vận hành**:
+    - Phân định rõ ràng: Giao hàng thu tiền COD, Đồng kiểm ngoại quan kiện hàng khi nhận (không thử đồ tại chỗ), Hỗ trợ đổi size qua Boutique Concierge trong 7 ngày (sản phẩm nguyên tag, chưa qua sử dụng), và Chế tác 100% IVRE Atelier.
+    - Cập nhật 3 huy hiệu: 🚚 `Giao COD Toàn Quốc` (Đồng kiểm khi nhận hàng) | 🔄 `Hỗ Trợ Đổi Size` (Boutique Concierge 7 ngày) | 🛡️ `100% IVRE Atelier` (Chế tác thủ công chuẩn mực).
+  - **Triệt tiêu Xung đột Giao diện Mobile**:
+    - Tự động ẩn thanh thao tác ghim đáy (`hidden pointer-events-none`) khi mở Bảng quy đổi kích cỡ (`SizeGuideDrawer`), loại bỏ hoàn toàn hiện tượng che khuất nút đóng drawer.
+  - **Kiểm chứng Toàn diện & Quality Gates**:
+    - **Frontend tests**: 88/88 unit & component tests PASS (100%).
+    - **Backend tests**: 143/143 unit & integration tests PASS (100%).
+    - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
+    - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$), Mobile ($390 \times 844$), và Small Mobile ($320 \times 568$), 0 horizontal overflow.
+- **Phase 5D.3 — Phòng Thử Đồ Studio Ma-nơ-canh 2.5D (IVRE Styling Studio / Outfit Builder)** [Kế tiếp].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
+
 
 ## Phase 6 — Payment gateway
 

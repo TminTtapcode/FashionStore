@@ -1169,3 +1169,43 @@ Dựa trên ngôn ngữ thiết kế Daylog / Theory Trench Coat Editorial:
 - Trên màn hình nhỏ ($< 1024\text{px}$), nút CTA mua hàng được ghim cố định ở đáy màn hình với kính mờ `bg-[#0D0E12]/95 backdrop-blur-md` và `z-30`.
 - Tự động cộng khoảng đệm an toàn `pb-[max(0.75rem,env(safe-area-inset-bottom))]` để tương thích thanh điều hướng cử chỉ của iOS/Android.
 - Luôn hiển thị tổng tiền biến thể và nút thêm vào giỏ hàng, giải phóng khách hàng khỏi việc phải cuộn ngược qua danh sách mô tả dài để tìm nút mua hàng.
+
+### 12.5. Post-Mortem 22: Hợp đồng Lịch sử Đa bước trong Modal (Multi-Hop In-Modal History State Contract)
+* **Vấn đề / Anti-Pattern:**
+  Khi người dùng nhấp duyệt qua nhiều sản phẩm liên quan bên trong modal (`Catalog -> Product A -> Product B -> Product C`), mỗi lần điều hướng đẩy 1 state vào `window.history`. Nếu nút Đóng (`X`) chỉ đơn thuần gọi `window.history.back()`, người dùng sẽ bị kẹt trong cái bẫy "nhấn Đóng 3 lần mới thoát được modal". Ngược lại, nếu chỉ gọi `replaceState` xóa query mà không hoàn tác history stack, nút Back của trình duyệt sau này sẽ đưa người dùng quay lại modal đã đóng.
+* **Giải pháp Kiến trúc:**
+  Tách bạch rõ ràng giữa hai hành vi người dùng:
+  1. **Nút Back của trình duyệt:** Cho phép duyệt lùi từng sản phẩm (`C -> B -> A -> Catalog`) thông qua sự kiện `popstate`.
+  2. **Nút Đóng (`X`) hoặc phím Escape:** Cuộn lùi toàn bộ phiên modal trong đúng 1 tương tác quay thẳng về Catalog.
+  - Quản lý trạng thái `modalDepthRef`: Mỗi lần nhấp vào sản phẩm liên quan khi modal đang mở, tăng `modalDepthRef.current += 1`.
+  - Khi đóng modal:
+    - Nếu `isModalPushed && modalDepthRef.current > 0 && !isDeepLinkOrigin`: Thực thi `window.history.go(-modalDepthRef.current)`. Trình duyệt lập tức unwind toàn bộ chuỗi modal về Catalog trong 1 nhấp chuột.
+    - Nếu mở từ Deep-link trực tiếp (`isDeepLinkOrigin = true`): Không có trang Catalog trước đó trong session modal. Thực thi `window.history.replaceState({}, '', '/')` để xóa `?product` và đóng modal tại chỗ mà không làm văng người dùng ra khỏi website.
+
+### 12.6. Post-Mortem 23: Triệt tiêu Xung đột Giao diện Drawer và Thanh Sticky Đáy Mobile
+* **Vấn đề:**
+  Trên thiết bị di động, khi người dùng mở Bảng quy đổi kích cỡ (`SizeGuideDrawer`), drawer trượt lên từ đáy với `z-50`. Tuy nhiên, thanh CTA mua hàng ghim đáy (`z-30`) có thể gây ra hiện tượng rò rỉ hit-test (click through) hoặc chớp nháy viền trên một số trình duyệt di động (iOS Safari).
+* **Giải pháp:**
+  Trong [`ProductDetailModal.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/components/ProductDetailModal.tsx), gắn điều kiện hiển thị cho thanh mobile sticky bar:
+  ```tsx
+  className={`lg:hidden fixed bottom-0 left-0 right-0 z-30 ... ${
+    isSizeGuideOpen ? 'hidden pointer-events-none' : ''
+  }`}
+  ```
+  Khi `SizeGuideDrawer` kích hoạt, thanh sticky bar bị ẩn hoàn toàn khỏi render tree và loại bỏ hoàn toàn tương tác chuột/chạm (`pointer-events-none`). Khi đóng drawer, thanh sticky bar xuất hiện trở lại nguyên vẹn.
+
+### 12.7. Post-Mortem 24: Hủy Yêu cầu Lỗi thời khi Duyệt Sản phẩm Nhanh (Stale Request Cancellation with AbortController)
+* **Vấn đề:**
+  Khách hàng nhấp nhanh liên tục giữa các sản phẩm gợi ý `Product A -> Product B -> Product C`. Do độ trễ mạng khác nhau, response của Product A hoặc B có thể đến sau Product C, ghi đè dữ liệu của Product C (race condition).
+* **Giải pháp:**
+  1. Trong [`catalogApi.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/api/catalogApi.ts): Thêm tham số `signal?: AbortSignal` vào `getProductDetailApi(slug, signal)`.
+  2. Trong [`ProductDetailModal.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/components/ProductDetailModal.tsx): Sử dụng `new AbortController()` trong `useEffect` và kích hoạt `controller.abort()` trong hàm cleanup:
+     ```tsx
+     useEffect(() => {
+       const controller = new AbortController();
+       fetchProduct(controller.signal);
+       return () => controller.abort();
+     }, [slug, isOpen]);
+     ```
+  Mọi request đang bay (in-flight) của sản phẩm trước đó lập tức bị hủy khi người dùng chọn sản phẩm mới.
+
