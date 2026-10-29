@@ -1172,15 +1172,14 @@ Dựa trên ngôn ngữ thiết kế Daylog / Theory Trench Coat Editorial:
 
 ### 12.5. Post-Mortem 22: Hợp đồng Lịch sử Đa bước trong Modal (Multi-Hop In-Modal History State Contract)
 * **Vấn đề / Anti-Pattern:**
-  Khi người dùng nhấp duyệt qua nhiều sản phẩm liên quan bên trong modal (`Catalog -> Product A -> Product B -> Product C`), mỗi lần điều hướng đẩy 1 state vào `window.history`. Nếu nút Đóng (`X`) chỉ đơn thuần gọi `window.history.back()`, người dùng sẽ bị kẹt trong cái bẫy "nhấn Đóng 3 lần mới thoát được modal". Ngược lại, nếu chỉ gọi `replaceState` xóa query mà không hoàn tác history stack, nút Back của trình duyệt sau này sẽ đưa người dùng quay lại modal đã đóng.
+  Khi người dùng duyệt qua nhiều sản phẩm liên quan bên trong modal (`Catalog -> Product A -> Product B -> Product C`), mỗi lần điều hướng đẩy 1 state vào `window.history`. Nếu nút Đóng (`X`) chỉ đơn thuần gọi `window.history.back()`, người dùng sẽ bị kẹt trong cái bẫy "nhấn Đóng 3 lần mới thoát được modal". Ngược lại, nếu chỉ gọi `replaceState` xóa query mà không hoàn tác history stack, nút Back của trình duyệt sau này sẽ đưa người dùng quay lại modal đã đóng.
+  Đặc biệt, nếu người dùng kết hợp `Back` từ C về B, `history.state` mang `modalDepth: 2`. Nếu bộ đếm được lưu ngoài ref (`modalDepthRef`) mà không đồng bộ theo `popstate`, việc gọi `history.go(-3)` sẽ dẫn tới lùi quá đà vượt khỏi Catalog!
 * **Giải pháp Kiến trúc:**
   Tách bạch rõ ràng giữa hai hành vi người dùng:
-  1. **Nút Back của trình duyệt:** Cho phép duyệt lùi từng sản phẩm (`C -> B -> A -> Catalog`) thông qua sự kiện `popstate`.
+  1. **Nút Back của trình duyệt:** Cho phép duyệt lùi từng sản phẩm (`C -> B -> A -> Catalog`) thông qua sự kiện `popstate`. Metadata `modalDepth` được lưu trực tiếp vào từng `history.state` và tự động khôi phục theo entry hiện tại.
   2. **Nút Đóng (`X`) hoặc phím Escape:** Cuộn lùi toàn bộ phiên modal trong đúng 1 tương tác quay thẳng về Catalog.
-  - Quản lý trạng thái `modalDepthRef`: Mỗi lần nhấp vào sản phẩm liên quan khi modal đang mở, tăng `modalDepthRef.current += 1`.
-  - Khi đóng modal:
-    - Nếu `isModalPushed && modalDepthRef.current > 0 && !isDeepLinkOrigin`: Thực thi `window.history.go(-modalDepthRef.current)`. Trình duyệt lập tức unwind toàn bộ chuỗi modal về Catalog trong 1 nhấp chuột.
-    - Nếu mở từ Deep-link trực tiếp (`isDeepLinkOrigin = true`): Không có trang Catalog trước đó trong session modal. Thực thi `window.history.replaceState({}, '', '/')` để xóa `?product` và đóng modal tại chỗ mà không làm văng người dùng ra khỏi website.
+  - Khi đóng modal: Đọc `depth = window.history.state?.modalDepth`. Thực thi `window.history.go(-depth)`. Trình duyệt lập tức unwind chính xác số bước tương đối từ entry hiện tại về Catalog (`modalDepth: 0`).
+  - Đối với Deep-link (`/?product=a`): Ngay khi khởi tạo, ứng dụng tạo Entry 0 là Catalog (`modalDepth: 0`) và đẩy Entry 1 là Sản phẩm (`modalDepth: 1`). Khi người dùng đóng modal (kể cả sau chuỗi A -> B -> C), `go(-depth)` cuộn lùi về đúng Entry 0 (Catalog), và nút Back tiếp theo của trình duyệt sẽ đưa người dùng rời khỏi website thay vì kẹt lại trong các modal cũ.
 
 ### 12.6. Post-Mortem 23: Triệt tiêu Xung đột Giao diện Drawer và Thanh Sticky Đáy Mobile
 * **Vấn đề:**
@@ -1194,18 +1193,34 @@ Dựa trên ngôn ngữ thiết kế Daylog / Theory Trench Coat Editorial:
   ```
   Khi `SizeGuideDrawer` kích hoạt, thanh sticky bar bị ẩn hoàn toàn khỏi render tree và loại bỏ hoàn toàn tương tác chuột/chạm (`pointer-events-none`). Khi đóng drawer, thanh sticky bar xuất hiện trở lại nguyên vẹn.
 
-### 12.7. Post-Mortem 24: Hủy Yêu cầu Lỗi thời khi Duyệt Sản phẩm Nhanh (Stale Request Cancellation with AbortController)
+### 12.7. Post-Mortem 24: Hủy Yêu cầu Lỗi thời khi Duyệt Sản phẩm Nhanh (Stale Request & Slug Guards)
 * **Vấn đề:**
   Khách hàng nhấp nhanh liên tục giữa các sản phẩm gợi ý `Product A -> Product B -> Product C`. Do độ trễ mạng khác nhau, response của Product A hoặc B có thể đến sau Product C, ghi đè dữ liệu của Product C (race condition).
 * **Giải pháp:**
   1. Trong [`catalogApi.ts`](file:///d:/Lap%20trinh/FashionStore/frontend/src/api/catalogApi.ts): Thêm tham số `signal?: AbortSignal` vào `getProductDetailApi(slug, signal)`.
-  2. Trong [`ProductDetailModal.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/components/ProductDetailModal.tsx): Sử dụng `new AbortController()` trong `useEffect` và kích hoạt `controller.abort()` trong hàm cleanup:
-     ```tsx
-     useEffect(() => {
-       const controller = new AbortController();
-       fetchProduct(controller.signal);
-       return () => controller.abort();
-     }, [slug, isOpen]);
-     ```
-  Mọi request đang bay (in-flight) của sản phẩm trước đó lập tức bị hủy khi người dùng chọn sản phẩm mới.
+  2. Trong [`ProductDetailModal.tsx`](file:///d:/Lap%20trinh/FashionStore/frontend/src/components/ProductDetailModal.tsx): Sử dụng `new AbortController()` trong `useEffect` và kích hoạt `controller.abort()` trong hàm cleanup.
+  3. Bổ sung Double-Guard: Lưu `const requestSlug = slug;` trước khi fetch và kiểm tra `if (!isMounted || controller.signal.aborted || requestSlug !== slug) return;` trong cả `.then()`, `.catch()`, và `.finally()`.
+
+### 12.8. Post-Mortem 25: CSS Flexbox Alignment với Nội dung Cuộn Cao trên Mobile (Data-Loss Scroll Clipping)
+* **Vấn đề:**
+  Container modal ngoài cùng sử dụng `fixed inset-0 flex items-center justify-center overflow-y-auto`.
+  Trên desktop, nội dung modal được giới hạn bởi `max-h-[92vh]` nên `items-center` căn giữa hoàn hảo.
+  Tuy nhiên trên mobile (viewport height 568px), nội dung modal dài tới 2376px (lớn hơn rất nhiều so với viewport). Trong chuẩn CSS Flexbox, khi `align-items: center` được áp dụng cho flex item có kích thước lớn hơn flex container, item sẽ được căn giữa theo trục dọc, khiến một nửa phần trên ($(2376 - 568)/2 = 904\text{px}$) bị đẩy vào tọa độ âm (phía trên đỉnh màn hình). Do trình duyệt không hỗ trợ cuộn đến `scrollTop < 0`, người dùng hoàn toàn không thể xem ảnh gallery hoặc bấm nút Đóng!
+* **Giải pháp:**
+  Thay đổi căn chỉnh flexbox thành:
+  ```tsx
+  className="fixed inset-0 z-40 flex items-start md:items-center justify-center p-0 md:p-4 lg:p-6 outline-none overflow-y-auto"
+  ```
+  Trên mobile, modal căn chỉnh `items-start`, bắt đầu tự nhiên từ đỉnh màn hình (`y = 0`) và cho phép người dùng cuộn mượt mà từ trên xuống dưới mà không bị mất dữ liệu hiển thị.
+
+### 12.9. Post-Mortem 26: Đo lường True Viewport 320px vs Window Frame Clamping trong DevTools
+* **Vấn đề:**
+  Khi kiểm thử responsive màn hình 320px qua Chrome DevTools MCP bằng lệnh `resize_page({ width: 320, height: 568 })`, trình duyệt Chromium trên Windows bị giới hạn bởi kích thước tối thiểu của cửa sổ hệ điều hành (~486px), dẫn đến việc `clientWidth` đo được là 486px thay vì 320px, tạo ra báo cáo kiểm thử sai lệch.
+* **Giải pháp:**
+  Phải sử dụng API giả lập thiết bị chuyên dụng `emulate` với tham số viewport:
+  ```json
+  { "pageId": 1, "viewport": "320x568x2,mobile,touch" }
+  ```
+  Lệnh này kích hoạt Device Mode thực thụ của Blink engine, thiết lập chuẩn xác `window.innerWidth = 320`, `documentElement.clientWidth = 320`, và `window.visualViewport.width = 320`. Kết quả đo đạc thực tế: `scrollWidth = 320`, `clientWidth = 320`, hoàn toàn không có overflow ngang (`hasHorizontalOverflow: false`).
+
 

@@ -300,12 +300,12 @@ Deliverables:
     - Cập nhật 3 huy hiệu: 🚚 `Giao COD Toàn Quốc` (Đồng kiểm khi nhận hàng) | 🔄 `Hỗ Trợ Đổi Size` (Boutique Concierge 7 ngày) | 🛡️ `100% IVRE Atelier` (Chế tác thủ công chuẩn mực).
   - **Triệt tiêu Xung đột Giao diện Mobile**:
     - Tự động ẩn thanh thao tác ghim đáy (`hidden pointer-events-none`) khi mở Bảng quy đổi kích cỡ (`SizeGuideDrawer`), loại bỏ hoàn toàn hiện tượng che khuất nút đóng drawer.
-  - **Kiểm chứng Toàn diện & Quality Gates**:
-    - **Frontend tests**: 88/88 unit & component tests PASS (100%).
+  - **Kiểm chứng Toàn diện & Quality Gates (Final Reliability Gate)**:
+    - **Frontend tests**: 89/89 unit & component tests PASS (100%).
     - **Backend tests**: 143/143 unit & integration tests PASS (100%).
     - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
-    - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$), Mobile ($390 \times 844$), và Small Mobile ($320 \times 568$), 0 horizontal overflow.
-- **Phase 5D.3 — Phòng Thử Đồ Studio Ma-nơ-canh 2.5D (IVRE Styling Studio / Outfit Builder)** [Kế tiếp].
+    - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$), Mobile ($390 \times 844$), và True Mobile ($320 \times 568$ qua `emulate viewport`), xác nhận 0 horizontal overflow (`scrollWidth <= clientWidth`), khắc phục lỗi flex centering data-loss trên mobile.
+- **Phase 5D.3 — Phòng Thử Đồ Studio Ma-nơ-canh 2.5D (IVRE Styling Studio / Outfit Builder)** [Đang thiết kế kiến trúc].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
 
 

@@ -254,24 +254,24 @@ Ba trụ cột an tâm mua sắm thời trang cao cấp:
 - Tự động cộng khoảng đệm an toàn `pb-[max(0.75rem,env(safe-area-inset-bottom))]` tương thích hoàn hảo với thanh Home Bar của iPhone.
 - Hiển thị song song tổng tiền biến thể và nút `THÊM VÀO GIỎ` lớn, giúp khách hàng mua sắm bằng một tay thuận tiện tại bất kỳ vị trí cuộn nào.
 
-### 11.6. Kiểm chứng Độ tin cậy & Hợp đồng Lịch sử Modal (Phase 5D.2.1 Reliability & Acceptance)
+### 11.6. Kiểm chứng Độ tin cậy & Hợp đồng Lịch sử Modal (Phase 5D.2.1 Final Reliability Gate)
 - **Hợp đồng Lịch sử Đa bước trong Modal (Multi-Hop In-Modal Navigation)**:
-  - Khi duyệt từ sản phẩm liên quan ("You May Also Like") bên trong modal (`Catalog -> Product A -> Product B -> Product C`), mỗi bước điều hướng tăng `modalDepth` thêm 1.
-  - Nhấp nút Đóng (`X`) hoặc phím Escape thực thi `window.history.go(-depth)` để cuộn lùi toàn bộ các bước duyệt trong modal trong đúng 1 tương tác, đưa người dùng quay thẳng về danh mục Catalog (`/`) mà không bị kẹt lặp lại nút Đóng.
-  - Phím Back/Forward của trình duyệt vẫn hoạt động tuần tự từng bước (`C <-> B <-> A <-> Catalog`) cho phép người dùng xem lại các mẫu vừa khám phá.
-- **Bảo vệ Deep-link Trực tiếp (Deep-link Origin Defense)**:
-  - Khi khách hàng truy cập trực tiếp bằng đường dẫn chia sẻ (`/?product=slug`), `modalDepth` khởi đầu bằng 0 và đánh dấu cờ `isDeepLinkOrigin = true`.
-  - Khi người dùng đóng modal (kể cả sau khi đã xem tiếp sản phẩm liên quan B), ứng dụng sử dụng `window.history.replaceState` để xóa tham số `?product` và đóng modal tại chỗ thay vì `history.go(-depth)` nhằm ngăn việc người dùng bị văng khỏi trang web.
-- **Hủy Yêu cầu Lỗi thời (Stale Request Cancellation with AbortController)**:
-  - API client `getProductDetailApi(slug, signal)` tiếp nhận `AbortSignal`.
-  - Cả hai `useEffect` tải chi tiết sản phẩm và tải sản phẩm gợi ý đều khởi tạo `AbortController` riêng và tự động kích hoạt `abort()` khi `slug` thay đổi hoặc modal đóng, ngăn chặn tuyệt đối tình trạng race condition khi khách hàng nhấp chuyển sản phẩm liên tục.
-- **Đồng bộ Cam kết Dịch vụ Thật & Huy hiệu Minh bạch**:
-  - Huy hiệu 1: `Giao COD Toàn Quốc` / `Đồng kiểm khi nhận hàng`.
-  - Huy hiệu 2: `Hỗ Trợ Đổi Size` / `Boutique Concierge 7 ngày`.
-  - Huy hiệu 3: `100% IVRE Atelier` / `Chế tác thủ công chuẩn mực`.
-  - Accordion Vận chuyển & Đổi size làm rõ quyền kiểm tra ngoại quan kiện hàng khi nhận và quy trình liên hệ đổi size thủ công (sản phẩm nguyên tag, chưa qua sử dụng).
-- **Ngăn chặn Xung đột Sticky Bar trên Mobile**:
-  - Khi mở Bảng quy đổi kích cỡ (`SizeGuideDrawer`), thanh thao tác mua hàng ghim đáy tự động kích hoạt lớp `hidden pointer-events-none`, triệt tiêu hoàn toàn nguy cơ đè lớp hoặc cản trở nút đóng drawer trên thiết bị di động.
+  - Khi duyệt từ sản phẩm liên quan ("You May Also Like") bên trong modal (`Catalog -> Product A -> Product B -> Product C`), mỗi bước điều hướng lưu `modalDepth` chính xác trong `window.history.state`.
+  - Khi người dùng bấm phím Back/Forward của trình duyệt (`C <-> B <-> A <-> Catalog`), `modalDepth` được khôi phục chuẩn xác theo entry hiện tại (ví dụ: Back từ C về B thì entry B mang `modalDepth: 2`).
+  - Nhấp nút Đóng (`X`) hoặc phím Escape thực thi `window.history.go(-depth)` để cuộn lùi đúng số bước tương đối so với entry hiện tại, đưa người dùng quay thẳng về danh mục Catalog (`/`, `modalDepth: 0`) mà không bị bẫy kẹt modal hay điều hướng quá đà vượt khỏi Catalog.
+- **Thiết lập Nền tảng Deep-link Trực tiếp (Deep-link Baseline Establishment)**:
+  - Khi khách hàng truy cập trực tiếp bằng đường dẫn chia sẻ (`/?product=slug`), ứng dụng tự động thiết lập Entry 0 là Catalog (`/`, `modalDepth: 0`) và đẩy Entry 1 là Sản phẩm (`modalDepth: 1`).
+  - Khi khách hàng tiếp tục duyệt sản phẩm B (`modalDepth: 2`), C (`modalDepth: 3`) rồi nhấn Đóng, ứng dụng unwind toàn bộ chuỗi modal về đúng Entry 0 (Catalog).
+  - Khi người dùng bấm nút Back từ Catalog, trình duyệt quay về trang trước đó (ví dụ Google hay website giới thiệu), không bị kẹt lặp lại trong các sản phẩm đã đóng.
+- **Khóa Chặn Yêu cầu Lỗi thời (Stale Request & Slug Guards)**:
+  - Ngoài `controller.abort()`, các callback `.then()` và `.finally()` đều kiểm tra nghiêm ngặt `currentSlug === slug` và `currentProductId === product.id`, triệt tiêu hoàn toàn nguy cơ race condition cập nhật giao diện sai lệch khi mạng chập chờn.
+- **Khắc phục Lỗi Căn giữa Flexbox trên Mobile (CSS Flex Alignment Fix)**:
+  - Dialog container chuyển từ `items-center` sang `items-start md:items-center`.
+  - Trên màn hình di động khi chiều cao nội dung (ví dụ 2376px) lớn hơn viewport (568px), `items-center` sẽ đẩy nửa trên nội dung vào vùng tọa độ âm khiến người dùng không thể cuộn lên xem gallery và nút đóng. Căn chỉnh `items-start` trên mobile giúp trang bắt đầu tự nhiên tại `y = 0` và cuộn mượt mà không mất dữ liệu.
+- **Xác minh Đo lường Viewport CSS 320px Thực tế**:
+  - Phân biệt công cụ `resize_page` (bị giới hạn bởi chiều rộng tối thiểu của cửa sổ hệ điều hành ~486px) và `emulate viewport` (giả lập thiết bị di động thực sự với `320x568x2,mobile,touch`).
+  - Đo đạc thực tế tại CSS viewport 320px: `innerWidth: 320`, `clientWidth: 320`, `scrollWidth: 320`, hoàn toàn không tràn ngang (`hasHorizontalOverflow: false`).
+
 
 
 
