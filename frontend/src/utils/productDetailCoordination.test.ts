@@ -960,6 +960,7 @@ describe('ProductDetailModal Component Integration Test Suite (Phase 5B & 5B.1 H
         : (prev.isProductModalPushed ? 1 : 0);
       const newDepth = isAlreadyInModal ? currentDepth + 1 : 1;
 
+      historyStack.splice(currentIndex + 1);
       historyStack.push({
         url: `/catalog?product=${slug}`,
         state: {
@@ -971,112 +972,153 @@ describe('ProductDetailModal Component Integration Test Suite (Phase 5B & 5B.1 H
         },
       });
       currentIndex = historyStack.length - 1;
+    };
+
+    const go = (delta: number) => {
+      const target = currentIndex + delta;
+      if (target >= 0 && target < historyStack.length) {
+        currentIndex = target;
+        selectedProductSlug = historyStack[currentIndex].state.product || null;
+      }
     };
 
     // Simulate closeProductModal helper matching App.tsx logic
     const closeProductModal = () => {
       const state = historyStack[currentIndex].state;
       const depth = state.modalDepth || 0;
-      const isPushed = state.isProductModalPushed;
-      const isDeepLink = state.isDeepLinkOrigin;
-
-      selectedProductSlug = null;
-
-      if (isPushed && depth > 0 && !isDeepLink) {
-        // Unwinds depth entries in 1 step back to Catalog
-        currentIndex = Math.max(0, currentIndex - depth);
-        return;
+      if (depth > 0) {
+        go(-depth);
+      } else {
+        selectedProductSlug = null;
       }
-
-      historyStack[currentIndex] = {
-        url: '/catalog',
-        state: { isProductModalPushed: false, modalDepth: 0, isDeepLinkOrigin: false, product: null },
-      };
     };
 
     // 1. User on Catalog clicks Product A
     selectProduct('product-a');
     assert.equal(selectedProductSlug, 'product-a');
     assert.equal(historyStack[currentIndex].state.modalDepth, 1);
-    assert.equal(historyStack[currentIndex].state.isDeepLinkOrigin, false);
 
     // 2. User inside modal clicks Related Product B (in-modal hop)
     selectProduct('product-b');
     assert.equal(selectedProductSlug, 'product-b');
     assert.equal(historyStack[currentIndex].state.modalDepth, 2);
-    assert.equal(historyStack[currentIndex].state.isDeepLinkOrigin, false);
 
-    // 3. User clicks Close button ('X' / Escape / Backdrop):
-    // MUST unwind in ONE step back to Catalog (depth: 2 -> depth: 0)
+    // 3. User inside modal clicks Related Product C
+    selectProduct('product-c');
+    assert.equal(selectedProductSlug, 'product-c');
+    assert.equal(historyStack[currentIndex].state.modalDepth, 3);
+
+    // 4. User presses browser Back: C -> B
+    go(-1);
+    assert.equal(currentIndex, 2);
+    assert.equal(selectedProductSlug, 'product-b');
+    assert.equal(historyStack[currentIndex].state.modalDepth, 2, 'Entry B retains modalDepth 2');
+
+    // 5. User clicks Close button ('X' / Escape / Backdrop) from B:
+    // MUST use current entry's depth (2) to unwind in ONE step directly back to Catalog (index 0)!
     closeProductModal();
     assert.equal(selectedProductSlug, null, 'Modal must be fully dismissed');
-    assert.equal(currentIndex, 0, 'Must rewind all 2 hops back to Catalog in one close action');
+    assert.equal(currentIndex, 0, 'Must rewind 2 hops from B back to Catalog index 0 in one close action without over-navigating');
     assert.equal(historyStack[currentIndex].url, '/catalog');
     assert.equal(historyStack[currentIndex].state.modalDepth, 0);
+
+    // 6. Test Back -> Forward -> Close:
+    selectProduct('product-a'); // index 1
+    selectProduct('product-b'); // index 2
+    selectProduct('product-c'); // index 3
+    assert.equal(currentIndex, 3);
+
+    go(-1); // Back to B (index 2)
+    assert.equal(currentIndex, 2);
+    assert.equal(selectedProductSlug, 'product-b');
+
+    go(1); // Forward to C (index 3)
+    assert.equal(currentIndex, 3);
+    assert.equal(selectedProductSlug, 'product-c');
+    assert.equal(historyStack[currentIndex].state.modalDepth, 3, 'Entry C retains modalDepth 3');
+
+    closeProductModal(); // From C, go(-3)
+    assert.equal(currentIndex, 0, 'Unwinds 3 steps from C directly to Catalog index 0');
+    assert.equal(selectedProductSlug, null);
   });
 
-  it('13. Phase 5D.2.1: Deep-Link In-Modal History Coordination (Direct URL -> Related Product -> Close)', () => {
+  it('13. Phase 5D.2.1: Deep-Link In-Modal History Coordination (Direct URL -> A -> B -> C -> Close -> Back)', () => {
     interface HistoryEntry {
       url: string;
       state: {
         isProductModalPushed?: boolean;
         modalDepth?: number;
-        isDeepLinkOrigin?: boolean;
         product?: string | null;
       };
     }
 
-    // Direct deep-link entry (e.g. from Google or shared link)
+    // Direct deep-link entry (e.g. from Google or shared link):
+    // On app initialization, App.tsx establishes Catalog at index 0 and Product A at index 1
     const historyStack: HistoryEntry[] = [
-      {
-        url: '/catalog?product=product-a',
-        state: { isProductModalPushed: false, modalDepth: 0, isDeepLinkOrigin: true, product: 'product-a' },
-      },
+      { url: '/catalog', state: { isProductModalPushed: false, modalDepth: 0, product: null } },
+      { url: '/catalog?product=product-a', state: { isProductModalPushed: true, modalDepth: 1, product: 'product-a' } },
     ];
-    let currentIndex = 0;
+    let currentIndex = 1;
     let selectedProductSlug: string | null = 'product-a';
 
     const selectProduct = (slug: string) => {
       selectedProductSlug = slug;
       const prev = historyStack[currentIndex].state;
-      const isAlreadyInModal = Boolean(selectedProductSlug);
-      const isDeepLinkOrigin = true; // inherited from direct link
-      const currentDepth = prev.modalDepth || 0;
-      const newDepth = isAlreadyInModal ? currentDepth + 1 : 1;
+      const currentDepth = prev.modalDepth || 1;
+      const newDepth = currentDepth + 1;
 
+      historyStack.splice(currentIndex + 1);
       historyStack.push({
         url: `/catalog?product=${slug}`,
         state: {
           ...prev,
           isProductModalPushed: true,
           modalDepth: newDepth,
-          isDeepLinkOrigin,
           product: slug,
         },
       });
       currentIndex = historyStack.length - 1;
     };
 
-    const closeProductModal = () => {
-      selectedProductSlug = null;
+    const go = (delta: number) => {
+      const target = currentIndex + delta;
+      if (target >= 0 && target < historyStack.length) {
+        currentIndex = target;
+        selectedProductSlug = historyStack[currentIndex].state.product || null;
+      }
+    };
 
-      // Because isDeepLinkOrigin is true, closeProductModal uses replaceState to stay on Catalog without exiting site
-      historyStack[currentIndex] = {
-        url: '/catalog',
-        state: { isProductModalPushed: false, modalDepth: 0, isDeepLinkOrigin: false, product: null },
-      };
+    const closeProductModal = () => {
+      const state = historyStack[currentIndex].state;
+      const depth = state.modalDepth || 0;
+      if (depth > 0) {
+        go(-depth);
+      } else {
+        selectedProductSlug = null;
+      }
     };
 
     // User on deep-link Product A clicks Related Product B
     selectProduct('product-b');
     assert.equal(selectedProductSlug, 'product-b');
-    assert.equal(historyStack[currentIndex].state.isDeepLinkOrigin, true);
+    assert.equal(currentIndex, 2);
+    assert.equal(historyStack[currentIndex].state.modalDepth, 2);
 
-    // Clicking Close must NOT exit website: replaces with clean /catalog
+    // User clicks Related Product C
+    selectProduct('product-c');
+    assert.equal(selectedProductSlug, 'product-c');
+    assert.equal(currentIndex, 3);
+    assert.equal(historyStack[currentIndex].state.modalDepth, 3);
+
+    // Clicking Close unwinds 3 steps directly to Catalog (index 0)
     closeProductModal();
-    assert.equal(selectedProductSlug, null);
+    assert.equal(selectedProductSlug, null, 'Modal closed');
+    assert.equal(currentIndex, 0, 'Unwound to Catalog index 0');
     assert.equal(historyStack[currentIndex].url, '/catalog');
-    assert.equal(historyStack[currentIndex].state.isProductModalPushed, false);
+
+    // Next, clicking browser Back exits website (no modal entries behind Catalog)
+    const canGoBackInApp = currentIndex > 0;
+    assert.equal(canGoBackInApp, false, 'Browser Back will exit website, not re-open modal');
   });
 
   it('14. Phase 5D.2.1: Grounded Business Policies & Truthful Badges Verification', () => {
@@ -1143,5 +1185,15 @@ describe('ProductDetailModal Component Integration Test Suite (Phase 5B & 5B.1 H
     assert.equal(controller.signal.aborted, true);
     abortedSignals.push(controller.signal.aborted);
     assert.equal(abortedSignals[0], true);
+  });
+
+  it('17. Phase 5D.2.1: Mobile Modal Flex Alignment Prevents Negative Scroll Clipping', () => {
+    const harness = createModalTestHarness();
+    const dialogNode = harness.findNode((n) => n?.props?.role === 'dialog');
+    assert.ok(dialogNode, 'Dialog container exists');
+    assert.ok(
+      dialogNode.props.className.includes('items-start md:items-center'),
+      'Dialog container must use items-start on mobile and md:items-center on desktop to prevent CSS flexbox negative scroll clipping on small viewports'
+    );
   });
 });

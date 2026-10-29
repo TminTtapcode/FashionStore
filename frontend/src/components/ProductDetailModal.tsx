@@ -150,6 +150,7 @@ export default function ProductDetailModal({
     }
 
     const controller = new AbortController();
+    const requestSlug = slug;
     let isMounted = true;
     setIsLoading(true);
     setError(null);
@@ -157,7 +158,7 @@ export default function ProductDetailModal({
 
     getProductDetailApi(slug, controller.signal)
       .then((data) => {
-        if (!isMounted || controller.signal.aborted) return;
+        if (!isMounted || controller.signal.aborted || requestSlug !== slug) return;
         setProduct(data);
 
         // Auto-select initial color and valid matching size
@@ -184,11 +185,11 @@ export default function ProductDetailModal({
         setQuantity(1);
       })
       .catch((err) => {
-        if (!isMounted || controller.signal.aborted) return;
+        if (!isMounted || controller.signal.aborted || requestSlug !== slug) return;
         setError(err instanceof Error ? err.message : 'Không thể tải thông tin sản phẩm');
       })
       .finally(() => {
-        if (isMounted && !controller.signal.aborted) {
+        if (isMounted && !controller.signal.aborted && requestSlug === slug) {
           setIsLoading(false);
         }
       });
@@ -207,12 +208,13 @@ export default function ProductDetailModal({
     }
 
     const controller = new AbortController();
+    const currentProductId = product.id;
     let isMounted = true;
     setIsLoadingRelated(true);
 
     getProductsApi({ categoryId: product.categoryId, limit: 6 }, controller.signal)
       .then((res) => {
-        if (!isMounted || controller.signal.aborted) return;
+        if (!isMounted || controller.signal.aborted || currentProductId !== product.id) return;
         const filtered = (res.items || []).filter((item) => item.slug !== product.slug).slice(0, 4);
         if (filtered.length >= 2) {
           setRelatedProducts(filtered);
@@ -220,22 +222,22 @@ export default function ProductDetailModal({
           // Fallback: fetch general products if category has fewer than 2 companion pieces
           getProductsApi({ limit: 6 }, controller.signal)
             .then((allRes) => {
-              if (!isMounted || controller.signal.aborted) return;
+              if (!isMounted || controller.signal.aborted || currentProductId !== product.id) return;
               const generalFiltered = (allRes.items || [])
                 .filter((item) => item.slug !== product.slug)
                 .slice(0, 4);
               setRelatedProducts(generalFiltered);
             })
             .catch(() => {
-              if (isMounted && !controller.signal.aborted) setRelatedProducts(filtered);
+              if (isMounted && !controller.signal.aborted && currentProductId === product.id) setRelatedProducts(filtered);
             });
         }
       })
       .catch(() => {
-        if (isMounted && !controller.signal.aborted) setRelatedProducts([]);
+        if (isMounted && !controller.signal.aborted && currentProductId === product.id) setRelatedProducts([]);
       })
       .finally(() => {
-        if (isMounted && !controller.signal.aborted) setIsLoadingRelated(false);
+        if (isMounted && !controller.signal.aborted && currentProductId === product.id) setIsLoadingRelated(false);
       });
 
     return () => {
@@ -425,7 +427,7 @@ export default function ProductDetailModal({
         ref={modalContainerRef}
         onKeyDown={handleKeyDownTrap}
         tabIndex={-1}
-        className="fixed inset-0 z-40 flex items-center justify-center p-0 md:p-4 lg:p-6 outline-none overflow-y-auto"
+        className="fixed inset-0 z-40 flex items-start md:items-center justify-center p-0 md:p-4 lg:p-6 outline-none overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-modal-title"

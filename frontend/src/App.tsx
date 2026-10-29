@@ -56,14 +56,43 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
   const [isStylingStudioOpen, setIsStylingStudioOpen] = useState(false);
   const [isRunwayActive, setIsRunwayActive] = useState(true);
 
-  // Canonicalize initial URL and listen for browser Back/Forward (popstate) navigation
+  // Canonicalize initial URL, establish deep-link history baseline, and listen for browser Back/Forward (popstate)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const initialFilters = parseCatalogUrl(window.location.search);
       const canonicalQuery = serializeCatalogUrl(initialFilters, window.location.search);
-      if (window.location.search !== canonicalQuery) {
+      const currentParams = new URLSearchParams(window.location.search);
+      const deepLinkProduct = currentParams.get('product');
+
+      // If opening directly from a deep link (?product=slug) and no modal history entry exists yet:
+      // Establish an underlying Catalog entry at modalDepth: 0 so the user can unwind or click Back to Catalog,
+      // and push the product modal on top at modalDepth: 1.
+      if (deepLinkProduct && (!window.history.state || typeof window.history.state.modalDepth !== 'number')) {
+        const catalogParams = new URLSearchParams(window.location.search);
+        catalogParams.delete('product');
+        const catalogQuery = catalogParams.toString();
+        const catalogUrl = `${window.location.pathname}${catalogQuery ? `?${catalogQuery}` : ''}${window.location.hash}`;
+
+        window.history.replaceState(
+          { ...window.history.state, filters: initialFilters, isProductModalPushed: false, modalDepth: 0, product: null },
+          '',
+          catalogUrl
+        );
+        window.history.pushState(
+          { ...window.history.state, filters: initialFilters, isProductModalPushed: true, modalDepth: 1, isDeepLinkOrigin: true, product: deepLinkProduct },
+          '',
+          window.location.href
+        );
+      } else if (!deepLinkProduct && window.history.state?.modalDepth > 0) {
+        // Cleanse any stale modal depth when on the Catalog root
+        window.history.replaceState(
+          { ...window.history.state, filters: initialFilters, isProductModalPushed: false, modalDepth: 0, isDeepLinkOrigin: false, product: null },
+          '',
+          window.location.href
+        );
+      } else if (window.location.search !== canonicalQuery) {
         const canonicalUrl = `${window.location.pathname}${canonicalQuery}${window.location.hash}`;
-        window.history.replaceState({ filters: initialFilters }, '', canonicalUrl);
+        window.history.replaceState({ ...window.history.state, filters: initialFilters }, '', canonicalUrl);
       }
     }
 
@@ -125,21 +154,16 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
 
       const previousState = window.history.state || {};
       const isAlreadyInModal = Boolean(selectedProductSlug);
-      const isDeepLinkOrigin = Boolean(
-        previousState.isDeepLinkOrigin ||
-        (!previousState.isProductModalPushed && isAlreadyInModal)
-      );
       const currentDepth = typeof previousState.modalDepth === 'number'
         ? previousState.modalDepth
-        : (previousState.isProductModalPushed ? 1 : 0);
-      const newDepth = isAlreadyInModal ? currentDepth + 1 : 1;
+        : (isAlreadyInModal ? 1 : 0);
+      const newDepth = currentDepth + 1;
 
       window.history.pushState(
         {
           ...previousState,
           isProductModalPushed: true,
           modalDepth: newDepth,
-          isDeepLinkOrigin,
           product: slug,
         },
         '',
@@ -155,19 +179,17 @@ function StorefrontContent({ onNavigateOwner }: StorefrontContentProps) {
       const depth = typeof state.modalDepth === 'number'
         ? state.modalDepth
         : (isModalPushed ? 1 : 0);
-      const isDeepLinkOrigin = state.isDeepLinkOrigin;
 
       setSelectedProductSlug(null);
 
-      if (isModalPushed && depth > 0 && !isDeepLinkOrigin) {
-        // Modal was opened in-app from the Catalog and may have had multiple in-modal hops (A -> B -> C).
-        // Unwind all modal entries in ONE step directly back to the Catalog history entry!
+      if (isModalPushed && depth > 0) {
+        // Modal entries were pushed in-app or stacked over the Catalog base entry.
+        // Unwind all modal entries in ONE relative step directly back to the Catalog entry!
         window.history.go(-depth);
         return;
       }
 
-      // Direct deep-link origin (or fresh load without in-app Catalog preceding it):
-      // Replace state to avoid navigating outside the website or back into previous deep-linked modal
+      // Fallback: replace query string if no valid pushed depth
       const params = new URLSearchParams(window.location.search);
       params.delete('product');
       const qs = params.toString();
