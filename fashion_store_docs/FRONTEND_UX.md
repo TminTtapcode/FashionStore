@@ -272,6 +272,49 @@ Ba trụ cột an tâm mua sắm thời trang cao cấp:
   - Phân biệt công cụ `resize_page` (bị giới hạn bởi chiều rộng tối thiểu của cửa sổ hệ điều hành ~486px) và `emulate viewport` (giả lập thiết bị di động thực sự với `320x568x2,mobile,touch`).
   - Đo đạc thực tế tại CSS viewport 320px: `innerWidth: 320`, `clientWidth: 320`, `scrollWidth: 320`, hoàn toàn không tràn ngang (`hasHorizontalOverflow: false`).
 
+## 12. IVRE Atelier Editorial Styling Studio & Lookbook Builder (Phase 5D.3)
+
+### 12.1. Tuyên ngôn Kiến trúc & Giới hạn Thẩm mỹ (Editorial Collage vs AI Try-on)
+- **Tôn trọng Nhiếp ảnh Thực tế**: Toàn bộ hình ảnh sản phẩm trong IVRE Atelier là ảnh chụp lookbook/editorial với người mẫu và bối cảnh chân thực từ cơ sở dữ liệu và Cloudinary CDN. Tuyệt đối không giả lập ma-nơ-canh 2.5D cắt ghép biến dạng hay quảng cáo sai lệch về "AI Virtual Try-On".
+- **Bảng phối Nghệ thuật (Editorial Collage / Style Moodboard)**: Cung cấp trải nghiệm studio phối đồ thanh lịch, đặt các tác phẩm trang phục cạnh nhau một cách hài hòa theo tiêu chuẩn tạp chí thời trang cao cấp (Vogue / Harper's Bazaar).
+
+### 12.2. Cấu trúc 5 Vị trí Trang phục (5-Slot Architecture) & Quy tắc Xung đột
+Hệ thống hỗ trợ 5 vị trí trang phục độc lập:
+1. `ONE_PIECE`: Đầm dạ tiệc, maxi, đầm liền thân (`dam-va-vay`, `set-do-jumpsuit`).
+2. `UPPER_BODY`: Áo sơ mi, áo thun, áo dệt kim (`ao-nam`, `ao-nu`).
+3. `LOWER_BODY`: Quần jeans, quần tây, chân váy (`quan-nu`, `quan-nam`).
+4. `OUTERWEAR`: Áo blazer may đo, áo khoác măng-tô (được phân giải theo taxonomy hoặc override đặc thù `ao-blazer-linen-phom-rong-minimalist`).
+5. `ACCESSORIES`: Túi xách, khăn lụa, phụ kiện atelier.
+
+**Quy tắc Tương thích Nghiệp vụ Thời trang (Compatibility Invariants)**:
+- `ONE_PIECE` xung đột trực tiếp với trang phục rời (`UPPER_BODY` + `LOWER_BODY`).
+- Khi khách hàng chọn một mẫu Đầm liền thân (`ONE_PIECE`), hệ thống tự động gỡ bỏ Áo và Quần đang có trong bảng phối và hiển thị thông báo hướng dẫn: *"Đầm liền thân đã thay thế Áo và Quần trong bảng phối."*
+- Ngược lại, khi chọn Áo hoặc Quần rời, Đầm liền thân sẽ tự động được dọn dẹp để đảm bảo tính thực tế của trang phục.
+- Áo khoác ngoài (`OUTERWEAR`) và Phụ kiện (`ACCESSORIES`) tương thích 100% với cả hai chế độ phối đồ (khoác ngoài đầm hoặc khoác ngoài set áo-quần).
+
+### 12.3. Trải nghiệm Khách hàng trên Desktop & Mobile
+- **Desktop (58% Lookbook Canvas / 42% Garment Selector)**:
+  - Cột trái: Trực quan hóa bảng phối với ảnh người mẫu sắc nét, nhãn vị trí trang phục, nút gỡ nhanh, và thanh tổng tiền ghim đáy.
+  - Cột phải: Thanh chuyển đổi danh mục/slot, hàng preset phối sẵn (The Urbanist Tailoring, Silk Gala Evening), lưới chọn sản phẩm, và panel tùy chỉnh gam màu + kích cỡ + số lượng tồn kho theo thời gian thực.
+- **Mobile (< 1024px)**:
+  - Thanh chuyển đổi phân đoạn thông minh trên Header: `[ ✦ BẢNG PHỐI ]` vs `[ 🛍️ CHỌN MÓN ]`.
+  - Khi khách nhấp vào vị trí trống trên bảng phối, giao diện tự động chuyển sang tab chọn món; sau khi chọn màu/size và bấm đưa vào bộ phối, giao diện tự động đưa khách về bảng phối để chiêm ngưỡng tổng thể.
+  - Tối ưu hóa không gian hiển thị, loại bỏ chữ phụ trên màn hình hẹp, đảm bảo 0 horizontal overflow tại viewport 320px và 390px.
+
+### 12.4. Quy trình Thêm Cả Bộ vào Giỏ Hàng (Sequential Add-to-Cart Flow)
+- **Kiểm định Hạn mức Đơn hàng Trước thực thi (Pre-flight Limit Verification)**:
+  - Hệ thống gom nhóm (aggregate) số lượng các biến thể trùng nhau trong bộ phối.
+  - Kiểm tra đối chiếu với số lượng hiện có trong giỏ hàng:
+    $$\text{existingCartQty} + \text{outfitQty} \le \min(10, \text{stockQuantity})$$
+  - Cảnh báo cụ thể tên sản phẩm nếu vượt quá trần 10 sản phẩm/dòng hoặc vượt quá tồn kho khả dụng.
+- **Thực thi Tuần tự & Báo cáo Từng Món (Granular Batch Reporting)**:
+  - Backend API hiện tại chỉ nhận thêm từng item đơn lẻ (`POST /api/v1/cart/items`).
+  - Giao diện thực thi tuần tự có kiểm soát trạng thái, sau đó hiển thị Modal Báo cáo Chi tiết:
+    - *Toàn bộ thành công*: Tự động cập nhật giỏ hàng và mở MiniCartDrawer.
+    - *Thành công một phần*: Báo rõ số món đã thêm và liệt kê chính xác các món thất bại kèm nguyên nhân (hết hàng do race condition...).
+    - *Xử lý Khách vãng lai (Guest Auth)*: Kích hoạt modal đăng nhập mà không làm mất trạng thái bộ phối (draft outfit state) đang chỉnh sửa dở dang.
+
+
 
 
 

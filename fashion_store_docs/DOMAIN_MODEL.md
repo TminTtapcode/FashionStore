@@ -325,3 +325,44 @@ $$\text{Current Stock} = \text{Opening Balance} + \sum_{i=1}^{n} \Delta_i$$
 ### 7.5. Bảo vệ Toàn Vẹn & Khóa Cạnh tranh (Concurrency & Foreign Key Guard)
 - **Khóa Bi quan (Pessimistic Locking)**: Mọi thao tác biến động kho trong `InventoryService` đều thực thi câu lệnh `SELECT ... FOR UPDATE` thông qua `@Lock(LockModeType.PESSIMISTIC_WRITE)` trên `product_variants`. Đảm bảo tuần tự hóa tuyệt đối, loại trừ hoàn toàn Lost Updates khi nhiều luồng checkout hoặc nhập hàng diễn ra đồng thời.
 - **Ràng buộc Chống Xóa Sổ cái (`ON DELETE RESTRICT`)**: Khóa ngoại `fk_inv_movement_variant` không dùng `ON DELETE CASCADE`. Không cho phép xóa biến thể nếu sổ cái còn lưu vết kiểm toán, bảo đảm tính bất biến vĩnh viễn phục vụ thanh tra thuế và kế toán.
+
+## 8. Editorial Styling Studio & Outfit Builder Domain Model (Phase 5D.3)
+
+### 8.1. Cấu trúc Vị trí Trang phục (Styling Slot Taxonomy)
+Mô hình bộ phối đồ thời trang IVRE Atelier phân loại theo 5 vị trí:
+1. `ONE_PIECE`: Trang phục liền thân (Đầm dạ hội, đầm maxi, set jumpsuit).
+2. `UPPER_BODY`: Trang phục thân trên (Áo sơ mi, áo thun, polo).
+3. `LOWER_BODY`: Trang phục thân dưới (Quần jeans, quần tây, chân váy).
+4. `OUTERWEAR`: Trang phục khoác ngoài (Áo blazer, trench coat, jacket).
+5. `ACCESSORIES`: Phụ kiện thời trang (Túi xách, khăn lụa, thắt lưng).
+
+### 8.2. Ma trận Ánh xạ Danh mục sang Slot (Taxonomy Resolution)
+```typescript
+export const CATEGORY_TO_SLOT_MAP: Record<string, OutfitSlot> = {
+  'dam-va-vay': 'ONE_PIECE',
+  'set-do-jumpsuit': 'ONE_PIECE',
+  'quan-nu': 'LOWER_BODY',
+  'quan-nam': 'LOWER_BODY',
+  'ao-nam': 'UPPER_BODY',
+  'ao-nu': 'UPPER_BODY',
+};
+
+// Override đặc thù cho các sản phẩm khoác ngoài nằm trong danh mục áo chung
+export const PRODUCT_SLOT_OVERRIDES: Record<string, OutfitSlot> = {
+  'ao-blazer-linen-phom-rong-minimalist': 'OUTERWEAR',
+};
+```
+
+### 8.3. Bất biến Tương thích Nghiệp vụ (Compatibility Invariants)
+- **Tập Xung đột**:
+  $$\text{Separates} = \{\text{UPPER\_BODY}, \text{LOWER\_BODY}\}$$
+  $$\text{ONE\_PIECE} \cap \text{Separates} = \emptyset$$
+- **Hành vi Giải quyết Tự động**:
+  - Gán `ONE_PIECE` $\implies$ xóa toàn bộ phần tử trong $\text{Separates}$, phát sinh thông báo giải thích.
+  - Gán bất kỳ phần tử nào thuộc $\text{Separates}$ $\implies$ xóa `ONE_PIECE`, phát sinh thông báo giải thích.
+  - Gán `OUTERWEAR` hoặc `ACCESSORIES` $\implies$ bảo toàn toàn bộ các slot khác.
+
+### 8.4. Giới hạn Phạm vi Lưu trữ (Persistence & Authentication Boundary)
+- Bộ phối đồ được duy trì trong bộ nhớ phiên làm việc (Session/In-Memory State). Không quảng cáo sai lệch về tính năng đồng bộ đám mây xuyên thiết bị (Cross-device Cloud Sync).
+- Khi khách vãng lai chọn "Thêm cả bộ vào giỏ hàng", ứng dụng mở Modal đăng nhập nhưng giữ nguyên vẹn trạng thái Draft Outfit trong React Hook, cho phép người dùng tiếp tục thao tác ngay sau khi xác thực thành công.
+

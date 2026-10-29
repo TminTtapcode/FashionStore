@@ -305,7 +305,26 @@ Deliverables:
     - **Backend tests**: 143/143 unit & integration tests PASS (100%).
     - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi.
     - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$), Mobile ($390 \times 844$), và True Mobile ($320 \times 568$ qua `emulate viewport`), xác nhận 0 horizontal overflow (`scrollWidth <= clientWidth`), khắc phục lỗi flex centering data-loss trên mobile.
-- **Phase 5D.3 — Phòng Thử Đồ Studio Ma-nơ-canh 2.5D (IVRE Styling Studio / Outfit Builder)** [Đang thiết kế kiến trúc].
+- **Phase 5D.3 — IVRE Atelier Editorial Styling Studio & Outfit Builder** [Hoàn tất]:
+  - **Kiến trúc Bảng phối Nghệ thuật (Editorial Collage / Lookbook Moodboard)**:
+    - Loại bỏ mô hình ma-nơ-canh cắt ghép giả tạo và các cam kết sai lệch về "AI Virtual Try-On", tôn trọng hình ảnh nhiếp ảnh thực tế của sản phẩm từ cơ sở dữ liệu và Cloudinary CDN.
+    - Cấu trúc 5 slot trang phục: `ONE_PIECE`, `UPPER_BODY`, `LOWER_BODY`, `OUTERWEAR`, `ACCESSORIES`.
+    - Phân giải slot dựa trên danh mục thực tế của backend (`dam-va-vay`, `ao-nam`, `ao-nu`, `quan-nu`, `quan-nam`) và bảng quy tắc override đặc thù (`ao-blazer-linen-phom-rong-minimalist` $\rightarrow$ `OUTERWEAR`).
+  - **Quy tắc Tương thích Nghiệp vụ Thời trang (Compatibility Invariants)**:
+    - Hỗ trợ chế độ Đầm liền thân (`ONE_PIECE`) tự động giải phóng Áo rời (`UPPER_BODY`) và Quần rời (`LOWER_BODY`) kèm thông báo rõ ràng cho khách hàng.
+    - Chọn trang phục rời tự động dọn dẹp Đầm liền thân; Áo khoác ngoài và Phụ kiện phối ghép linh hoạt với cả hai chế độ.
+  - **Trực quan hóa Tùy biến & Tính toán Giá Động Thời gian Thực**:
+    - Tùy chỉnh màu sắc (swatches), kích cỡ (sizes), giá bán chính xác theo biến thể và hiển thị tồn kho thực tế (`● Còn hàng`, `▲ Sắp hết`, `✕ Tạm hết hàng`).
+    - Tính toán tổng tiền động và số lượng món theo thời gian thực; nút CTA ghim đáy thuận tiện cho thao tác mua sắm.
+  - **Quy trình Thêm Trọn Bộ vào Giỏ Hàng & Báo cáo Từng Món (Sequential Add-to-Cart Flow)**:
+    - Kiểm định hạn mức trước thực thi (Pre-flight limit check), gom nhóm biến thể trùng lặp, đảm bảo không vượt quá trần 10 sản phẩm/dòng và tồn kho kho khả dụng.
+    - Xử lý khách vãng lai bằng cách kích hoạt modal đăng nhập mà không làm mất bộ phối đang chọn (draft outfit state).
+    - Thực thi tuần tự có kiểm soát trạng thái và hiển thị Modal Báo cáo Chi tiết kết quả (thành công toàn bộ vs thành công một phần vs lỗi từng món).
+  - **Kiểm chứng Toàn diện & Quality Gates**:
+    - **Frontend tests**: 104/104 unit & component tests PASS (100%), bổ sung 15 test cases chuyên biệt trong `stylingStudio.test.ts`.
+    - **Backend tests**: 143/143 unit & integration tests PASS (100%).
+    - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi (318ms).
+    - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$), Mobile ($390 \times 844$), và Ultra-narrow ($320 \times 568$), xác nhận 0 horizontal overflow (`scrollWidth <= clientWidth`).
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
 
 
