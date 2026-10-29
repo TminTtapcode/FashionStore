@@ -129,16 +129,21 @@ Không bắt buộc tạo bốn lớp cho mọi CRUD nhỏ nếu chỉ làm tăn
 ```text
 frontend/src/
   ├── components/owner/
-  │     ├── OwnerPortal.tsx               # Shell quản trị, RBAC Gate, Top Header & Sidebar
-  │     ├── OwnerOrdersView.tsx           # Bảng điều hành đơn hàng, bộ lọc trạng thái, pagination
-  │     ├── OwnerOrderDetailModal.tsx     # Modal chi tiết đơn, thông tin giao hàng, tài chính & Timeline
-  │     ├── OwnerActionConfirmModal.tsx   # Modal xác nhận thao tác chuyển trạng thái đơn hàng
-  │     ├── OwnerProductsView.tsx         # Bảng catalog quản trị, tab DRAFT/ACTIVE/HIDDEN/ARCHIVED
+  │     ├── OwnerPortal.tsx               # Shell quản trị, RBAC Gate, Top Header (72px), Sidebar (256px) & Mobile Bottom Nav
+  │     ├── OwnerOrdersView.tsx           # Bảng điều hành đơn hàng, bộ lọc trạng thái, desktop table & mobile card list
+  │     ├── OwnerOrderDetailModal.tsx     # Modal/Bottom Sheet chi tiết đơn, thông tin giao hàng, tài chính & Timeline
+  │     ├── OwnerActionConfirmModal.tsx   # Modal/Bottom Sheet xác nhận thao tác chuyển trạng thái đơn hàng
+  │     ├── OwnerProductsView.tsx         # Bảng catalog quản trị, tab DRAFT/ACTIVE/HIDDEN/ARCHIVED & mobile card list
   │     ├── OwnerProductDetailModal.tsx   # Modal tạo/sửa sản phẩm, Quick Matrix Generator, bảng biến thể
-  │     └── OwnerProductStatusModal.tsx   # Modal chuyển vòng đời sản phẩm, kiểm soát điều kiện tiên quyết
+  │     ├── OwnerProductStatusModal.tsx   # Modal chuyển vòng đời sản phẩm, kiểm soát điều kiện tiên quyết
+  │     ├── OwnerInventoryView.tsx        # Dashboard tồn kho, 4 KPI cards, Donut chart, Trend 7 ngày, table & mobile cards
+  │     ├── OwnerInventoryLedgerDrawer.tsx# Drawer sổ cái đối soát toán học ATS = Opening + Delta, audit trail
+  │     ├── OwnerStockReceiptModal.tsx    # Modal/Bottom Sheet nhập kho bổ sung kèm live projection X -> Y
+  │     └── OwnerStockAdjustmentModal.tsx # Modal/Bottom Sheet điều chỉnh kiểm kê đột xuất, chống âm kho
   └── api/
         ├── ownerOrderApi.ts              # Client API kết nối /api/v1/owner/orders/**
-        └── ownerProductApi.ts            # Client API kết nối /api/v1/owner/products/**
+        ├── ownerProductApi.ts            # Client API kết nối /api/v1/owner/products/**
+        └── ownerInventoryApi.ts          # Client API kết nối /api/v1/owner/inventory/** (kèm stats toàn shop)
 ```
 
 ### 7.4. Ranh giới API Tách biệt giữa Storefront và Owner

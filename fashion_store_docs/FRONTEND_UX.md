@@ -100,3 +100,51 @@ Fashion storefront cần có cảm giác editorial/lookbook, hình ảnh sản p
 
 ## 8. Design acceptance
 Mỗi page phải có: loading, error, empty, success, disabled, responsive states. Kiểm tra bằng dữ liệu thật từ API, không chỉ mockup. Trước khi làm hiệu ứng, bảo đảm lựa chọn variant, giá, stock, add-to-cart và checkout hoạt động đúng.
+
+## 9. Hệ thống Thiết kế IVRE Atelier — Dark Editorial Luxury (Shop Owner Portal)
+
+### 9.1. Triết lý Thiết kế & Bảng Màu Thương hiệu (Brand Color Palette)
+Owner Portal được thiết kế theo phong cách **IVRE Atelier — Dark Editorial Luxury**, lấy cảm hứng từ không gian làm việc của các nhà mốt may đo cao cấp tại Paris/Milan:
+- **Nền sâu thẳm (`--color-atelier-bg`)**: `#0E0F11` — tạo chiều sâu tĩnh lặng, tôn vinh hình ảnh và số liệu kinh doanh.
+- **Bề mặt chính (`--color-atelier-surface`)**: `#191A1D` — khối container chứa bảng biểu, bộ lọc và biểu đồ.
+- **Bề mặt nổi (`--color-atelier-surface-raised`)**: `#212226` — các thẻ KPI, ô input, dropdown và card con.
+- **Đường viền tinh xảo (`--color-atelier-border`)**: `#333235` — viền siêu mảnh 1px phân tách các khối nội dung.
+- **Vàng Champagne Hoàng gia (`--color-atelier-gold`)**: `#D6B27C` (Hover: `#E5C592`, Active: `#C5A16B`) — điểm nhấn cho nút CTA chính, tiêu đề danh mục, tab active và chỉ số quan trọng.
+- **Văn bản Ánh kim (`--color-atelier-text`)**: `#F5F0E9` — độ tương phản cao, dễ đọc trên nền tối.
+- **Văn bản Thứ cấp (`--color-atelier-muted`)**: `#AAA5A0` — chú thích, nhãn phụ, ngày giờ tạo.
+- **Màu trạng thái Nghiệp vụ**:
+  - *Xanh Ngọc Bích (`#8BC9A8`)*: Tồn kho an toàn, Đơn hoàn tất, Đã xác nhận, Thanh toán thành công.
+  - *Hổ Phách Ấm (`#E4BB78`)*: Tồn sắp hết, Chờ xác nhận, Chưa thu tiền COD, Nhận hàng hoàn.
+  - *Đỏ San Hô Trầm (`#DF8D84`)*: Hết hàng, Đơn đã hủy, Lưu trữ vĩnh viễn, Cảnh báo nguy cấp.
+
+### 9.2. Hệ thống Kiểu chữ (Editorial Typography System)
+- **Tiêu đề phân khu (`font-serif`)**: Tiêu đề trang, tên modal mang nét cổ điển quý phái của các tạp chí thời trang Vogue/Harper's Bazaar.
+- **Thân bài & Nhãn thao tác (`font-sans`)**: Sans-serif trung tính, chuẩn mực, tối ưu hóa hiển thị trên màn hình Retina/OLED.
+- **Chỉ số, SKU & Đối soát (`font-mono`)**: Mã đơn hàng (`#ORD-...`), mã SKU biến thể, số lượng tồn kho, giá trị tiền tệ VNĐ và mốc thời gian ISO được đặt trong font đơn cách, giúp người quản trị dễ dàng quét mắt so sánh theo cột dọc.
+
+### 9.3. Kiến trúc Bố cục Đáp ứng Đa thiết bị (Responsive Layout Architecture)
+- **Desktop ($\ge 1280\text{px}$)**:
+  - Sidebar cố định 256px với logo Atelier sang trọng, trạng thái phiên bản (`5C.1`, `5C.2`, `5C.3`) và gradient active ánh vàng.
+  - Sticky Topbar 72px hiển thị breadcrumb động, tên cửa hàng, profile pill chủ shop và nút chuyển nhanh Storefront.
+  - Nội dung chính mở rộng toàn chiều rộng không bị giới hạn nhân tạo, 4 thẻ KPI đồng chiều cao, 2 panel biểu đồ tỷ lệ đối xứng (Donut sức khỏe tồn kho + Nhịp vận hành 7 ngày), bảng dữ liệu full-width với thao tác nhanh inline.
+- **Tablet ($768\text{px} - 1279\text{px}$)**:
+  - 4 thẻ KPI tự động xếp thành lưới $2 \times 2$.
+  - Ẩn bớt các cột ít quan trọng trên bảng dữ liệu để tránh cuộn ngang khó chịu.
+- **Mobile ($320\text{px} - 767\text{px}$)**:
+  - Header thu gọn tối đa (Compact Header) hiển thị avatar chủ shop và tiêu đề trang.
+  - Sidebar cố định được ẩn hoàn toàn; thay thế bằng **Thanh điều hướng đáy (Bottom Navigation Bar)** cao 64px với hiệu ứng mờ nền (`backdrop-blur-md`), hỗ trợ vùng an toàn `safe-area-inset-bottom`.
+  - Bảng dữ liệu tự động chuyển hóa thành **Danh sách Thẻ SKU/Đơn hàng (Card List)**: Mỗi thẻ gói trọn ảnh thumbnail, thông tin phân loại, số dư tồn kho nổi bật và nút bấm thao tác dễ dàng bằng một ngón tay cái.
+  - Các modal nghiệp vụ (Nhập kho, Điều chỉnh kiểm kê, Chi tiết đơn hàng) tự động chuyển hóa thành **Bottom Sheet Drawer** trượt từ dưới lên, cuộn mượt mà không xung đột scrollbar lồng nhau.
+
+### 9.4. Chuẩn mực Dữ liệu & Tính Trung thực Toán học (Data Integrity Standards)
+- **Thống kê toàn cửa hàng (Global Catalog Math)**:
+  - Khắc phục triệt để lỗi phân trang cục bộ: 4 thẻ KPI đọc trực tiếp từ API `/api/v1/owner/inventory/stats`, bảo đảm bất biến toán học:
+    $$\text{Tổng biến thể (32)} = \text{An toàn (22)} + \text{Sắp hết (8)} + \text{Hết hàng (2)}$$
+    luôn chính xác trên toàn bộ danh mục, không phụ thuộc vào kích thước trang đang hiển thị.
+- **Phương trình Đối soát Sổ cái Minh bạch (Ledger Reconciliation Equation)**:
+  - Trình bày công thức đối soát mạch lạc với người dùng:
+    $$\text{Tồn khả dụng (ATS)} = \text{Số dư mở sổ} + \text{Biến động sau mở sổ}$$
+    Ví dụ: $23 = 10 + (+13)$, triệt tiêu mọi sự nhầm lẫn giữa tổng delta lũy kế và số dư mở sổ cutover.
+- **Minh bạch Dữ liệu Thời gian thực**:
+  - Biểu đồ nhịp vận hành 7 ngày mang nhãn ghi chú minh bạch *"Dữ liệu minh họa nhịp vận hành"* tránh gây hiểu nhầm cho chủ shop trước khi module phân tích chuyên sâu được triển khai.
+

@@ -1,22 +1,27 @@
 # Roadmap
 
 ## Phase 0 — Repository discovery & project skeleton
+
 Deliverables:
+
 - Audit repo, Git status, versions and existing code.
 - Agree on Java/Spring/React versions and folder structure.
 - Build/run instructions, `.env.example`, Compose for local MySQL.
 - CI skeleton and ADR for architecture/auth decision.
-Acceptance: clean checkout can run following README; no secrets committed.
+  Acceptance: clean checkout can run following README; no secrets committed.
 
 ## Phase 1 — Foundation
+
 - Global error handling, validation, logging, API docs.
 - Flyway migration baseline.
 - Security design and roles; seed admin safely for dev only.
 - Frontend routing, layout, design tokens, API client, error/loading states.
-Acceptance: health endpoint, build/test pipeline, auth security tests.
+  Acceptance: health endpoint, build/test pipeline, auth security tests.
 
 ## Phase 2 — Catalog read experience (Thời trang may mặc)
+
 Deliverables:
+
 - Database Schema & Flyway migration `V3__create_catalog_schema.sql`:
   - Bảng `categories` (hỗ trợ phân cấp 2 tầng: Thời trang Nữ, Thời trang Nam -> Đầm váy, Áo, Quần, Set đồ; có index và chống chu trình cha-con).
   - Bảng `products` (chất liệu `material`, form dáng `fit_style`, bảo quản `care_instructions`, `specifications` JSON).
@@ -30,10 +35,12 @@ Deliverables:
 - Frontend Storefront & Lookbook Experience:
   - Grid sản phẩm tỉ lệ ảnh 3:4 chuẩn thời trang, hiển thị mini color swatch dots và badge giá gạch ngang.
   - Trang chi tiết: Gallery ảnh đồng bộ theo màu click, bộ nút chọn Size trực quan (size hết hàng có gạch chéo mờ), Drawer Size Guide tra cứu số đo ngực/eo/mông theo cm.
-Acceptance: Chỉ sản phẩm và variant `ACTIVE` hiển thị trên storefront; lọc size/màu/giá chính xác; biến thể hết hàng hiển thị rõ và vô hiệu hóa nút mua; unit & integration tests đạt 100% pass.
+    Acceptance: Chỉ sản phẩm và variant `ACTIVE` hiển thị trên storefront; lọc size/màu/giá chính xác; biến thể hết hàng hiển thị rõ và vô hiệu hóa nút mua; unit & integration tests đạt 100% pass.
 
 ## Phase 3 — Shopping Cart Module (Giỏ hàng thời trang & Purchase Intent)
+
 Deliverables:
+
 - Database Schema & Flyway migration `V4__create_cart_schema.sql`:
   - Bảng `carts` (1 giỏ hàng duy nhất/người dùng: `user_id BIGINT UNIQUE`).
   - Bảng `cart_items` (`quantity` CHECK 1..10, `UNIQUE KEY uk_cart_variant (cart_id, variant_id)`).
@@ -53,20 +60,23 @@ Deliverables:
 - Frontend Mini-Cart Lookbook Experience:
   - Component `MiniCartDrawer.tsx` trượt mượt mà từ cạnh phải, thanh tiến độ Freeship trực quan (mốc 1.000.000₫).
   - Kết nối Add-to-Cart từ `ProductDetailModal.tsx` và Header Cart Badge đếm số lượng.
-Acceptance: 66 backend tests passed; frontend build thành công (429ms); bảo vệ quyền sở hữu; không trừ kho trong giỏ; giá thẩm quyền lấy từ backend.
+    Acceptance: 66 backend tests passed; frontend build thành công (429ms); bảo vệ quyền sở hữu; không trừ kho trong giỏ; giá thẩm quyền lấy từ backend.
 
 ## Phase 4A — Checkout & COD Order Creation
+
 - Thu thập địa chỉ giao hàng, phương thức thanh toán COD.
 - Snapshot toàn diện thông tin variant (`product_name`, `sku`, `size`, `color`, `unit_price`).
 - Trừ tồn kho nguyên tử (`deductStock` có điều kiện) bên trong ACID Transaction.
 - Tạo order và order items; dọn sạch giỏ hàng sau khi đặt thành công.
 
 ## Phase 4B — Order Management & Operations
+
 - Tra cứu lịch sử đơn hàng của khách (`GET /api/v1/me/orders`).
 - Hủy đơn hàng và hoàn tồn kho nguyên tử (`restoreStock`).
 - Trang quản lý đơn hàng cho chủ shop.
 
 ## Phase 5A — Catalog UX & URL Synchronization (Living Shader & Debounced Search)
+
 - **Phase 5A.1 — URL Sync & Debounce Coordination** [Hoàn tất — Commit `c3b25c7`]:
   - Đồng bộ 2 chiều qua Web History API (`pushState` vs `replaceState`).
   - Strict URL validation & sanitization (`Number.isInteger`, `Number.isFinite`, loại bỏ cận sai).
@@ -83,7 +93,9 @@ Acceptance: 66 backend tests passed; frontend build thành công (429ms); bảo 
   - Đã kiểm chứng thực tế toàn diện trên trình duyệt thông qua Chrome DevTools MCP.
 
 ## Phase 5B — Product Detail Lookbook Experience [Hoàn tất]
+
 Deliverables:
+
 - **Lookbook Presentation & Deep-Linking (`/?product=<slug>`)**:
   - Modal chi tiết trang phục kết hợp URL search param `?product=<slug>`, đồng bộ 2 chiều với Web History API (`pushState` / `popstate`), hỗ trợ phím `Escape` và khóa cuộn nền (`document.body.style.overflow = 'hidden'`).
   - Bảo tồn 100% component tree và WebGL Living Runway Shader, tránh sụt giảm FPS và rò rỉ GPU context.
@@ -108,7 +120,9 @@ Deliverables:
   - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (deep-linking, color switch, dynamic gallery, ghost variant prevention, size guide drawer, escape key).
 
 ## Phase 5B.1 — Product Detail Reliability & UX Hardening [Hoàn tất]
+
 Deliverables:
+
 - **P1 — Bảo toàn Ý định Kích cỡ (Size Intent Preservation vs Ghost Variant Auto-resolution)**:
   - Khi người dùng đổi màu, nếu kích cỡ hiện tại được sản xuất ở màu mới (dù `stock_quantity === 0`), giữ nguyên kích cỡ đã chọn và hiển thị trạng thái Hết hàng kèm vô hiệu hóa nút Mua.
   - Chỉ tự động kích hoạt auto-resolve sang size đầu tiên còn hàng khi kích cỡ hiện tại là Biến thể ma thực sự (kích cỡ không hề được sản xuất cho màu mới).
@@ -132,6 +146,7 @@ Deliverables:
   - Chrome DevTools MCP: 6/6 kịch bản live browser PASS (giữ size M hết hàng khi đổi màu, Escape drawer trước - modal sau, history back không lặp, stepper limit 10, clean console 0 JS error).
 
 ## Phase 5C — Shop owner operations (Layout Quản Trị Riêng)
+
 - **Phase 5C.0 & 5C.1 — Kiến trúc Quản trị & Vận hành Đơn hàng MVP (Shop Owner Operations MVP)** [Hoàn tất]:
   - **Baseline Audit & Vá lỗi Tồn dư**:
     - Vá triệt để công thức hạn mức giỏ hàng: max(0, min(10, stockQuantity) - existingCartQuantity), bảo vệ bất biến kho hàng khi tồn kho vật lý thấp hơn hạn mức dòng hàng 10.
@@ -190,25 +205,43 @@ Deliverables:
     - Chrome DevTools MCP: 5/5 kịch bản live browser PASS (đăng nhập SHOP_OWNER, xem tổng quan 32 SKU, mở sổ cái kiểm tra số dư mở sổ cân đối lệch 0, nhập kho +15 thành 25, điều chỉnh kiểm kê -2 còn 23, đối soát sổ cái 3 dòng cân đối lệch 0).
   - **Báo cáo Phân tích Dữ liệu Học thuật & Vận hành**:
     - Bản thiết kế `fashion_store_docs/DATA_ANALYTICS_REPORT.md`: Star schema Data Warehouse (`FACT_INVENTORY_MOVEMENTS`, `FACT_INVENTORY_DAILY_SNAPSHOT`, `DIM_PRODUCT_VARIANT` SCD-2), CDC streaming pipeline (Debezium + Kafka + Spark), công thức toán học tính ITR, DSI, Stockout rate, STR, RTO rate, shrinkage rate, và các thuật toán Data Mining (LightGBM/Prophet dự báo nhu cầu, FP-Growth gợi ý phối đồ lookbook, Isolation Forest phát hiện gian lận).
+- **Phase 5C.3-UI — Tái thiết Toàn diện Owner Portal theo Hệ thống IVRE Atelier Dark Editorial Luxury** [Hoàn tất]:
+  - **Đồng bộ Thẩm mỹ & Hệ thống Token Dark Luxe**:
+    - Chấm dứt tình trạng tương phản chắp vá (sidebar tối đối lập bảng/card trắng sáng). Thống nhất bảng màu 10 token chuẩn mực (`#0E0F11` nền sâu, `#191A1D` bề mặt, `#212226` bề mặt nổi, `#333235` viền mảnh, `#D6B27C` vàng champagne hoàng gia).
+    - Phân tầng Typography đẳng cấp: Editorial Serif cho tiêu đề chính, Sans-serif cho nội dung và Monospace cho số liệu kinh doanh.
+  - **Bố cục Đáp ứng Đa thiết bị (Responsive Layout System)**:
+    - Desktop ($\ge 1280\text{px}$): Sidebar cố định 256px, Sticky Topbar 72px, Content mở rộng toàn màn hình (full-width), 4 thẻ KPI đồng chiều cao, 2 panel biểu đồ (Donut tỷ trọng sức khỏe + Nhịp vận hành 7 ngày), bảng dữ liệu toàn chiều rộng.
+    - Mobile ($320\text{px} - 767\text{px}$): Ẩn Sidebar, kích hoạt Compact Header và Bottom Navigation Bar cố định (chuẩn `safe-area-inset-bottom`). Toàn bộ bảng biến thể/đơn hàng chuyển hóa thành Card List tiện dụng; modal tự động mở dạng Bottom Sheet.
+  - **Độ Chuẩn xác & Trung thực Toán học Dữ liệu**:
+    - Thêm endpoint `GET /api/v1/owner/inventory/stats` tính toán chuẩn xác trên toàn bộ 32 SKU: $32 = 22 \text{ (An toàn)} + 8 \text{ (Sắp hết)} + 2 \text{ (Hết hàng)}$, không bị sai lệch bởi phân trang cục bộ.
+    - Cải tiến công thức sổ cái đối soát: $\text{ATS} = \text{Số dư mở sổ} + \text{Biến động sau mở sổ}$ (VD: $23 = 10 + 13$), loại bỏ hoàn toàn sự mập mờ giữa delta tích lũy và số dư cutover.
+  - **Đồng bộ Toàn diện trên Toàn bộ Phân hệ Owner**:
+    - Áp dụng triệt để Dark Luxe cho Đơn hàng (`OwnerOrdersView`, `OwnerOrderDetailModal`, `OwnerActionConfirmModal`) và Quản lý Sản phẩm (`OwnerProductsView`, `OwnerProductDetailModal`, `OwnerProductStatusModal`).
+    - Kiểm thử: 134/134 backend tests PASS (100%), 72/72 frontend tests PASS (100%), 0 build & lint errors.
+    - Chrome DevTools MCP: Đạt 8/8 kịch bản kiểm chứng thực tế trên đa độ phân giải Desktop ($1440 \times 900$) và Mobile ($390 \times 844$).
 - **Phase 5C.4 — Quản lý Thư viện Media & Tích hợp Cloudinary** [Kế tiếp].
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Dự kiến].
 
 ## Phase 6 — Payment gateway
+
 - Choose provider based on merchant eligibility, fees and official docs.
 - Sandbox integration, callback verification, idempotency, reconciliation.
-Acceptance: duplicate/invalid webhook tests; browser redirect alone cannot mark paid.
+  Acceptance: duplicate/invalid webhook tests; browser redirect alone cannot mark paid.
 
 ## Phase 7 — Admin, promotions, reviews
+
 - User management, roles, block/unblock, audit logs.
 - Coupons and usage constraints.
 - Verified-purchase reviews and moderation.
-Acceptance: privilege escalation tests and coupon concurrency tests.
+  Acceptance: privilege escalation tests and coupon concurrency tests.
 
 ## Phase 8 — Production hardening
+
 - E2E critical flows, security checklist, upload limits, rate limits.
 - CI/CD, domain/TLS, monitoring, backup/restore drill, runbooks.
 - Privacy, shipping, returns, contact and terms pages reviewed by owner.
-Acceptance: go-live checklist signed off; rollback procedure exists.
+  Acceptance: go-live checklist signed off; rollback procedure exists.
 
 ## Scope discipline
+
 Do not implement all phases in parallel. Deliver a thin vertical slice at a time. Prefer the next feature that validates a critical business assumption. Payment and returns must be based on the selected provider and real shop policy, not invented details.

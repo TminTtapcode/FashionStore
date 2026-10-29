@@ -239,3 +239,4 @@ $$\text{Shrinkage Rate} = \frac{\sum |\Delta_{\text{MANUAL\_ADJUSTMENT negative}
 
 ## 7. Kết Luận
 Việc xây dựng thành công **Sổ cái Kiểm toán Tồn kho Bất biến (Phase 5C.3)** là bước đi nền tảng mang tính quyết định. Nó cung cấp nguồn dữ liệu chân thực và đáng tin cậy nhất (**Single Source of Truth**) để triển khai hệ sinh thái phân tích dữ liệu chuyên sâu, phục vụ mục tiêu vận hành xuất sắc và đáp ứng các tiêu chuẩn học thuật khắt khe của một đồ án công nghệ thông tin chuyên ngành.
+
