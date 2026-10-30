@@ -301,20 +301,27 @@ Hệ thống hỗ trợ 5 vị trí trang phục độc lập:
   - Khi khách nhấp vào vị trí trống trên bảng phối, giao diện tự động chuyển sang tab chọn món; sau khi chọn màu/size và bấm đưa vào bộ phối, giao diện tự động đưa khách về bảng phối để chiêm ngưỡng tổng thể.
   - Tối ưu hóa không gian hiển thị, loại bỏ chữ phụ trên màn hình hẹp, đảm bảo 0 horizontal overflow tại viewport 320px và 390px.
 
-### 12.4. Quy trình Thêm Cả Bộ vào Giỏ Hàng (Sequential Add-to-Cart Flow)
-- **Kiểm định Hạn mức Đơn hàng Trước thực thi (Pre-flight Limit Verification)**:
-  - Hệ thống gom nhóm (aggregate) số lượng các biến thể trùng nhau trong bộ phối.
-  - Kiểm tra đối chiếu với số lượng hiện có trong giỏ hàng:
-    $$\text{existingCartQty} + \text{outfitQty} \le \min(10, \text{stockQuantity})$$
-  - Cảnh báo cụ thể tên sản phẩm nếu vượt quá trần 10 sản phẩm/dòng hoặc vượt quá tồn kho khả dụng.
-- **Thực thi Tuần tự & Báo cáo Từng Món (Granular Batch Reporting)**:
-  - Backend API hiện tại chỉ nhận thêm từng item đơn lẻ (`POST /api/v1/cart/items`).
-  - Giao diện thực thi tuần tự có kiểm soát trạng thái, sau đó hiển thị Modal Báo cáo Chi tiết:
-    - *Toàn bộ thành công*: Tự động cập nhật giỏ hàng và mở MiniCartDrawer.
-    - *Thành công một phần*: Báo rõ số món đã thêm và liệt kê chính xác các món thất bại kèm nguyên nhân (hết hàng do race condition...).
-    - *Xử lý Khách vãng lai (Guest Auth)*: Kích hoạt modal đăng nhập mà không làm mất trạng thái bộ phối (draft outfit state) đang chỉnh sửa dở dang.
+### 12.5. IVRE Styling Studio Visual & Data Integrity Hardening (Phase 5D.3.1)
 
-
-
-
+- **Minh bạch Dữ liệu Hình ảnh Biến thể & Huy hiệu Cảnh báo (Image vs Variant Truthfulness)**:
+  - Presets tham chiếu cơ sở dữ liệu thực tế: Preset 2 sử dụng Đầm Maxi Lụa Trắng Ngọc (Product 1, `dam-lua-maxi-co-chu-v-dang-xoe`, SKU `DAM-MAXI-TRANG-S`) kết hợp ảnh chụp thật lụa ngà (`photo-1566174053879-31528523f8ae`), phối cùng Blazer Linen Đen Than (`photo-1539109136881-3be0616acf4b`).
+  - Đối với các sản phẩm dùng ảnh chụp đại diện lookbook (như Blazer Be Cát dùng ảnh may đo suit xanh hoặc Sơ mi Oxford Trắng dùng ảnh sơ mi xanh họa tiết): gắn cờ `isRepresentativeImage: true` và hiển thị huy hiệu cảnh báo minh bạch:
+    `"Ảnh tham khảo — màu sắc thực tế theo lựa chọn: [Tên Màu]"`
+    Tuyệt đối không can thiệp đổi tên màu trong cơ sở dữ liệu để hợp thức hóa ảnh chụp stock.
+- **Đồng bộ Trạng thái Phối đồ (Draft vs Applied State Synchronization)**:
+  - Khi mở selector hoặc đổi slot, bộ tùy chỉnh cột phải tự động đồng bộ sản phẩm, màu sắc và kích cỡ đang áp dụng tại slot đó.
+  - Phân định rõ 3 trạng thái của món đồ:
+    1. `✓ ĐÃ TRONG BỘ PHỐI`: Món đồ đang được chọn khớp 100% với slot trong canvas.
+    2. `⚡ CHƯA ÁP DỤNG THAY ĐỔI`: Người dùng vừa đổi kích cỡ hoặc gam màu ở selector, canvas giữ nguyên trạng thái cũ cho đến khi bấm `✦ ÁP DỤNG THAY ĐỔI VÀO BỘ PHỐI`.
+    3. `✦ SẼ THAY THẾ MÓN HIỆN TẠI`: Người dùng chọn một sản phẩm mới khác để thay thế món hiện tại.
+  - Banner so sánh hiển thị trực quan biến thể đang áp dụng trong bộ phối vs biến thể đang chỉnh sửa thử nghiệm.
+- **Tối ưu Bố cục Responsive & Trải nghiệm Mobile (320px / 375px / 390px)**:
+  - Header mobile rút gọn thành `IVRE STUDIO` tránh lỗi cắt cụt chữ `IV...` ở màn hình 320px.
+  - Lưới Bảng phối Mobile chuyển sang 2 cột (`grid-cols-2 gap-2.5`) với tỉ lệ 3:4 giúp hiển thị cùng lúc ít nhất 2 món không cần cuộn trang liên tục. Trong chế độ `ONE_PIECE`, áo khoác và phụ kiện nằm song song 2 cột ngay dưới đầm.
+  - Tabs danh mục hỗ trợ cuộn ngang mượt mà, tự động cuộn tab active vào vùng nhìn thấy (`scrollIntoView`).
+  - Bố cục sản phẩm tự co giãn thích ứng (`max-w-xs mx-auto` khi danh mục chỉ có 1 sản phẩm).
+  - Thanh CTA đáy trên mobile chuyển sang hàng ngang, giảm 70px chiều cao chiếm dụng màn hình.
+- **Bảo vệ Đơn hàng & An toàn Giỏ hàng**:
+  - Khóa re-entrancy / double-click (`isSubmitting`) ngăn chặn gọi API lặp lại khi nhấn nhiều lần.
+  - Tự động đồng bộ giỏ hàng với máy chủ (`refreshCart()`) sau khi hoàn tất.
 

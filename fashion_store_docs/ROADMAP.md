@@ -325,6 +325,27 @@ Deliverables:
     - **Backend tests**: 143/143 unit & integration tests PASS (100%).
     - **Production build**: `tsc -b && vite build` hoàn tất sạch sẽ 0 lỗi (318ms).
     - **Chrome DevTools MCP Matrix**: PASS trên Desktop ($1440 \times 900$), Mobile ($390 \times 844$), và Ultra-narrow ($320 \times 568$), xác nhận 0 horizontal overflow (`scrollWidth <= clientWidth`).
+- **Phase 5D.3.1 — Styling Studio Visual & Data Integrity Hardening** [Hoàn tất]:
+  - **Minh bạch Dữ liệu Hình ảnh Biến thể & Huy hiệu Cảnh báo**:
+    - Chuẩn hóa Presets tham chiếu trực tiếp cơ sở dữ liệu thực tế (Preset 2 dùng Product 1 `dam-lua-maxi-co-chu-v-dang-xoe` màu Trắng Ngọc với ảnh chụp lụa ngà thực tế `photo-1566174053879-31528523f8ae`).
+    - Bổ sung cờ `isRepresentativeImage` và hiển thị huy hiệu `"Ảnh tham khảo — màu thực tế theo lựa chọn: [Tên Màu]"` khi ảnh lookbook là ảnh đại diện chung, không tự ý đổi tên màu trong database.
+  - **Đồng bộ Trạng thái Phối đồ (Draft vs Applied State Synchronization)**:
+    - Đồng bộ bộ tùy chỉnh bên phải với slot đang chọn ngay khi mở modal hoặc đổi slot.
+    - Phân định rõ 3 trạng thái: `✓ ĐÃ TRONG BỘ PHỐI`, `⚡ CHƯA ÁP DỤNG THAY ĐỔI`, và `✦ SẼ THAY THẾ MÓN HIỆN TẠI`.
+    - Hiển thị banner so sánh chi tiết biến thể đang áp dụng trong bộ phối vs biến thể đang chỉnh sửa thử nghiệm.
+  - **Tối ưu Bố cục Responsive & Trải nghiệm Mobile (320px / 375px / 390px)**:
+    - Rút gọn tiêu đề Header mobile thành `IVRE STUDIO` tránh lỗi cắt cụt chữ `IV...` ở màn hình 320px.
+    - Lưới Bảng phối Mobile chuyển sang 2 cột (`grid-cols-2 gap-2.5`) với tỉ lệ 3:4 giúp hiển thị cùng lúc ít nhất 2 món không cần cuộn trang liên tục. Trong chế độ `ONE_PIECE`, áo khoác và phụ kiện nằm song song 2 cột ngay dưới đầm.
+    - Tabs danh mục hỗ trợ cuộn ngang mượt mà, tự động cuộn tab active vào vùng nhìn thấy (`scrollIntoView`).
+    - Bố cục sản phẩm tự co giãn thích ứng (`max-w-xs mx-auto` khi danh mục chỉ có 1 sản phẩm).
+    - Thanh CTA đáy trên mobile chuyển sang hàng ngang, giảm 70px chiều cao chiếm dụng màn hình.
+  - **Bảo vệ Đơn hàng & An toàn Giỏ hàng**:
+    - Khóa re-entrancy / double-click (`isSubmitting`) ngăn chặn gọi API lặp lại khi nhấn nhiều lần.
+    - Tự động đồng bộ giỏ hàng với máy chủ (`refreshCart()`) sau khi hoàn tất.
+  - **Kiểm chứng Toàn diện & Quality Gates**:
+    - **Frontend tests**: **108/108 tests PASS (100%)**, bổ sung 4 test cases kiểm chứng cờ ảnh tham khảo, Preset 2, logic đồng bộ draft/applied, và khóa re-entrancy.
+    - **Backend tests**: 143/143 tests PASS (100%).
+    - **Production build**: `tsc -b && vite build` hoàn tất 0 lỗi.
 - **Phase 5C.5 — Đối soát COD & Báo cáo Vận hành Doanh thu** [Kế tiếp].
 
 
