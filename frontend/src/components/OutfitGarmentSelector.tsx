@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type {
   OutfitSlot,
   OutfitItemSelection,
@@ -17,6 +17,7 @@ function formatVND(amount: number): string {
 
 interface OutfitGarmentSelectorProps {
   activeSlot: OutfitSlot;
+  currentSlotItem?: OutfitItemSelection;
   onSelectSlot: (slot: OutfitSlot) => void;
   onSelectGarment: (item: OutfitItemSelection) => void;
   onLoadPreset: (presetId: string) => void;
@@ -33,6 +34,7 @@ const SLOT_TABS: Array<{ slot: OutfitSlot; label: string; icon: string }> = [
 
 export default function OutfitGarmentSelector({
   activeSlot,
+  currentSlotItem,
   onSelectSlot,
   onSelectGarment,
   onLoadPreset,
@@ -47,6 +49,8 @@ export default function OutfitGarmentSelector({
   // Variant selection state for the active product
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
 
   // Load catalog on mount
   useEffect(() => {
@@ -78,10 +82,14 @@ export default function OutfitGarmentSelector({
     });
   }, [catalogProducts, activeSlot]);
 
-  // When active slot changes, automatically select the first matching product if none selected
+  // Synchronize selector with activeSlot and currentSlotItem
   useEffect(() => {
-    if (slotProducts.length > 0) {
-      // If current selected product doesn't belong to this slot, default to first product
+    if (currentSlotItem && currentSlotItem.slot === activeSlot) {
+      setSelectedProductSlug(currentSlotItem.productSlug);
+      setSelectedColor(currentSlotItem.colorName);
+      setSelectedSize(currentSlotItem.size);
+    } else if (slotProducts.length > 0) {
+      // Default to first product in this slot if current selection does not belong
       const belongs = slotProducts.some((p) => p.slug === selectedProductSlug);
       if (!belongs) {
         setSelectedProductSlug(slotProducts[0].slug);
@@ -90,7 +98,15 @@ export default function OutfitGarmentSelector({
       setSelectedProductSlug(null);
       setActiveProductDetail(null);
     }
-  }, [activeSlot, slotProducts, selectedProductSlug]);
+  }, [activeSlot, currentSlotItem, slotProducts]);
+
+  // Scroll active tab into view horizontally on mobile
+  useEffect(() => {
+    const activeTabEl = document.getElementById(`slot-tab-${activeSlot}`);
+    if (activeTabEl && tabsScrollRef.current) {
+      activeTabEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [activeSlot]);
 
   // Load product detail whenever selectedProductSlug changes
   useEffect(() => {
@@ -106,8 +122,13 @@ export default function OutfitGarmentSelector({
         const detail = await getProductDetailApi(selectedProductSlug);
         if (isMounted) {
           setActiveProductDetail(detail);
-          // Set initial color and size defaults
-          if (detail.variants && detail.variants.length > 0) {
+
+          // If current slot item matches this product, preserve its color & size
+          if (currentSlotItem && currentSlotItem.productSlug === detail.slug) {
+            setSelectedColor(currentSlotItem.colorName);
+            setSelectedSize(currentSlotItem.size);
+          } else if (detail.variants && detail.variants.length > 0) {
+            // Otherwise default to first available variant
             const firstInStock = detail.variants.find((v) => v.inStock && v.stockQuantity > 0) || detail.variants[0];
             setSelectedColor(firstInStock.colorName);
             setSelectedSize(firstInStock.size);
@@ -123,7 +144,7 @@ export default function OutfitGarmentSelector({
     return () => {
       isMounted = false;
     };
-  }, [selectedProductSlug]);
+  }, [selectedProductSlug, currentSlotItem]);
 
   // Find exact variant from selected color & size
   const selectedVariant: ProductVariant | undefined = useMemo(() => {
@@ -150,16 +171,66 @@ export default function OutfitGarmentSelector({
       }));
   }, [activeProductDetail, selectedColor]);
 
-  // Handle adding configured garment to current slot
-  const handleAddToSlot = () => {
-    if (!activeProductDetail || !selectedVariant) return;
+  // Relationship between current outfit slot item and what's selected in this editor
+  const isExactMatch = Boolean(
+    currentSlotItem &&
+    selectedVariant &&
+    currentSlotItem.variantId === selectedVariant.id
+  );
 
-    // Resolve variant image or fallback to primary product image
-    const variantImg =
-      activeProductDetail.images?.find((img) => img.variantId === selectedVariant.id)?.imageUrl ||
+  const isVariantDraftChange = Boolean(
+    currentSlotItem &&
+    selectedVariant &&
+    currentSlotItem.productId === activeProductDetail?.id &&
+    currentSlotItem.variantId !== selectedVariant.id
+  );
+
+  const isProductReplacement = Boolean(
+    currentSlotItem &&
+    activeProductDetail &&
+    currentSlotItem.productId !== activeProductDetail.id
+  );
+
+  // Compute image and verify if it matches selected color or is a representative photo
+  const { resolvedImageUrl, isRepresentativeImage } = useMemo(() => {
+    if (!activeProductDetail) {
+      return { resolvedImageUrl: '', isRepresentativeImage: false };
+    }
+
+    // 1. Image specifically mapped to this variant ID
+    const exactVariantImage = activeProductDetail.images?.find(
+      (img) => img.variantId === selectedVariant?.id
+    );
+
+    // 2. Image mapped to another variant of the same color
+    const sameColorVariantImage = activeProductDetail.images?.find((img) => {
+      if (!img.variantId) return false;
+      const v = activeProductDetail.variants.find((variant) => variant.id === img.variantId);
+      return v && v.colorName.toLowerCase() === selectedVariant?.colorName.toLowerCase();
+    });
+
+    const imgUrl =
+      exactVariantImage?.imageUrl ||
+      sameColorVariantImage?.imageUrl ||
       activeProductDetail.images?.find((img) => img.isPrimary)?.imageUrl ||
       activeProductDetail.images?.[0]?.imageUrl ||
       '';
+
+    // Known lookbook stock samples where photo doesn't visually depict the variant color
+    const isKnownLookbookSample = Boolean(
+      imgUrl.includes('photo-1594938298603-c8148c4dae35') || // blue suit for linen blazer
+      imgUrl.includes('photo-1596755094514-f87e34085b2c') || // dark shirt for oxford white
+      imgUrl.includes('photo-1595777457583-95e059d581b8')    // red dress
+    );
+
+    const isRepresentative = !exactVariantImage && (!sameColorVariantImage || isKnownLookbookSample);
+
+    return { resolvedImageUrl: imgUrl, isRepresentativeImage: isRepresentative };
+  }, [activeProductDetail, selectedVariant]);
+
+  // Handle adding or updating garment in current slot
+  const handleAddToSlot = () => {
+    if (!activeProductDetail || !selectedVariant) return;
 
     const selection: OutfitItemSelection = {
       slot: activeSlot,
@@ -173,9 +244,10 @@ export default function OutfitGarmentSelector({
       size: selectedVariant.size,
       price: selectedVariant.price,
       stockQuantity: selectedVariant.stockQuantity,
-      imageUrl: variantImg,
+      imageUrl: resolvedImageUrl,
       inStock: selectedVariant.inStock && selectedVariant.stockQuantity > 0,
       categorySlug: activeProductDetail.categorySlug || '',
+      isRepresentativeImage,
     };
 
     onSelectGarment(selection);
@@ -214,44 +286,52 @@ export default function OutfitGarmentSelector({
         </button>
       </div>
 
-      {/* Slot Navigation Tabs */}
-      <div className="flex items-center px-2 sm:px-6 border-b border-white/10 bg-[#0E0F14] overflow-x-auto no-scrollbar shrink-0">
-        {SLOT_TABS.map((tab) => {
-          const isActive = activeSlot === tab.slot;
-          return (
-            <button
-              key={tab.slot}
-              type="button"
-              onClick={() => onSelectSlot(tab.slot)}
-              className={`relative px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center gap-1.5 sm:gap-2 shrink-0 font-mono text-[11px] sm:text-xs uppercase tracking-wider transition-colors cursor-pointer ${
-                isActive
-                  ? 'text-[#D6B27C] font-bold'
-                  : 'text-[#A6A49F] hover:text-white'
-              }`}
-            >
-              <span className="text-[9px] sm:text-[10px]">{tab.icon}</span>
-              <span>{tab.label}</span>
-              {isActive && (
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#D6B27C] shadow-[0_0_8px_rgba(214,178,124,0.6)]" />
-              )}
-            </button>
-          );
-        })}
+      {/* Slot Navigation Tabs with Scroll Affordance */}
+      <div className="relative border-b border-white/10 bg-[#0E0F14] shrink-0">
+        <div
+          ref={tabsScrollRef}
+          className="flex items-center px-2 sm:px-6 overflow-x-auto no-scrollbar scroll-smooth"
+        >
+          {SLOT_TABS.map((tab) => {
+            const isActive = activeSlot === tab.slot;
+            return (
+              <button
+                id={`slot-tab-${tab.slot}`}
+                key={tab.slot}
+                type="button"
+                onClick={() => onSelectSlot(tab.slot)}
+                className={`relative px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center gap-1.5 sm:gap-2 shrink-0 font-mono text-[11px] sm:text-xs uppercase tracking-wider transition-colors cursor-pointer ${
+                  isActive
+                    ? 'text-[#D6B27C] font-bold'
+                    : 'text-[#A6A49F] hover:text-white'
+                }`}
+              >
+                <span className="text-[9px] sm:text-[10px]">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#D6B27C] shadow-[0_0_8px_rgba(214,178,124,0.6)]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {/* Subtle right gradient indicator showing more tabs exist */}
+        <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0E0F14] to-transparent pointer-events-none lg:hidden" />
       </div>
 
       {/* Main Content Area: Left Grid of Products + Right Configuration */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-5">
         {/* Category Description Banner */}
         <div className="flex items-center justify-between pb-2 border-b border-white/5">
           <div>
-            <h3 className="font-editorial text-lg text-[#F7F7F4]">
+            <h3 className="font-editorial text-base sm:text-lg text-[#F7F7F4]">
               {currentConfig.label}
             </h3>
-            <p className="font-mono text-xs text-[#A6A49F]">
+            <p className="font-mono text-[11px] sm:text-xs text-[#A6A49F]">
               {currentConfig.subLabel}
             </p>
           </div>
-          <span className="font-mono text-xs text-[#D6B27C]">
+          <span className="font-mono text-[11px] sm:text-xs text-[#D6B27C]">
             {slotProducts.length} mẫu thiết kế
           </span>
         </div>
@@ -274,10 +354,18 @@ export default function OutfitGarmentSelector({
             </p>
           </div>
         ) : (
-          /* Product Selection Grid */
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          /* Adaptive Product Selection Grid */
+          <div
+            className={
+              slotProducts.length === 1
+                ? 'max-w-xs mx-auto w-full'
+                : 'grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3'
+            }
+          >
             {slotProducts.map((p) => {
               const isSelected = selectedProductSlug === p.slug;
+              const isCurrentlyInSlot = currentSlotItem?.productSlug === p.slug;
+
               return (
                 <div
                   key={p.slug}
@@ -294,6 +382,11 @@ export default function OutfitGarmentSelector({
                       alt={p.name}
                       className="w-full h-full object-cover group-hover:scale-104 transition-transform duration-500"
                     />
+                    {isCurrentlyInSlot && (
+                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-[#D6B27C] text-[#0A0B0E] font-mono text-[8px] font-bold rounded-2xs tracking-wider uppercase shadow-xs">
+                        Trong bảng phối
+                      </div>
+                    )}
                     {p.outOfStock && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                         <span className="px-2 py-0.5 bg-black/80 text-rose-300 font-mono text-[9px] uppercase tracking-wider border border-rose-500/30 rounded-2xs">
@@ -324,13 +417,32 @@ export default function OutfitGarmentSelector({
 
         {/* Selected Garment Customization Panel */}
         {selectedProductSlug && activeProductDetail && (
-          <div className="border border-white/15 rounded-sm p-4 sm:p-5 bg-[#14151B] space-y-4 shadow-xl">
+          <div className="border border-white/15 rounded-sm p-3.5 sm:p-5 bg-[#14151B] space-y-3.5 sm:space-y-4 shadow-xl">
+            {/* Header with Title and Current State Status Pill */}
             <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
               <div>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-[#D6B27C] font-semibold">
-                  TÙY BIẾN CHO VỊ TRÍ [{currentConfig.label}]
-                </span>
-                <h4 className="font-editorial text-base sm:text-lg text-[#F7F7F4] mt-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-[#D6B27C] font-semibold">
+                    TÙY BIẾN CHO VỊ TRÍ [{currentConfig.label}]
+                  </span>
+                  {isExactMatch && (
+                    <span className="px-1.5 py-0.2 rounded-2xs bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] font-semibold">
+                      ✓ ĐÃ TRONG BỘ PHỐI
+                    </span>
+                  )}
+                  {isVariantDraftChange && (
+                    <span className="px-1.5 py-0.2 rounded-2xs bg-amber-950/80 border border-amber-500/40 text-amber-300 font-mono text-[9px] font-semibold animate-pulse">
+                      ⚡ CHƯA ÁP DỤNG THAY ĐỔI
+                    </span>
+                  )}
+                  {isProductReplacement && (
+                    <span className="px-1.5 py-0.2 rounded-2xs bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 font-mono text-[9px] font-semibold">
+                      ✦ SẼ THAY THẾ MÓN HIỆN TẠI
+                    </span>
+                  )}
+                </div>
+
+                <h4 className="font-editorial text-base sm:text-lg text-[#F7F7F4] mt-1">
                   {activeProductDetail.name}
                 </h4>
                 {activeProductDetail.material && (
@@ -339,7 +451,7 @@ export default function OutfitGarmentSelector({
                   </p>
                 )}
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <span className="font-mono text-base sm:text-lg text-[#D6B27C] font-bold">
                   {selectedVariant ? formatVND(selectedVariant.price) : formatVND(activeProductDetail.minPrice)}
                 </span>
@@ -350,6 +462,32 @@ export default function OutfitGarmentSelector({
                 )}
               </div>
             </div>
+
+            {/* Draft Notice Banner if modifying an existing outfit item */}
+            {isVariantDraftChange && currentSlotItem && (
+              <div className="p-2.5 bg-amber-950/40 border border-amber-500/30 rounded-2xs text-amber-200 text-xs font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+                <span>
+                  ⚡ Đang chọn: <strong>{selectedColor} · Size {selectedSize}</strong> (Bản nháp)
+                </span>
+                <span className="text-[#A6A49F] text-[10px]">
+                  Trong bảng phối: {currentSlotItem.colorName} · Size {currentSlotItem.size}
+                </span>
+              </div>
+            )}
+
+            {isProductReplacement && currentSlotItem && (
+              <div className="p-2.5 bg-indigo-950/40 border border-indigo-500/30 rounded-2xs text-indigo-200 text-xs font-mono">
+                ✦ Sẽ thay thế món: <strong>{currentSlotItem.productName}</strong> ({currentSlotItem.colorName} · Size {currentSlotItem.size})
+              </div>
+            )}
+
+            {/* Representative Image Notice */}
+            {isRepresentativeImage && (
+              <div className="px-2.5 py-1.5 bg-[#1B1B22] border border-amber-500/30 rounded-2xs text-[11px] font-mono text-amber-200/90 flex items-center gap-2">
+                <span className="text-amber-400">ℹ</span>
+                <span>Ảnh tham khảo — màu sắc thực tế của trang phục theo lựa chọn ({selectedColor}).</span>
+              </div>
+            )}
 
             {isLoadingDetail ? (
               <div className="py-6 flex items-center justify-center">
@@ -446,15 +584,38 @@ export default function OutfitGarmentSelector({
                   </div>
                 </div>
 
-                {/* Submit to Slot CTA */}
+                {/* Submit to Slot CTA with Dynamic Label based on Outfit State */}
                 <button
                   type="button"
                   onClick={handleAddToSlot}
                   disabled={!selectedVariant || !selectedVariant.inStock || selectedVariant.stockQuantity <= 0}
-                  className="w-full h-11 bg-[#D6B27C] hover:bg-[#E2C496] active:bg-[#B89A6E] text-[#0A0B0E] font-mono text-xs uppercase tracking-widest font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 rounded-xs shadow-[0_4px_16px_rgba(214,178,124,0.25)]"
+                  className={`w-full h-11 font-mono text-xs uppercase tracking-widest font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 rounded-xs shadow-[0_4px_16px_rgba(214,178,124,0.25)] ${
+                    isExactMatch
+                      ? 'bg-[#181920] border border-emerald-500/50 text-emerald-300 hover:bg-[#1E2028]'
+                      : 'bg-[#D6B27C] hover:bg-[#E2C496] active:bg-[#B89A6E] text-[#0A0B0E]'
+                  }`}
                 >
-                  <span>✦</span>
-                  <span>ĐƯA VÀO BỘ PHỐI ({currentConfig.label})</span>
+                  {isExactMatch ? (
+                    <>
+                      <span>✓</span>
+                      <span>ĐÃ ÁP DỤNG TRONG BỘ PHỐI (CẬP NHẬT LẠI)</span>
+                    </>
+                  ) : isVariantDraftChange ? (
+                    <>
+                      <span>✦</span>
+                      <span>ÁP DỤNG THAY ĐỔI VÀO BỘ PHỐI ({selectedColor} · SIZE {selectedSize})</span>
+                    </>
+                  ) : isProductReplacement ? (
+                    <>
+                      <span>✦</span>
+                      <span>THAY THẾ MÓN TRONG BỘ PHỐI ({currentConfig.label})</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✦</span>
+                      <span>ĐƯA VÀO BỘ PHỐI ({currentConfig.label})</span>
+                    </>
+                  )}
                 </button>
               </div>
             )}

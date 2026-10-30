@@ -100,6 +100,10 @@ export function useOutfitBuilder(initialSlots?: OutfitSlotsMap) {
       refreshCart: () => Promise<void>;
       openCart: () => void;
     }) => {
+      if (isSubmitting) {
+        return { success: false, reason: 'ALREADY_SUBMITTING' };
+      }
+
       if (!user) {
         notify('Vui lòng đăng nhập để thêm toàn bộ outfit vào giỏ hàng.');
         openAuthModal('login');

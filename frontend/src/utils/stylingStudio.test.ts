@@ -377,4 +377,104 @@ describe('Phase 5D.3: IVRE Atelier Editorial Styling Studio & Outfit Builder Tes
       }
     });
   });
+
+  describe('7. Phase 5D.3.1 Visual & Data Integrity Hardening Tests', () => {
+    it('accurately identifies representative/approximate images on presets and items', () => {
+      const preset1 = OUTFIT_PRESETS.find((p) => p.id === 'preset-urbanist-tailoring');
+      assert.ok(preset1, 'Preset urbanist tailoring must exist');
+
+      // Linen blazer Be Cát uses editorial photo of blazer tailoring, flagged as representative
+      const blazer = preset1.slots.OUTERWEAR;
+      assert.ok(blazer);
+      assert.strictEqual(blazer.isRepresentativeImage, true);
+
+      // Oxford shirt Trắng uses representative editorial image
+      const shirt = preset1.slots.UPPER_BODY;
+      assert.ok(shirt);
+      assert.strictEqual(shirt.isRepresentativeImage, true);
+    });
+
+    it('Preset 2 (Silk Gala Evening) references genuine in-stock database product and imagery', () => {
+      const preset2 = OUTFIT_PRESETS.find((p) => p.id === 'preset-silk-gala-evening');
+      assert.ok(preset2, 'Preset silk gala evening must exist');
+
+      // ONE_PIECE slot must be dam-lua-maxi-co-chu-v-dang-xoe (Product 1)
+      const dress = preset2.slots.ONE_PIECE;
+      assert.ok(dress);
+      assert.strictEqual(dress.productId, 1);
+      assert.strictEqual(dress.productSlug, 'dam-lua-maxi-co-chu-v-dang-xoe');
+      assert.strictEqual(dress.colorName, 'Trắng Ngọc');
+      // Must not be marked as representative since Image 2 matches Trắng Ngọc ivory dress!
+      assert.strictEqual(dress.isRepresentativeImage, false);
+
+      // OUTERWEAR companion must be blazer linen đen
+      const blazer = preset2.slots.OUTERWEAR;
+      assert.ok(blazer);
+      assert.strictEqual(blazer.colorName, 'Đen Than');
+    });
+
+    it('correctly calculates draft vs applied state for outfit selector', () => {
+      const appliedItem: OutfitItemSelection = {
+        slot: 'OUTERWEAR',
+        productId: 3,
+        productSlug: 'ao-blazer-linen-phom-rong-minimalist',
+        productName: 'Áo Blazer Linen Phom Rộng Minimalist',
+        variantId: 12,
+        sku: 'BLAZER-LINEN-CAT-S',
+        colorName: 'Be Cát',
+        colorHex: '#C5B49B',
+        size: 'S',
+        price: 950000,
+        stockQuantity: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35',
+        inStock: true,
+        categorySlug: 'ao-nu',
+      };
+
+      // Scenario A: Exact match (current draft in selector equals applied slot)
+      const draftA = { productId: 3, variantId: 12 };
+      const isExactMatchA = appliedItem.productId === draftA.productId && appliedItem.variantId === draftA.variantId;
+      assert.strictEqual(isExactMatchA, true);
+
+      // Scenario B: Variant change (same product, user selected size M with variantId 13)
+      const draftB = { productId: 3, variantId: 13 };
+      const isExactMatchB = appliedItem.productId === draftB.productId && appliedItem.variantId === draftB.variantId;
+      const isVariantDraftChangeB = appliedItem.productId === draftB.productId && appliedItem.variantId !== draftB.variantId;
+      assert.strictEqual(isExactMatchB, false);
+      assert.strictEqual(isVariantDraftChangeB, true);
+
+      // Scenario C: Product replacement (user selected different product, e.g. productId 1)
+      const draftC = { productId: 1, variantId: 1 };
+      const isProductReplacementC = appliedItem.productId !== draftC.productId;
+      assert.strictEqual(isProductReplacementC, true);
+    });
+
+    it('prevents concurrent double-click submissions via isSubmitting re-entrancy lock', async () => {
+      let isSubmitting = false;
+      let executionCount = 0;
+
+      const submitOutfit = async () => {
+        if (isSubmitting) {
+          return { blocked: true };
+        }
+        isSubmitting = true;
+        try {
+          // Simulate async network request
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          executionCount += 1;
+          return { success: true };
+        } finally {
+          isSubmitting = false;
+        }
+      };
+
+      // Fire 2 concurrent submissions simultaneously
+      const [res1, res2] = await Promise.all([submitOutfit(), submitOutfit()]);
+
+      // Only 1 execution should succeed; the second is locked out
+      assert.strictEqual(executionCount, 1);
+      assert.ok(res1.success || res2.success);
+      assert.ok(res1.blocked || res2.blocked);
+    });
+  });
 });

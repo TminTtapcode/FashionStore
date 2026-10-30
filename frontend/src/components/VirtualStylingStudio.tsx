@@ -88,7 +88,8 @@ export default function VirtualStylingStudio({ isOpen, onClose }: VirtualStyling
               id="styling-studio-title"
               className="font-editorial text-xs sm:text-base tracking-wide text-[#F7F7F4] font-medium truncate"
             >
-              IVRE ATELIER · EDITORIAL STYLING STUDIO
+              <span className="inline sm:hidden">IVRE STUDIO</span>
+              <span className="hidden sm:inline">IVRE ATELIER · EDITORIAL STYLING STUDIO</span>
             </h2>
             <p className="hidden sm:block font-mono text-[10px] sm:text-[11px] text-[#A6A49F]">
               Bảng Phối Đồ Lookbook & Tùy Biến Trang Phục Trực Quan
@@ -179,6 +180,7 @@ export default function VirtualStylingStudio({ isOpen, onClose }: VirtualStyling
         >
           <OutfitGarmentSelector
             activeSlot={activeSlot}
+            currentSlotItem={slots[activeSlot]}
             onSelectSlot={selectSlot}
             onSelectGarment={(item) => {
               setSlotItem(item);

@@ -55,6 +55,7 @@ export interface OutfitItemSelection {
   imageUrl: string;
   inStock: boolean;
   categorySlug: string;
+  isRepresentativeImage?: boolean;
 }
 
 export type OutfitSlotsMap = Partial<Record<OutfitSlot, OutfitItemSelection>>;
@@ -170,3 +171,4 @@ export function applySlotCompatibility(
 
   return { updatedSlots: updated, conflictMessage };
 }
+
